@@ -1,0 +1,58 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session, select
+import os
+
+from Vector_setup.API.ingest_routes import router as ingest_router
+from Vector_setup.API.query_routes import router as query_router
+from Vector_setup.API.auth_router import router as user_router
+
+from Vector_setup.user.db import init_db, DBUser, engine
+from Vector_setup.user.password import get_password_hash
+
+app = FastAPI()
+
+# --- DB init ---
+init_db()  # create tables if they don't exist yet
+
+# --- CORS ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # your Vue dev origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Routers ---
+app.include_router(ingest_router, prefix="", tags=["ingest"])
+app.include_router(query_router, prefix="", tags=["query"])
+app.include_router(user_router, prefix="", tags=["user"])
+
+# --- Vendor user seeding on startup ---
+
+VENDOR_EMAIL = os.getenv("VENDOR_EMAIL", "vendor@example.com")
+VENDOR_PASSWORD = os.getenv("VENDOR_PASSWORD", "change_me_vendor")
+VENDOR_TENANT_ID = os.getenv("VENDOR_TENANT_ID", "vendor-root")  # special tenant_id
+
+@app.on_event("startup")
+def seed_vendor_user():
+    with Session(engine) as session:
+        stmt = select(DBUser).where(DBUser.email == VENDOR_EMAIL)
+        existing = session.exec(stmt).first()
+        if existing:
+            return
+
+        user = DBUser(
+            id=str(os.urandom(16).hex()),
+            email=VENDOR_EMAIL,
+            tenant_id=VENDOR_TENANT_ID,
+            hashed_password=get_password_hash(VENDOR_PASSWORD),
+            first_name="Vendor",
+            last_name="Admin",
+            date_of_birth="1970-01-01",
+            phone="",
+            role="vendor",
+        )
+        session.add(user)
+        session.commit()

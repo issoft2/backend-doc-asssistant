@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@source "./**/*.{vue,js,ts,jsx,tsx}";
+
+/* Global primary button without @apply */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;           /* rounded-lg */
+  padding: 0.5rem 0.75rem;         /* px-3 py-2 */
+  font-size: 0.75rem;              /* text-xs */
+  font-weight: 500;
+  color: #fff;
+  background-color: #4f46e5;       /* indigo-600 */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+}
+
+.btn-primary:hover {
+  background-color: hsl(245, 58%, 51%);       /* indigo-700 */
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,27 @@
+cat > .gitignore << 'EOF'
+
+# Python / backend
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Local Chroma + SQLite DBs (backend only)
+backend/chromadb_multi_tenant/
+backend/Users.db
+
+# Node / frontend
+node_modules/
+dist/
+*.log
+
+# Environment & secrets
+.env
+.env.*
+.DS_Store
+
+
+# IDE
+.vscode/
+.idea/
+EOF
