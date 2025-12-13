@@ -1,12 +1,17 @@
-fastapi
-chromadb
-sentence-transformers
-pydantic
-numpy<2
+fastapi<0.115
 chromadb<0.5
+pydantic[email]<3        # Pin email extra explicitly
+numpy<2
 tiktoken
 passlib==1.7.4
-bcrypt==4.3.0
-"python-jose[cryptography]"
+bcrypt==4.0.1
+python-jose[cryptography]
 sqlmodel
+aiohttp==3.10.5
+python-multipart==0.0.9
+uvicorn[standard]==0.30.6
+hnswlib==0.8.0
+pydantic-settings==2.5.2
+langchain
+langchain-openai
 

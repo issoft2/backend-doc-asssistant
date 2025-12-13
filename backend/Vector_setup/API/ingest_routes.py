@@ -174,7 +174,7 @@ async def upload_document(
   }
 
   # Delegate to vector store (chunking + embeddings)
-  result = store.add_document(
+  result = await store.add_document(
     tenant_id=tenant_id,
     collection_name=collection_name,
     doc_id=final_doc_id,
@@ -187,21 +187,3 @@ async def upload_document(
 
   return result
 
-
-# ---------- Test-only API (manual JSON ingest) ----------
-
-@router.post("/test/documents")
-def add_document(
-  req: AddDocumentRequest,
-  store: MultiTenantChromaStoreManager = Depends(get_store),
-):
-  """
-  Test endpoint: add a document using raw JSON instead of file upload.
-  """
-  return store.add_document(
-    tenant_id=req.tenant_id,
-    collection_name=req.collection_name,
-    doc_id=req.doc_id,
-    text=req.text,
-    metadata=req.metadata,
-  )

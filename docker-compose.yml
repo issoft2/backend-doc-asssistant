@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  embedding_service:
+    build: ./embedding_service
+    ports:
+      - "8001:8001"
+    # NO GPU - CPU version
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      embedding_service:
+        condition: service_healthy
+    volumes:
+      - chroma_data:/app/chromadb_multi_tenant
+    environment:
+      - EMBEDDING_SERVICE_URL=http://embedding_service:8001/embed
+    # NO GPU - CPU only
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    # NO GPU - web static files
+    restart: unless-stopped
+
+volumes:
+  chroma_data:

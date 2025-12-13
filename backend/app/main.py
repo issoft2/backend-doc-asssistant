@@ -9,16 +9,29 @@ from Vector_setup.API.auth_router import router as user_router
 
 from Vector_setup.user.db import init_db, DBUser, engine
 from Vector_setup.user.password import get_password_hash
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
 # --- DB init ---
 init_db()  # create tables if they don't exist yet
 
+
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+origins = [
+    "http://localhost:5173",          # Vue dev
+    "http://localhost",               # generic local
+    "http://127.0.0.1",               # generic local
+    FRONTEND_ORIGIN,                  # production, e.g. https://your-domain.com
+]
+
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # your Vue dev origin
+    allow_origins=origins,            # explicit list keeps credentials safe
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

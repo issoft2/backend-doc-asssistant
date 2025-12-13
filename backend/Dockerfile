@@ -1,0 +1,30 @@
+FROM python:3.11
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# UPGRADE PIP + setuptools + wheel FIRST
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Install Python deps (NO HASH CHECKS)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --force-reinstall -r requirements.txt
+
+# Copy code
+COPY . .
+
+RUN mkdir -p /app/chromadb_multi_tenant
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
