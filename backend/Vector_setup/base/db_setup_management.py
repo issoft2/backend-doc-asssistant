@@ -292,6 +292,7 @@ class MultiTenantChromaStoreManager:
         tenant_id: str,
         collection_name: Optional[str],
         query: str,
+        query_embedding: list[float],
         top_k: int = 5,
         embedding_model: str = "all-MiniLM-L6-v2",
     ) -> dict:
@@ -314,8 +315,11 @@ class MultiTenantChromaStoreManager:
             collections = [c for c in all_cols if c.name.startswith(prefix)]
 
         for col in collections:
+            if not query_embedding:
+               raise ValueError("Empty query embedding")
+        
             results = col.query(
-                query_embeddings=[[]],  # Placeholder - embed at API level
+                query_embeddings=[query_embedding],  # Placeholder - embed at API level
                 n_results=top_k,
                 include=["documents", "metadatas", "distances"],
             )

@@ -8,10 +8,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt \
+ 
+# 2) Upgrade/pin pip (optional, cached with base image)
+RUN pip install --no-cache-dir --upgrade pip
+ 
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt \
     --trusted-host download.pytorch.org \
-    --disable-pip-version-check
+    --disable-pip-version-check    
 
 COPY main.py .
 

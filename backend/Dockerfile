@@ -15,7 +15,8 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Install Python deps (NO HASH CHECKS)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --force-reinstall -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Copy code
 COPY . .
