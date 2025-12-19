@@ -13,16 +13,16 @@ jobs:
         users: actions/Checkout@v4
 
       - name: Deploy over SSH
-        users: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            cd /home/company_doc_search_ai
+            cd /srv/company-assistant
             git pull origin main
             docker compose pull
             docker compose up -d --build
-            
+
                    
