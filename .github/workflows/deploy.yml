@@ -1,0 +1,28 @@
+name: Deploy to DigitalOcean Droplet
+
+on:
+  push:
+    branches: [ main ] #deploy when main is updated
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        users: actions/Checkout@v4
+
+      - name: Deploy over SSH
+        users: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd /home/company_doc_search_ai
+            git pull origin main
+            docker compose pull
+            docker compose up -d --build
+            
+                   
