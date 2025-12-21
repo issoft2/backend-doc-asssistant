@@ -40,15 +40,7 @@ const roleLabel = computed(() => {
       </RouterLink>
     </div>
 
-
-      <div class="flex items-center gap-2 text-sm">
-        <span class="font-semibold text-slate-900">Company Guideline Assistant</span>
-        <span class="text-[11px] text-slate-500">Ask questions about your internal policies</span>
-      </div>
-
-      <div class="text-xs text-slate-500">
-        Signed in as {{ roleLabel }}
-      </div>
+  
      <div class="text-xs">
       <button
         v-if="authState.user"
