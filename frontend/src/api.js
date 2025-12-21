@@ -124,5 +124,5 @@ export function createCollection({ name }) {
 }
 
 export function deleteConversation(conversationId) {
-  return axios.delete(`/api/conversations/${conversationId}`)
+  return api.delete(`/api/conversations/${conversationId}`)
 }
