@@ -122,3 +122,7 @@ export function createCollection({ name }) {
     name,
   })
 }
+
+export function deleteConversation(conversationId) {
+  return axios.delete(`/api/conversations/${conversationId}`)
+}

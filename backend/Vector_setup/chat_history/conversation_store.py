@@ -1,5 +1,5 @@
 from typing import List, Dict
-from sqlmodel import SQLModel, Field, Session, select
+from sqlmodel import SQLModel, Field, Session, select, delete
 from datetime import datetime
 
 from Vector_setup.user.db import ChatMessage  # adjust import
@@ -108,3 +108,31 @@ def list_conversations_for_user(
         reverse=True,
     )
     return summaries[:limit]
+
+# Delete a single conversation
+def delete_conversation(
+    db: Session,
+    conversation_id: str,
+    user_id: str,
+    tenant_id: str
+):
+    stmt = select(ChatMessage).where(
+        ChatMessage.conversation_id == conversation_id,
+        ChatMessage.tenant_id == tenant_id,
+        ChatMessage.user_id == user_id 
+    )
+    conv = db.exec(stmt).first()
+    if not conv:
+        return False
+    
+    # Delete messages first, then conversation (or use ON DELETE CASCADE in schema)
+    db.exec(
+        delete(ChatMessage).where(
+            ChatMessage.conversation_id == conversation_id,
+            ChatMessage.tenant_id == tenant_id,
+            ChatMessage.user_id == user_id,
+        )
+    )
+    db.delete(conv)
+    db.commit()
+    return True
