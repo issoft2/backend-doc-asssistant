@@ -61,8 +61,13 @@ def infer_intent_and_rewrite(
         {"role": "system", "content": "You are a strict intent classification helper."},
         {"role": "user", "content": prompt},
     ]
-
-    resp = llm_client.invoke(messages)
+    
+    try:
+        resp =  llm_client.invoke(messages)
+        
+    except APIConnectionError:
+        # If intent model is unreachable, just treat this as a new question
+        return "NEW_QUESTION", user_message
     raw = getattr(resp, "content", None) or str(resp)
 
     try:
