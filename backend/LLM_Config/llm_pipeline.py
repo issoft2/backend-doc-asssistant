@@ -114,8 +114,9 @@ async def llm_pipeline(
     if intent == "CHITCHAT":
         return {
             "answer": (
-                "You’re welcome. If you have more questions about your payslips or company policies, "
-                "feel free to ask."
+                "Hello! I’m your Organization Knowledge Assistant. "
+                "You can ask me questions about your organization’s policies, procedures  and guidelines, "
+                "or any other internal information you might want to know, and I’ll answer based on my my knowledge base."
             ),
             "follow_up": [],
             "sources": [],
