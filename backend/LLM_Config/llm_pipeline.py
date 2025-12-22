@@ -6,9 +6,7 @@ from LLM_Config.llm_setup import llm_client, suggestion_llm_client
 from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
-
 IntentType = Literal["FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "UNSURE"]
-
 
 INTENT_PROMPT_TEMPLATE = """
 You are classifying a user's latest message in a policy/HR/finance assistant chat.
@@ -51,6 +49,10 @@ def infer_intent_and_rewrite(
     user_message: str,
     history_turns: Optional[List[Tuple[str, str]]],
 ) -> Tuple[IntentType, str]:
+    """Classify the user's message and optionally rewrite vague follow-ups.
+
+    On any LLM connection/parsing error, fall back to treating it as NEW_QUESTION.
+    """
     history_block = _format_history_for_intent(history_turns)
     prompt = INTENT_PROMPT_TEMPLATE.format(
         history_block=history_block,
@@ -61,13 +63,14 @@ def infer_intent_and_rewrite(
         {"role": "system", "content": "You are a strict intent classification helper."},
         {"role": "user", "content": prompt},
     ]
-    
+
     try:
-        resp =  llm_client.invoke(messages)
-        
-    except APIConnectionError:
-        # If intent model is unreachable, just treat this as a new question
+        # Use the small model for intent; cheaper and fast
+        resp = suggestion_llm_client.invoke(messages)
+    except Exception:
+        # Any error here: don't crash, just treat as a new question
         return "NEW_QUESTION", user_message
+
     raw = getattr(resp, "content", None) or str(resp)
 
     try:
@@ -96,30 +99,32 @@ async def llm_pipeline(
       - Infer intent and possibly rewrite vague follow-ups.
       - Retrieve relevant chunks from Chroma for a given tenant.
       - Build system + user prompts with context (+ optional history).
-      - Call LLM.
-      - Return answer and sources.
+      - Call main LLM for answer.
+      - Call small LLM for follow-up suggestions (best-effort).
+      - Return answer, follow_up, and sources.
     """
 
     # 1) Infer intent on the raw user message
-    intent, rewritten =  infer_intent_and_rewrite(
+    intent, rewritten = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # 2) Handle pure chitchat cheaply (optional)
+    # 2) Handle pure chitchat cheaply (no vector search)
     if intent == "CHITCHAT":
         return {
             "answer": (
                 "You’re welcome. If you have more questions about your payslips or company policies, "
                 "feel free to ask."
             ),
+            "follow_up": [],
             "sources": [],
         }
 
     # 3) Decide the effective question used for retrieval + prompting
     effective_question = rewritten if rewritten else question
 
-    # 4) RETRIEVE (use effective_question, not the raw one)
+    # 4) RETRIEVE
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
@@ -133,10 +138,11 @@ async def llm_pipeline(
             "answer": (
                 "The provided documents do not contain information to answer this question."
             ),
+            "follow_up": [],
             "sources": [],
         }
 
-    # 5) Build context chunks as strings including titles/filenames
+    # 5) Build context chunks and sources
     context_chunks: List[str] = []
     sources: List[str] = []
 
@@ -166,29 +172,42 @@ async def llm_pipeline(
     system_prompt, user_prompt = create_context(context_chunks, effective_question)
 
     # 7) Build messages with optional history
-    messages: List[Dict[str, str]] = []
-    messages.append({"role": "system", "content": system_prompt})
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
     if history:
-        # history already limited by caller
         for user_msg, assistant_msg in history:
             messages.append({"role": "user", "content": user_msg})
             messages.append({"role": "assistant", "content": assistant_msg})
 
     messages.append({"role": "user", "content": user_prompt})
 
-    # 8) CALL LLM (await, since llm_client is async)
-    response = llm_client.invoke(messages)
-    answer = getattr(response, "content", None) or str(response)
-    
-    # generate followup for the user
+    # 8) Call main LLM for the answer (guarded)
+    try:
+        response = llm_client.invoke(messages)
+        answer = getattr(response, "content", None) or str(response)
+    except Exception:
+        # If the main model is unreachable, fail gracefully
+        return {
+            "answer": "There was a temporary problem contacting the language model. Please try again.",
+            "follow_up": [],
+            "sources": unique_sources,
+        }
+
+    answer = answer.strip()
+
+    # 9) Generate follow-up suggestions (best-effort, non-fatal)
+    follow_ups: List[Any] = []
     suggestion_message = create_suggestion_prompt(question, answer)
-    raw  = suggestion_llm_client.invoke(suggestion_message)
-    follow_ups = json.loads(raw.content)
+
+    try:
+        raw = suggestion_llm_client.invoke(suggestion_message)
+        raw_content = getattr(raw, "content", None) or str(raw)
+        follow_ups = json.loads(raw_content)
+    except Exception:
+        follow_ups = []
 
     return {
-        "answer": answer.strip(),
+        "answer": answer,
         "follow_up": follow_ups,
         "sources": unique_sources,
-        
     }
