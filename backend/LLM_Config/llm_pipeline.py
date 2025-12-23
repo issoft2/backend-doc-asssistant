@@ -116,7 +116,7 @@ async def llm_pipeline(
             "answer": (
                 "Hello! I’m your Organization Knowledge Assistant. "
                 "You can ask me questions about your organization’s policies, procedures  and guidelines, "
-                "or any other internal information you might want to know, and I’ll answer based on my my knowledge base."
+                "or any other internal information you might want to know, and I’ll answer based on the information I currently have access to."
             ),
             "follow_up": [],
             "sources": [],
