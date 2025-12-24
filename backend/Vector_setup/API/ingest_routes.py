@@ -239,6 +239,14 @@ async def upload_document(
     raw_bytes = await file.read()
 
     text = extract_text_from_upload(file.filename, raw_bytes)
+    
+    # Defensive checks in case any extractor changes
+    if not isinstance(text, str):
+        raise HTTPException(
+            status_code=500,
+            detail="Internal text extraction error.",
+        )
+        
     if not text.strip():
         raise HTTPException(
             status_code=400,
@@ -282,7 +290,7 @@ def _extract_pdf_with_pymupdf(raw_bytes: bytes) -> str:
     parts: List[str] = []
 
     with fitz.open(stream=raw_bytes, filetype="pdf") as doc:  # type: ignore[arg-type]
-        for page in doc:
+        for page_idx, page  in  enumerate(doc, start=1):
             text = page.get_text("text") or ""
             if text.strip():
                 parts.append(text.strip())
@@ -293,7 +301,7 @@ def _extract_pdf_with_pymupdf(raw_bytes: bytes) -> str:
                 tables = None
 
             if tables:
-                for table in tables.tables:
+                for table_idx, table in enumerate(tables.tables, start=1):
                     try:
                         md = table.to_markdown()
                     except Exception:
@@ -303,20 +311,64 @@ def _extract_pdf_with_pymupdf(raw_bytes: bytes) -> str:
                         md = "\n".join(rows)
 
                     if md.strip():
+                        header = (
+                            f"Table on page {page_idx}, index {table_idx}. "
+                            "This is tabular data that can be used for lookups, comparisons, or aggregations."
+                        )
+                        parts.append(header)
                         parts.append(md.strip())
 
     return "\n\n".join(parts)
 
 
+
 # ---------- Excel Text extraction helpers ----------
+
+def _describe_excel_sheet_shape(df: pd.DataFrame) -> str:
+    """
+     Simple, format-agnostic heuristic that returns a one-line description
+     of the sheet contents based on column types. 
+    """
+    if df.empty():
+        return "This sheet is empty."
+    
+    num_cols = 0
+    text_cols = 0
+    for col in df.columns:
+        series = df[col]
+        # Check a sample to infer numeric-ness
+        non_na = series.dropna()
+        if non_na.empty:
+            continue
+        
+        # Heuristic: if majority of non-NA values are numeric -> numeric col
+        numeric_fraction = pd.to_numeric(non_na, errors="coerce").notna().mean()
+        if numeric_fraction > 0.7:
+            num_cols += 1
+        else:
+            text_cols += 1
+            
+    if num_cols >= 2 and text_cols >= 1:
+        return (
+            "This sheet contains tabular data with at least one label column and multiple numeric columns. "
+            "Which can be used for aggregations, comparisons, and time-series style analysis."
+        )
+    
+    if num_cols >= 1 and text_cols == 0:
+        return "This sheet contains mainly numeric tabular data."
+    if text_cols >= 1 and num_cols == 0:
+        return "This sheet contains mainly text data"
+    return "This sheet contains a mix of text and numeric data."        
+            
+
 def _extract_excel_with_pandas(raw_bytes: bytes, filename: str) -> str:
     """
     Extracts human‑readable text from an Excel file.
 
     - Reads all sheets using pandas.
     - Skips empty sheets.
-    - For each non‑NaN cell, emits `Column: Value`.
-    - Groups cells by row, separated with ` | `.
+    - For each sheet, add a one-line summary based on column types.
+    - For each non-NAN cell, emits `Column: value` grouped by row.
     - Separates sheets with a blank line.
     """
     buffer = BytesIO(raw_bytes)
@@ -329,6 +381,13 @@ def _extract_excel_with_pandas(raw_bytes: bytes, filename: str) -> str:
     for sheet_name, df in sheets.items():
         if df.empty:
             continue
+        
+        # Normalize column names
+        df = df.copy()
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # Heuristic one-line description
+        shape_line = _describe_excel_sheet_shape(df)
 
         row_lines: List[str] = []
 
@@ -347,7 +406,11 @@ def _extract_excel_with_pandas(raw_bytes: bytes, filename: str) -> str:
         if not row_lines:
             continue
 
-        sheet_text = f"Sheet: {sheet_name}\n" + "\n".join(row_lines)
+        sheet_text = (
+            f"Sheet: {sheet_name}\n"
+            f"{shape_line}\n"
+            + "\n".join(row_lines)
+        )
         sheet_chunks.append(sheet_text)
 
     # Join all sheets into a single string so downstream code always gets str.
