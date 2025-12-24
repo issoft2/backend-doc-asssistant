@@ -173,17 +173,38 @@
       <label class="block text-xs font-medium text-slate-700">
         Collection to upload into
       </label>
-      <input
+
+      <select
         v-model="activeCollectionName"
-        type="text"
-        class="w-full rounded-lg border px-3 py-2 text-sm"
-        placeholder="e.g. hr_policies"
+        class="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900
+              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        :disabled="!collections.length"
         required
-      />
-      <p class="text-[11px] text-slate-400">
-        Use the same name as an existing collection you created above.
+      >
+        <option value="" disabled>Select a collection</option>
+        <option
+          v-for="col in collections"
+          :key="col"
+          :value="col"
+        >
+          {{ col }}
+        </option>
+      </select>
+
+      <p
+        v-if="!collections.length"
+        class="text-[11px] text-slate-400"
+      >
+        No collections found yet. Create a collection above before uploading.
+      </p>
+      <p
+        v-else
+        class="text-[11px] text-slate-400"
+      >
+        Choose one of your existing collections to receive this document.
       </p>
     </div>
+
 
     <div class="space-y-1">
       <label class="block text-xs font-medium text-slate-700">
@@ -283,13 +304,17 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { authState } from '../authStore'
 import {
   configureCompanyAndCollection,
   createCollection,
   uploadDocument,
+  listCollections,
 } from '../api'
+
+
+const collections = ref<string[]>([])
 
 const tenantId = ref('')              // used only by vendor for configure
 const collectionName = ref('')        // used only by vendor for first collection
@@ -323,6 +348,30 @@ const canCreateCollections = computed(() =>
   ['hr', 'executive'].includes(currentRole.value?.toLowerCase())
 )
 
+async function loadCollections() {
+  if (!currentTenantId.value) {
+    collections.value = []
+    return
+  }
+
+  try {
+    const resp = await listCollections({ tenantId: currentTenantId.value })
+
+    // Assume API returns {collections:  ["hr_policies", "finance_policies", .... ]}
+    collections.value = resp.data.collections || []
+    // If there is no active selection yet, default to first collection
+    if (!activeCollectionName.value && collections.value.length) {
+      activeCollectionName.value = collections.value[0]
+    }
+  } catch (e) {
+    // Optionally set a small error message, or just leave collections empty
+    console.error('Failed to load collections:', e)
+    collections.value = []
+  }
+}
+onMounted(() => {
+  loadCollections()
+})
 // Vendor: configure company + first collection
 async function onConfigure() {
   if (!isVendor.value) return
@@ -368,7 +417,12 @@ async function onCreateCollection() {
     })
     createCollectionMessage.value = `Collection "${tenantCollectionName.value}" created for your company.`
     // Optionally set this as the active collection for uploads
-    activeCollectionName.value = tenantCollectionName.value.trim()
+    const newName = tenantCollectionName.value.trim()
+
+    activeCollectionName.value = newName
+    if (!collections.value.includes(newName)) {
+      collections.value.push(newNamw)
+    }
   } catch (e) {
     createCollectionError.value =
       e.response?.data?.detail || 'Failed to create collection.'
