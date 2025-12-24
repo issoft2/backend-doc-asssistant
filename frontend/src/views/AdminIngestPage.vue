@@ -147,99 +147,138 @@
 
     <!-- Document upload (tenant-scoped) -->
     <section class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4">
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Upload policy documents
-        </h2>
-        <p class="text-xs text-slate-500">
-          Upload policy files to index them into a collection in your company.
-        </p>
+  <header>
+    <h2 class="text-sm font-semibold text-slate-900">
+      Upload policy documents
+    </h2>
+    <p class="text-xs text-slate-500">
+      Upload policy files to index them into a collection in your company.
+    </p>
 
-        <p
-          class="text-[11px] text-slate-600"
-          v-if="currentTenantId && activeCollectionName"
-        >
-          Target:
-          <span class="font-semibold">{{ currentTenantId }}</span> /
-          <span class="font-semibold">{{ activeCollectionName }}</span>
-        </p>
-        <p class="text-[11px] text-red-600" v-else>
-          You must have a collection selected or created before uploading.
-        </p>
-      </header>
+    <p
+      class="text-[11px] text-slate-600"
+      v-if="currentTenantId && activeCollectionName"
+    >
+      Target:
+      <span class="font-semibold">{{ currentTenantId }}</span> /
+      <span class="font-semibold">{{ activeCollectionName }}</span>
+    </p>
+    <p class="text-[11px] text-red-600" v-else>
+      You must have a collection selected or created before uploading.
+    </p>
+  </header>
 
-      <form class="space-y-3" @submit.prevent="onUpload">
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Collection to upload into
-          </label>
-          <input
-            v-model="activeCollectionName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. hr_policies"
-            required
-          />
-          <p class="text-[11px] text-slate-400">
-            Use the same name as an existing collection you created above.
-          </p>
-        </div>
+  <form class="space-y-3" @submit.prevent="onUpload">
+    <div class="space-y-1">
+      <label class="block text-xs font-medium text-slate-700">
+        Collection to upload into
+      </label>
+      <input
+        v-model="activeCollectionName"
+        type="text"
+        class="w-full rounded-lg border px-3 py-2 text-sm"
+        placeholder="e.g. hr_policies"
+        required
+      />
+      <p class="text-[11px] text-slate-400">
+        Use the same name as an existing collection you created above.
+      </p>
+    </div>
 
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Document title (optional)
-          </label>
-          <input
-            v-model="docTitle"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. Remote Work Policy"
-          />
-        </div>
+    <div class="space-y-1">
+      <label class="block text-xs font-medium text-slate-700">
+        Document title (optional)
+      </label>
+      <input
+        v-model="docTitle"
+        type="text"
+        class="w-full rounded-lg border px-3 py-2 text-sm"
+        placeholder="e.g. Remote Work Policy"
+      />
+    </div>
 
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            File
-          </label>
-          <input
-            ref="fileInput"
-            type="file"
-            class="block w-full text-xs text-slate-500
-                   file:mr-3 file:py-2 file:px-4
-                   file:rounded-lg file:border-0
-                   file:text-xs file:font-semibold
-                   file:bg-indigo-50 file:text-indigo-700
-                   hover:file:bg-indigo-100 cursor-pointer"
-            @change="onFileChange"
-          />
-          <p class="text-[11px] text-slate-400">
-            Click the “Choose file” button to select a document.
-          </p>
-        </div>
+    <!-- Drag & drop area -->
+    <div class="space-y-1">
+      <label class="block text-xs font-medium text-slate-700">
+        File
+      </label>
 
-        <div class="flex justify-end gap-3">
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="
-              uploadLoading ||
-              !currentTenantId ||
-              !activeCollectionName
-            "
+      <div
+        class="mt-1 flex justify-center rounded-lg border border-dashed
+               border-slate-300 px-4 py-6 bg-slate-50
+               hover:border-indigo-400 hover:bg-indigo-50/40
+               transition-colors cursor-pointer"
+        :class="dragOver ? 'border-indigo-500 bg-indigo-50/60' : ''"
+        @click="onClickDropzone"
+        @dragenter.prevent="onDragEnter"
+        @dragover.prevent="onDragOver"
+        @dragleave.prevent="onDragLeave"
+        @drop.prevent="onDrop"
+      >
+        <div class="text-center space-y-1">
+          <svg
+            class="mx-auto h-6 w-6 text-slate-400"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
           >
-            <span v-if="!uploadLoading">Upload & index</span>
-            <span v-else>Uploading…</span>
-          </button>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 15a4 4 0 0 1 4-4h1m8-4h-3m3 0v3m0-3-4 4m-2-4v10"
+            />
+          </svg>
+          <p class="text-xs font-medium text-slate-800">
+            Drag and drop a file here, or <span class="text-indigo-600">browse</span>
+          </p>
+          <p class="text-[11px] text-slate-500">
+            Supported: PDF, Word, text/Markdown, Excel (.xlsx, .xlsm)
+          </p>
+          <p
+            v-if="file"
+            class="text-[11px] text-slate-600 truncate max-w-[220px] mx-auto"
+          >
+            Selected: <span class="font-semibold">{{ file.name }}</span>
+          </p>
         </div>
-      </form>
+      </div>
 
-      <p v-if="uploadMessage" class="text-xs text-emerald-600">
-        {{ uploadMessage }}
-      </p>
-      <p v-if="uploadError" class="text-xs text-red-600">
-        {{ uploadError }}
-      </p>
-    </section>
+      <!-- Hidden real file input -->
+      <input
+        ref="fileInput"
+        type="file"
+        class="hidden"
+        accept=".pdf,.docx,.txt,.md,.xlsx,.xlsm"
+        @change="onFileChange"
+      />
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <button
+        type="submit"
+        class="btn-primary"
+        :disabled="
+          uploadLoading ||
+          !currentTenantId ||
+          !activeCollectionName
+        "
+      >
+        <span v-if="!uploadLoading">Upload & index</span>
+        <span v-else>Uploading…</span>
+      </button>
+    </div>
+  </form>
+
+  <p v-if="uploadMessage" class="text-xs text-emerald-600">
+    {{ uploadMessage }}
+  </p>
+  <p v-if="uploadError" class="text-xs text-red-600">
+    {{ uploadError }}
+  </p>
+</section>
+
   </div>
 </template>
 
@@ -258,6 +297,7 @@ const tenantCollectionName = ref('')  // HR/Exec collection name for their own t
 const activeCollectionName = ref('')  // collection used for uploads
 const docTitle = ref('')
 const file = ref(null)
+const dragOver = ref(false)
 
 const configureLoading = ref(false)
 const configureMessage = ref('')
@@ -338,9 +378,38 @@ async function onCreateCollection() {
 }
 
 function onFileChange(event) {
-  file.value = event.target.files?.[0] || null
+  const picked = event.target.files?.[0] || null
+  if (!picked){
+      file.value = null
+      return
+  }
+  
+  file.value = picked
+
 }
 
+function onClickDropZone() {
+  fileInput.value?.click()
+}
+
+function onDragEnter() {
+  dragOver.value = true
+}
+
+function onDragOver() {
+  dragOver.value = true
+}
+
+function onDragLeave() {
+  dragOver.value = false
+}
+
+function onDrop(event) {
+  dragOver.value = false
+  const dropped = event.dataTransfer?.files?.[0]
+  if (!dropped) return
+  file.value = dropped
+}
 // Upload into current tenant + chosen collection
 async function onUpload() {
   uploadMessage.value = ''
