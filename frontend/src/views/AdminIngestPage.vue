@@ -314,7 +314,7 @@ import {
 } from '../api'
 
 
-const collections = ref<string[]>([])
+const collections = ref([])
 
 const tenantId = ref('')              // used only by vendor for configure
 const collectionName = ref('')        // used only by vendor for first collection
