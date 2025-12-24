@@ -147,159 +147,158 @@
 
     <!-- Document upload (tenant-scoped) -->
     <section class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4">
-  <header>
-    <h2 class="text-sm font-semibold text-slate-900">
-      Upload policy documents
-    </h2>
-    <p class="text-xs text-slate-500">
-      Upload policy files to index them into a collection in your company.
-    </p>
+      <header>
+        <h2 class="text-sm font-semibold text-slate-900">
+          Upload policy documents
+        </h2>
+        <p class="text-xs text-slate-500">
+          Upload policy files to index them into a collection in your company.
+        </p>
 
-    <p
-      class="text-[11px] text-slate-600"
-      v-if="currentTenantId && activeCollectionName"
-    >
-      Target:
-      <span class="font-semibold">{{ currentTenantId }}</span> /
-      <span class="font-semibold">{{ activeCollectionName }}</span>
-    </p>
-    <p class="text-[11px] text-red-600" v-else>
-      You must have a collection selected or created before uploading.
-    </p>
-  </header>
-
-  <form class="space-y-3" @submit.prevent="onUpload">
-    <div class="space-y-1">
-      <label class="block text-xs font-medium text-slate-700">
-        Collection to upload into
-      </label>
-
-      <select
-        v-model="activeCollectionName"
-        class="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        :disabled="!collections.length"
-        required
-      >
-        <option value="" disabled>Select a collection</option>
-        <option
-          v-for="col in collections"
-          :key="col"
-          :value="col"
+        <p
+          class="text-[11px] text-slate-600"
+          v-if="currentTenantId && activeCollectionName"
         >
-          {{ col }}
-        </option>
-      </select>
+          Target:
+          <span class="font-semibold">{{ currentTenantId }}</span> /
+          <span class="font-semibold">{{ activeCollectionName }}</span>
+        </p>
+        <p class="text-[11px] text-red-600" v-else>
+          You must have a collection selected or created before uploading.
+        </p>
+      </header>
 
-      <p
-        v-if="!collections.length"
-        class="text-[11px] text-slate-400"
-      >
-        No collections found yet. Create a collection above before uploading.
-      </p>
-      <p
-        v-else
-        class="text-[11px] text-slate-400"
-      >
-        Choose one of your existing collections to receive this document.
-      </p>
-    </div>
+      <form class="space-y-3" @submit.prevent="onUpload">
+        <div class="space-y-1">
+          <label class="block text-xs font-medium text-slate-700">
+            Collection to upload into
+          </label>
 
-
-    <div class="space-y-1">
-      <label class="block text-xs font-medium text-slate-700">
-        Document title (optional)
-      </label>
-      <input
-        v-model="docTitle"
-        type="text"
-        class="w-full rounded-lg border px-3 py-2 text-sm"
-        placeholder="e.g. Remote Work Policy"
-      />
-    </div>
-
-    <!-- Drag & drop area -->
-    <div class="space-y-1">
-      <label class="block text-xs font-medium text-slate-700">
-        File
-      </label>
-
-      <div
-        class="mt-1 flex justify-center rounded-lg border border-dashed
-               border-slate-300 px-4 py-6 bg-slate-50
-               hover:border-indigo-400 hover:bg-indigo-50/40
-               transition-colors cursor-pointer"
-        :class="dragOver ? 'border-indigo-500 bg-indigo-50/60' : ''"
-        @click="onClickDropzone"
-        @dragenter.prevent="onDragEnter"
-        @dragover.prevent="onDragOver"
-        @dragleave.prevent="onDragLeave"
-        @drop.prevent="onDrop"
-      >
-        <div class="text-center space-y-1">
-          <svg
-            class="mx-auto h-6 w-6 text-slate-400"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
+          <select
+            v-model="activeCollectionName"
+            class="w-full rounded-lg border px-3 py-2 text-sm bg-white text-slate-900
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            :disabled="!collections.length"
+            required
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3 15a4 4 0 0 1 4-4h1m8-4h-3m3 0v3m0-3-4 4m-2-4v10"
-            />
-          </svg>
-          <p class="text-xs font-medium text-slate-800">
-            Drag and drop a file here, or <span class="text-indigo-600">browse</span>
-          </p>
-          <p class="text-[11px] text-slate-500">
-            Supported: PDF, Word, text/Markdown, Excel (.xlsx, .xlsm)
+            <option value="" disabled>Select a collection</option>
+            <option
+              v-for="col in collections"
+              :key="col"
+              :value="col"
+            >
+              {{ col }}
+            </option>
+          </select>
+
+          <p
+            v-if="!collections.length"
+            class="text-[11px] text-slate-400"
+          >
+            No collections found yet. Create a collection above before uploading.
           </p>
           <p
-            v-if="file"
-            class="text-[11px] text-slate-600 truncate max-w-[220px] mx-auto"
+            v-else
+            class="text-[11px] text-slate-400"
           >
-            Selected: <span class="font-semibold">{{ file.name }}</span>
+            Choose one of your existing collections to receive this document.
           </p>
         </div>
-      </div>
 
-      <!-- Hidden real file input -->
-      <input
-        ref="fileInput"
-        type="file"
-        class="hidden"
-        accept=".pdf,.docx,.txt,.md,.xlsx,.xlsm"
-        @change="onFileChange"
-      />
-    </div>
+        <div class="space-y-1">
+          <label class="block text-xs font-medium text-slate-700">
+            Document title (optional)
+          </label>
+          <input
+            v-model="docTitle"
+            type="text"
+            class="w-full rounded-lg border px-3 py-2 text-sm"
+            placeholder="e.g. Remote Work Policy"
+          />
+        </div>
 
-    <div class="flex justify-end gap-3">
-      <button
-        type="submit"
-        class="btn-primary"
-        :disabled="
-          uploadLoading ||
-          !currentTenantId ||
-          !activeCollectionName
-        "
-      >
-        <span v-if="!uploadLoading">Upload & index</span>
-        <span v-else>Uploading…</span>
-      </button>
-    </div>
-  </form>
+        <!-- Drag & drop area -->
+        <div class="space-y-1">
+          <label class="block text-xs font-medium text-slate-700">
+            File
+          </label>
 
-  <p v-if="uploadMessage" class="text-xs text-emerald-600">
-    {{ uploadMessage }}
-  </p>
-  <p v-if="uploadError" class="text-xs text-red-600">
-    {{ uploadError }}
-  </p>
-</section>
+          <div
+            class="mt-1 flex justify-center rounded-lg border border-dashed
+                   border-slate-300 px-4 py-6 bg-slate-50
+                   hover:border-indigo-400 hover:bg-indigo-50/40
+                   transition-colors cursor-pointer"
+            :class="dragOver ? 'border-indigo-500 bg-indigo-50/60' : ''"
+            @click="onClickDropzone"
+            @dragenter.prevent="onDragEnter"
+            @dragover.prevent="onDragOver"
+            @dragleave.prevent="onDragLeave"
+            @drop.prevent="onDrop"
+          >
+            <div class="text-center space-y-1">
+              <svg
+                class="mx-auto h-6 w-6 text-slate-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 15a4 4 0 0 1 4-4h1m8-4h-3m3 0v3m0-3-4 4m-2-4v10"
+                />
+              </svg>
+              <p class="text-xs font-medium text-slate-800">
+                Drag and drop a file here, or
+                <span class="text-indigo-600">browse</span>
+              </p>
+              <p class="text-[11px] text-slate-500">
+                Supported: PDF, Word, text/Markdown, Excel (.xlsx, .xlsm)
+              </p>
+              <p
+                v-if="file"
+                class="text-[11px] text-slate-600 truncate max-w-[220px] mx-auto"
+              >
+                Selected: <span class="font-semibold">{{ file.name }}</span>
+              </p>
+            </div>
+          </div>
 
+          <!-- Hidden real file input -->
+          <input
+            ref="fileInput"
+            type="file"
+            class="hidden"
+            accept=".pdf,.docx,.txt,.md,.xlsx,.xlsm"
+            @change="onFileChange"
+          />
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button
+            type="submit"
+            class="btn-primary"
+            :disabled="
+              uploadLoading ||
+              !currentTenantId ||
+              !activeCollectionName
+            "
+          >
+            <span v-if="!uploadLoading">Upload & index</span>
+            <span v-else>Uploading…</span>
+          </button>
+        </div>
+      </form>
+
+      <p v-if="uploadMessage" class="text-xs text-emerald-600">
+        {{ uploadMessage }}
+      </p>
+      <p v-if="uploadError" class="text-xs text-red-600">
+        {{ uploadError }}
+      </p>
+    </section>
   </div>
 </template>
 
@@ -313,13 +312,12 @@ import {
   listCollections,
 } from '../api'
 
-
 const collections = ref([])
 
-const tenantId = ref('')              // used only by vendor for configure
-const collectionName = ref('')        // used only by vendor for first collection
-const tenantCollectionName = ref('')  // HR/Exec collection name for their own tenant
-const activeCollectionName = ref('')  // collection used for uploads
+const tenantId = ref('')
+const collectionName = ref('')
+const tenantCollectionName = ref('')
+const activeCollectionName = ref('')
 const docTitle = ref('')
 const file = ref(null)
 const dragOver = ref(false)
@@ -354,26 +352,24 @@ async function loadCollections() {
     return
   }
 
-
   try {
     const resp = await listCollections(currentTenantId.value)
-
-    // resp.data is the array of collection names
     const rows = resp.data || []
     collections.value = rows.map((row) => row.collection_name)
-    
+
     if (!activeCollectionName.value && collections.value.length) {
       activeCollectionName.value = collections.value[0]
     }
   } catch (e) {
-    // Optionally set a small error message, or just leave collections empty
     console.error('Failed to load collections:', e)
     collections.value = []
   }
 }
+
 onMounted(() => {
   loadCollections()
 })
+
 // Vendor: configure company + first collection
 async function onConfigure() {
   if (!isVendor.value) return
@@ -407,23 +403,20 @@ async function onCreateCollection() {
     return
   }
 
-  if (!tenantCollectionName.value.trim()) {
+  const name = tenantCollectionName.value.trim()
+  if (!name) {
     createCollectionError.value = 'Collection name is required.'
     return
   }
 
   createCollectionLoading.value = true
   try {
-    await createCollection({
-      name: tenantCollectionName.value.trim(),
-    })
-    createCollectionMessage.value = `Collection "${tenantCollectionName.value}" created for your company.`
-    // Optionally set this as the active collection for uploads
-    const newName = tenantCollectionName.value.trim()
+    await createCollection({ name })
+    createCollectionMessage.value = `Collection "${name}" created for your company.`
 
-    activeCollectionName.value = newName
-    if (!collections.value.includes(newName)) {
-      collections.value.push(newNamw)
+    activeCollectionName.value = name
+    if (!collections.value.includes(name)) {
+      collections.value.push(name)
     }
   } catch (e) {
     createCollectionError.value =
@@ -435,16 +428,14 @@ async function onCreateCollection() {
 
 function onFileChange(event) {
   const picked = event.target.files?.[0] || null
-  if (!picked){
-      file.value = null
-      return
+  if (!picked) {
+    file.value = null
+    return
   }
-  
   file.value = picked
-
 }
 
-function onClickDropZone() {
+function onClickDropzone() {
   fileInput.value?.click()
 }
 
@@ -462,10 +453,11 @@ function onDragLeave() {
 
 function onDrop(event) {
   dragOver.value = false
-  const dropped = event.dataTransfer?.files?.[0]
+  const dropped = event.dataTransfer?.files?.[0] || null
   if (!dropped) return
   file.value = dropped
 }
+
 // Upload into current tenant + chosen collection
 async function onUpload() {
   uploadMessage.value = ''
@@ -476,7 +468,8 @@ async function onUpload() {
     return
   }
 
-  if (!activeCollectionName.value.trim()) {
+  const name = activeCollectionName.value.trim()
+  if (!name) {
     uploadError.value = 'Collection name is required.'
     return
   }
@@ -490,7 +483,7 @@ async function onUpload() {
   try {
     await uploadDocument({
       tenantId: currentTenantId.value,
-      collectionName: activeCollectionName.value.trim(),
+      collectionName: name,
       title: docTitle.value,
       file: file.value,
     })
@@ -505,27 +498,3 @@ async function onUpload() {
   }
 }
 </script>
-
-<style scoped>
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #fff;
-  background-color: #4f46e5;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
-}
-
-.btn-primary:hover {
-  background-color: #4338ca;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>
