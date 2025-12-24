@@ -350,7 +350,7 @@ def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
         return _extract_pdf_with_pymupdf(raw_bytes)
     
     if name.endswith(".xlsx") or name.endswith(".xls"):
-        return _extract_excel_with_pandas(raw_bytes)
+        return _extract_excel_with_pandas(raw_bytes, name)
 
     if name.endswith(".docx"):
         doc = Document(BytesIO(raw_bytes))
