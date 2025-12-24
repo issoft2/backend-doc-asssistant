@@ -354,14 +354,14 @@ async function loadCollections() {
     return
   }
 
-  console.log('Loading collections for tenant:', currentTenantId.value)
 
   try {
     const resp = await listCollections(currentTenantId.value)
 
-    // Assume API returns {collections:  ["hr_policies", "finance_policies", .... ]}
-    collections.value = resp.data.collections || []
-    // If there is no active selection yet, default to first collection
+    // resp.data is the array of collection names
+    const rows = resp.data || []
+    collections.value = rows.map((row) => row.collection_name)
+    
     if (!activeCollectionName.value && collections.value.length) {
       activeCollectionName.value = collections.value[0]
     }
