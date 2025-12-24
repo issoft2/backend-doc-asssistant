@@ -309,35 +309,49 @@ def _extract_pdf_with_pymupdf(raw_bytes: bytes) -> str:
 
 
 # ---------- Excel Text extraction helpers ----------
-def _extract_excel_with_pandas(raw_bytes: bytes, filesname: str) -> list[str]:
+def _extract_excel_with_pandas(raw_bytes: bytes, filename: str) -> str:
+    """
+    Extracts human‑readable text from an Excel file.
+
+    - Reads all sheets using pandas.
+    - Skips empty sheets.
+    - For each non‑NaN cell, emits `Column: Value`.
+    - Groups cells by row, separated with ` | `.
+    - Separates sheets with a blank line.
+    """
     buffer = BytesIO(raw_bytes)
-    
-    # This will use openpyxl as the engine for .xlsx if openpyxl is installed
+
+    # sheet_name=None -> dict[str, DataFrame] for all sheets.[web:251][web:316]
     sheets = pd.read_excel(buffer, sheet_name=None, engine="openpyxl")
-    
-    texts: list[str] = []
+
+    sheet_chunks: List[str] = []
+
     for sheet_name, df in sheets.items():
         if df.empty:
             continue
-        
-        row_lines = []
+
+        row_lines: List[str] = []
+
+        # iterrows is fine here; Excel sheets are usually modest in size.
         for _, row in df.iterrows():
-            parts = []
+            parts: List[str] = []
             for col, val in row.items():
                 if pd.isna(val):
                     continue
-                
+
                 parts.append(f"{col}: {val}")
+
             if parts:
                 row_lines.append("  |  ".join(parts))
-                
+
         if not row_lines:
             continue
-        
-        sheet_text = f"sheet: {sheet_name}\n" + "\n".join(row_lines)
-        texts.append(sheet_text)
-        
-    return texts
+
+        sheet_text = f"Sheet: {sheet_name}\n" + "\n".join(row_lines)
+        sheet_chunks.append(sheet_text)
+
+    # Join all sheets into a single string so downstream code always gets str.
+    return "\n\n".join(sheet_chunks)
 
 # ---------- Main text extraction function ----------
 def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
@@ -349,7 +363,7 @@ def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
     if name.endswith(".pdf"):
         return _extract_pdf_with_pymupdf(raw_bytes)
     
-    if name.endswith(".xlsx") or name.endswith(".xls"):
+    if name.endswith((".xlsx", ".xlsm", ".xls")):
         return _extract_excel_with_pandas(raw_bytes, name)
 
     if name.endswith(".docx"):
