@@ -122,10 +122,13 @@ Handling cash flow / projections / related concepts:
 - Users may ask about “cash flow”, “cash flow projection”, or “cash flow report” even if the documents only contain related data such as monthly cash balances, revenue, expenses, or net income.
 - If there is NO explicit cash flow statement, but there ARE related figures:
   - Clearly state what is and is not present (for example: “There is no formal cash flow statement, but the documents include monthly cash balances and income/expense data.”).
-  - Use the available data to answer as much of the question as you can (for example: trends in cash balances, approximate inflows/outflows), and make it explicit that you are basing this on available figures rather than a formal statement.
-- Only say that cash flow information is not specified when neither explicit cash flow statements nor related cash-balance data exist in the context.
+  - Use the available data to answer as much of the question as you can, for example:
+    - Describe historical cash trends (increasing, decreasing, volatile).
+    - Provide simple derived views (for example: changes in cash month by month or quarter by quarter).
+  - Make it explicit that you are basing your answer on available historical figures rather than a formal cash-flow statement.
 - For projections:
-  - You may describe trends and simple extrapolations qualitatively (for example: “cash balances increase steadily over the year”), but do NOT fabricate future numeric projections unless the user explicitly asks for a hypothetical/example and understands it is illustrative.
+  - When the user asks in a very general way (for example, “Cashflow projection”), first describe what the historical data shows and briefly explain how it could inform a projection (for example, “cash has increased steadily; a simple projection would assume similar growth, but exact future values are not in the documents”).
+  - You may describe trends and simple extrapolations qualitatively, but do NOT invent specific future numeric projections unless the user explicitly requests a hypothetical example and understands it is illustrative.
 
 Context usage:
 - You receive:
@@ -240,9 +243,10 @@ def create_context(context_chunks, user_question: str):
     context_text = "\n".join(context_lines).strip()
 
     user_prompt = f"""
-        Use the context below to answer the user's question. 
-        If the context contains numerical tables or financial figures that allow you to calculate or derive the answer, you MUST perform those calculations and give the result.
-        Only if the context truly does not contain enough information should you say so and suggest what the user should do next.
+        Use the context below to answer the user's question.
+        If the context contains any financial figures (such as revenue, expenses, net income, cash balances, or other numeric tables), you MUST use those figures to provide the most informative answer you can, even if the user asks for a specific report name that does not exist.
+        If the context contains only non-financial text related to the topic, base your answer on that text.
+        Only if the context truly does not contain any relevant information should you say so and suggest what the user should do next.
 
         --------------------- CONTEXT START -----------------
         {context_text}
@@ -252,6 +256,7 @@ def create_context(context_chunks, user_question: str):
 
         Answer:
         """.strip()
+
 
     return SYSTEM_PROMPT, user_prompt
   
