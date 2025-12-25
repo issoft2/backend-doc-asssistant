@@ -28,9 +28,7 @@ export function useQueryStream() {
       eventSource.value.close()
     }
 
-    const es = new EventSource('/api/query/stream?'  + params.toString(), {
-        withCredentials: true,
-      } as any)
+    const es = new EventSource(`/api/query/stream?${params.toString()}`)
 
     eventSource.value = es
 
