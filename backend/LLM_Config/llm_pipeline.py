@@ -237,12 +237,13 @@ async def llm_pipeline(
     if not hits:
         return {
             "answer": (
-                "The available documents do not contain enough information to answer this question "
-                "based on the data I currently have."
+                "The information I have access to right now is not sufficient to answer this question. "
+                "Please consider checking with the appropriate internal team or rephrasing with more detail."
             ),
             "follow_up": [],
             "sources": [],
         }
+
 
     # 5) Build context chunks and sources
     context_chunks: List[str] = []
