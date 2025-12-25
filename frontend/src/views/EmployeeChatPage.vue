@@ -589,6 +589,7 @@ function startStreamingAnswer(payload) {
   })
 
   es.onerror = () => {
+    console.log('ERROR', e)
     streaming.value = false
     loading.value = false
     error.value = 'Failed to stream answer.'
