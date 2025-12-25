@@ -28,3 +28,13 @@ suggestion_llm_client = ChatOpenAI(
     temperature=0.7,
     max_tokens=256
 )
+
+# Streaming LLM client
+llm_client_streaming = ChatOpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url=OPENAI_API_BASE,
+    model="gpt-4o-mini",
+    temperature=0.2,
+    max_tokens=1024,
+    streaming=True,
+)

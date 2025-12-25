@@ -233,6 +233,13 @@
                   Working…
                 </span>
               </div>
+              <button 
+                v-if="streaming.value" 
+                @click="currentEventSource?.close(); abortController.value?.abort()"
+                class="stop-btn"
+              >
+                Stop generating
+              </button>
 
               <textarea
                 v-model="question"
@@ -311,6 +318,11 @@ const conversations = ref([]) // [{ conversation_id, first_question, last_activi
 const isSpeaking = ref(false)
 const voices = ref([])                // available voices from browser
 const selectedVoiceName = ref('')     // user’s chosen voice (by name)
+
+
+
+const streaming = ref(false)       // separate from loading if you want
+let currentEventSource = null
 
 // Load voices from the browser
 function loadVoices() {
@@ -412,47 +424,84 @@ async function startNewConversation() {
   question.value = ''
 }
 
-async function onAsk() {
-  error.value = ''
-  const currentQuestion = question.value.trim()
-  if (!currentQuestion) return
 
-  loading.value = true
-
-  // append user message immediately
+// Replace your existing onAsk/submit handler with this:
+const onAsk = async () => {
+  if (!input.value.trim() || loading.value || streaming.value) return
+  
+  // Add user message
   messages.value.push({
     role: 'user',
-    text: currentQuestion,
+    text: input.value,
+    sources: []
   })
- // Clear textare after successful submit
-    question.value = ''
-  try {
-    const res = await queryPolicies({
-      question: currentQuestion,
-      topK: 5,
-      conversationId: conversationId.value,
-    })
+  
+  // Immediately add EMPTY assistant message (key change #1)
+  messages.value.push({
+    role: 'assistant',
+    text: '',  // <-- EMPTY - tokens will stream in here
+    sources: []
+  })
+  
+  const params = new URLSearchParams({
+    question: input.value,
+    conversation_id: conversationId.value,
+    // add your other params as needed
+  })
+  
+  streaming.value = true
+  loading.value = true
+  error.value = ''
+  input.value = ''
 
-    const answer = res.data.answer
-    const sources = res.data.sources || []
-    const followups = res.data.follow_up || []
+  const es = new EventSource(`/api/query/stream?${params.toString()}`)
+  currentEventSource = es
 
-    messages.value.push({
-      role: 'assistant',
-      text: answer,
-      sources,
-    })
+  es.addEventListener('status', (e) => {
+    console.log('Status:', e.data) // Optional: show "Searching docs...", "Generating..."
+  })
+
+  es.addEventListener('token', (e) => {
+    // CRITICAL: Always target LAST assistant message
+    const lastMsg = messages.value[messages.value.length - 1]
     
-   suggestions.value = followups
+    // Safety check - should never happen with our empty message above
+    if (lastMsg?.role === 'assistant') {
+      lastMsg.text += e.data  // <-- Stream tokens here (key change #2)
+    }
+  })
 
-    // refresh sidebar ordering
-    await loadConversations()
-  } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to get answer.'
-  } finally {
+  es.addEventListener('done', async () => {
+    streaming.value = false
     loading.value = false
+    es.close()
+    currentEventSource = null
+    
+    // Refresh conversations after full stream completes
+    await loadConversations()
+  })
+
+  es.onerror = () => {
+    streaming.value = false
+    loading.value = false
+    error.value = 'Failed to stream answer.'
+    es.close()
+    currentEventSource = null
+    
+    // Clean up partial assistant message on error
+    messages.value.pop()
   }
+
+  // Add abort controller for "Stop generating" button
+  abortController.value = new AbortController()
+  es.addEventListener('abort', () => {
+    es.close()
+    currentEventSource = null
+    streaming.value = false
+    loading.value = false
+  })
 }
+
 
 // When user clicks on suggestion, treat it as a new question
 async function onSuggestionClick(s){
@@ -485,6 +534,66 @@ async function onDeleteConversation(convId) {
   } catch (e) {
     error.value =
       e.response?.data?.detail || 'Failed to delete conversation.'
+  }
+}
+
+function startStreamingAnswer(payload) {
+  // payload: { question, conversationId, topK? }
+
+  const params = new URLSearchParams({
+    question: payload.question,
+    conversation_id: payload.conversationId,
+    top_k: String(payload.topK ?? 5),
+  })
+
+  // We will:
+  // 1) Add an empty assistant message
+  // 2) Stream tokens into that message's text
+
+  streaming.value = true
+  loading.value = true
+  error.value = ''
+
+  const es = new EventSource(`/query/stream?${params.toString()}`)
+  currentEventSource = es
+
+  // optional: small status text, but you already show a spinner, so we just keep loading
+  es.addEventListener('status', (e) => {
+    // you could map status to a small message if you want
+    // e.g. console.log('STATUS', e.data)
+  })
+
+  es.addEventListener('token', (e) => {
+    // Always target the last assistant message
+    const lastMsg = messages.value[messages.value.length - 1]
+    if (!lastMsg || lastMsg.role !== 'assistant') {
+      // safety: if no assistant message yet, create one
+      messages.value.push({
+        role: 'assistant',
+        text: '',
+        sources: [],
+      })
+    } else {
+      lastMsg.text += e.data
+    }
+  })
+
+  es.addEventListener('done', async () => {
+    streaming.value = false
+    loading.value = false
+    es.close()
+    currentEventSource = null
+
+    // After the full answer is streamed, refresh conversations list
+    await loadConversations()
+  })
+
+  es.onerror = () => {
+    streaming.value = false
+    loading.value = false
+    error.value = 'Failed to stream answer.'
+    es.close()
+    currentEventSource = null
   }
 }
 
