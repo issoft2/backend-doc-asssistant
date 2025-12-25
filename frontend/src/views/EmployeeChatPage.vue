@@ -210,87 +210,83 @@
           </section>
 
         <!-- Ask form -->
-          <form
-            class="pt-2 border-t border-slate-800 space-y-2"
-            @submit.prevent="onAsk"
-          >
-            <label class="block text-[11px] font-medium text-slate-300 mb-1">
-              Your question
-            </label>
+          <!-- Ask form -->
+  <form
+    class="pt-2 border-t border-slate-800 space-y-2"
+    @submit.prevent="onAsk"
+  >
+    <label class="block text-[11px] font-medium text-slate-300 mb-1">
+      Your question
+    </label>
 
-            <div class="relative">
+    <div class="relative">
+      <!-- Rotating "working..." indicator -->
+      <div
+        v-if="loading || isStreaming"
+        class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1 mb-1"
+        role="status"
+      >
+        <div
+          class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"
+        ></div>
+        <span class="text-[11px] font-medium text-slate-100">
+          {{ isStreaming ? (streamStatus || 'Generating…') : 'Working…' }}
+        </span>
+      </div>
 
-             <!-- Rotating "working..." indicator -->
-              <div
-                v-if="loading"
-                class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
-                role="status"
-              >
-                <div
-                  class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"
-                ></div>
-                <span class="text-[11px] font-medium text-slate-100">
-                  Working…
-                </span>
-              </div>
-               <button
-                  v-if="streaming"
-                  type="button"
-                  class="stop-btn"
-                  @click="
-                    currentEventSource && currentEventSource.close();
-                    abortController && abortController.abort();
-                    streaming = false;
-                    loading = false;
-                  "
-                >
-                  Stop generating
-                </button>
+      <!-- Stop button when streaming -->
+      <button
+        v-if="isStreaming"
+        type="button"
+        class="stop-btn absolute right-2 top-2 text-[11px] px-2 py-1 rounded-md bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
+        @click="stopStream"
+      >
+        Stop generating
+      </button>
 
-             
-              <textarea
-                v-model="question"
-                rows="3"
-                class="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 pr-11 text-sm
-                      text-slate-100 placeholder:text-slate-500 resize-none
-                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
-                      shadow-sm"
-                placeholder="Ask about your policies, procedures, or reports..."
-                required
-                @keydown.enter.exact.prevent="handleEnter"
-              ></textarea>
+      <textarea
+        v-model="question"
+        rows="3"
+        class="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 pr-11 text-sm
+               text-slate-100 placeholder:text-slate-500 resize-none
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+               shadow-sm"
+        placeholder="Ask about your policies, procedures, or reports..."
+        required
+        @keydown.enter.exact.prevent="handleEnter"
+      ></textarea>
 
-              <!-- Send button inside bottom-right -->
-              <button
-                type="submit"
-                class="absolute bottom-2 right-2 inline-flex items-center justify-center
-                      h-8 w-8 rounded-full bg-indigo-600 text-white shadow
-                      hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                :disabled="loading || !question.trim()"
-              >
-                <svg
-                  class="w-4 h-4 rotate-90"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="m4.5 19.5 15-7.5-15-7.5 3 7.5-3 7.5zM10.5 12h9"
-                  />
-                </svg>
-              </button>
-            </div>
+      <!-- Send button inside bottom-right -->
+      <button
+        type="submit"
+        class="absolute bottom-2 right-2 inline-flex items-center justify-center
+               h-8 w-8 rounded-full bg-indigo-600 text-white shadow
+               hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="isSubmitDisabled"
+      >
+        <svg
+          class="w-4 h-4 rotate-90"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="m4.5 19.5 15-7.5-15-7.5 3 7.5-3 7.5zM10.5 12h9"
+          />
+        </svg>
+      </button>
+    </div>
 
-            <div class="flex justify-between items-center gap-2">
-              <p v-if="error" class="text-[11px] text-red-400 truncate max-w-xs">
-                {{ error }}
-              </p>
-            </div>
-          </form>
+    <div class="flex justify-between items-center gap-2">
+      <p v-if="error" class="text-[11px] text-red-400 truncate max-w-xs">
+        {{ error }}
+      </p>
+    </div>
+  </form>
 
         </div>
       </div>
@@ -300,47 +296,45 @@
 
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { queryPolicies, listConversations, getConversation, deleteConversation } from '../api'
+import { useQueryStream } from '../composables/useQueryStream'
 
+// Streaming composable
+const {
+  answer: streamedAnswer,
+  status: streamStatus,
+  isStreaming,
+  startStream,
+  stopStream,
+} = useQueryStream()
+
+// Form + UI state
 const question = ref('')
 const loading = ref(false)
 const error = ref('')
 
-
-
-// unified message shape: { role: 'user'|'assistant', text,}
+// Messages and suggestions
+// message shape: { role: 'user'|'assistant', text, sources?: string[] }
 const messages = ref([])
-const suggestions = ref([]) 
+const suggestions = ref([])
 
-
-// conversation/session state
+// Conversation/session state
 const conversationId = ref(uuidv4())
 const selectedConversationId = ref(conversationId.value)
-
 const conversations = ref([]) // [{ conversation_id, first_question, last_activity_at }]
 
-
+// TTS
 const isSpeaking = ref(false)
-const voices = ref([])                // available voices from browser
-const selectedVoiceName = ref('')     // user’s chosen voice (by name)
+const voices = ref([])
+const selectedVoiceName = ref('')
 
-
-
-const streaming = ref(false)       // separate from loading if you want
-let currentEventSource = null
-
-
-// ADD THIS LINE
-const abortController = ref<AbortController | null>(null)
-
-// Load voices from the browser
+// ----- Voices -----
 function loadVoices() {
   if (!('speechSynthesis' in window)) return
   const list = window.speechSynthesis.getVoices()
   voices.value = list
-  // Default: pick first English voice if nothing chosen
   if (!selectedVoiceName.value && list.length) {
     const enVoice =
       list.find(v => v.lang?.toLowerCase().startsWith('en')) || list[0]
@@ -348,13 +342,13 @@ function loadVoices() {
   }
 }
 
-// Some browsers load voices async
 onMounted(() => {
   if (!('speechSynthesis' in window)) return
   loadVoices()
   window.speechSynthesis.onvoiceschanged = loadVoices
 })
 
+// ----- TTS helpers -----
 function speak(text) {
   if (!('speechSynthesis' in window)) {
     alert('Text-to-speech is not supported in this browser.')
@@ -363,10 +357,8 @@ function speak(text) {
   if (!text) return
 
   window.speechSynthesis.cancel()
-
   const utterance = new SpeechSynthesisUtterance(text)
 
-  // Pick voice that matches the user’s selection
   const voice =
     voices.value.find(v => v.name === selectedVoiceName.value) || null
   if (voice) {
@@ -394,7 +386,7 @@ function stopSpeaking() {
   }
 }
 
-
+// ----- Conversations -----
 function formatDate(v) {
   if (!v) return ''
   return new Date(v).toLocaleString()
@@ -405,7 +397,7 @@ async function loadConversations() {
     const res = await listConversations()
     conversations.value = res.data || []
   } catch (_) {
-    // ignore for now or surface a small toast later
+    // ignore for now
   }
 }
 
@@ -420,6 +412,7 @@ async function openConversation(convId) {
     messages.value = history.map(([role, content]) => ({
       role,
       text: content,
+      sources: [],
     }))
   } catch (e) {
     error.value = e.response?.data?.detail || 'Failed to load conversation.'
@@ -435,111 +428,74 @@ async function startNewConversation() {
   question.value = ''
 }
 
+// ----- Streaming integration -----
+// Whenever streamedAnswer changes, update the last assistant message text
+watch(streamedAnswer, (val) => {
+  const lastMsg = messages.value[messages.value.length - 1]
+  if (lastMsg?.role === 'assistant') {
+    lastMsg.text = val
+  }
+})
 
-// Replace your existing onAsk/submit handler with this:
+// Main submit handler
 const onAsk = async () => {
-  if (!question.value.trim() || loading.value || streaming.value) return
-  
+  if (!question.value.trim() || loading.value || isStreaming.value) return
+
   // Add user message
   messages.value.push({
     role: 'user',
     text: question.value,
-    sources: []
+    sources: [],
   })
-  
-  // Immediately add EMPTY assistant message (key change #1)
+
+  // Add empty assistant message to stream into
   messages.value.push({
     role: 'assistant',
-    text: '',  // <-- EMPTY - tokens will stream in here
-    sources: []
+    text: '',
+    sources: [],
   })
-  
-  const params = new URLSearchParams({
-    question: question.value,
-    conversation_id: conversationId.value,
-    // add your other params as needed
-  })
-  
-  streaming.value = true
-  loading.value = true
+
   error.value = ''
+  const asked = question.value
   question.value = ''
 
-  const es = new EventSource(`/query/stream?${params.toString()}`)
-  currentEventSource = es
-
-
-  es.addEventListener('status', (e) => {
-    console.log('Status:', e.data) // Optional: show "Searching docs...", "Generating..."
+  // Call streaming endpoint via composable
+  await startStream({
+    question: asked,
+    conversation_id: conversationId.value,
   })
 
-  es.addEventListener('token', (e) => {
-    // CRITICAL: Always target LAST assistant message
-    const lastMsg = messages.value[messages.value.length - 1]
-    
-    // Safety check - should never happen with our empty message above
-    if (lastMsg?.role === 'assistant') {
-      lastMsg.text += e.data  // <-- Stream tokens here (key change #2)
-    }
-  })
-
-  es.addEventListener('done', async () => {
-    streaming.value = false
-    loading.value = false
-    es.close()
-    currentEventSource = null
-    
-    // Refresh conversations after full stream completes
-    await loadConversations()
-  })
-
-  es.onerror = () => {
-    streaming.value = false
-    loading.value = false
-    error.value = 'Failed to stream answer.'
-    es.close()
-    currentEventSource = null
-    
-    // Clean up partial assistant message on error
-    messages.value.pop()
-  }
-
-  // Add abort controller for "Stop generating" button
-  abortController.value = new AbortController()
-  es.addEventListener('abort', () => {
-    es.close()
-    currentEventSource = null
-    streaming.value = false
-    loading.value = false
-  })
+  // Optional: refresh conversation list afterwards
+  // await loadConversations()
 }
 
+// Disable send while busy or empty
+const isSubmitDisabled = computed(() => {
+  return loading.value || isStreaming.value || !question.value.trim()
+})
 
-// When user clicks on suggestion, treat it as a new question
-async function onSuggestionClick(s){
-  if (loading.value) return 
+// Suggestions reuse onAsk
+async function onSuggestionClick(s) {
+  if (loading.value || isStreaming.value) return
   question.value = s
   await onAsk()
 }
 
 async function handleEnter() {
-  if (loading.value) return
+  if (loading.value || isStreaming.value) return
   await onAsk()
 }
 
+// Delete conversation
 async function onDeleteConversation(convId) {
   const ok = window.confirm('Delete this conversation and its messages?')
   if (!ok) return
 
   try {
     await deleteConversation(convId)
-
-    // Remove from local list
     conversations.value = conversations.value.filter(
-      c => c.conversation_id !== convId
+      c => c.conversation_id !== convId,
     )
-
-    // If the deleted one is currently open, reset to a new empty conversation
     if (selectedConversationId.value === convId) {
       startNewConversation()
     }
@@ -549,69 +505,7 @@ async function onDeleteConversation(convId) {
   }
 }
 
-function startStreamingAnswer(payload) {
-  // payload: { question, conversationId, topK? }
-
-  const params = new URLSearchParams({
-    question: payload.question,
-    conversation_id: payload.conversationId,
-    top_k: String(payload.topK ?? 5),
-  })
-
-  // We will:
-  // 1) Add an empty assistant message
-  // 2) Stream tokens into that message's text
-
-  streaming.value = true
-  loading.value = true
-  error.value = ''
-
-  const es = new EventSource(`/query/stream?${params.toString()}`)
-  currentEventSource = es
-
-  // optional: small status text, but you already show a spinner, so we just keep loading
-  es.addEventListener('status', (e) => {
-    // you could map status to a small message if you want
-    // e.g. console.log('STATUS', e.data)
-  })
-
-  es.addEventListener('token', (e) => {
-    // Always target the last assistant message
-    const lastMsg = messages.value[messages.value.length - 1]
-    if (!lastMsg || lastMsg.role !== 'assistant') {
-      // safety: if no assistant message yet, create one
-      messages.value.push({
-        role: 'assistant',
-        text: '',
-        sources: [],
-      })
-    } else {
-      lastMsg.text += e.data
-    }
-  })
-
-  es.addEventListener('done', async () => {
-    streaming.value = false
-    loading.value = false
-    es.close()
-    currentEventSource = null
-
-    // After the full answer is streamed, refresh conversations list
-    await loadConversations()
-  })
-
-  es.onerror = () => {
-    console.log('ERROR', e)
-    streaming.value = false
-    loading.value = false
-    error.value = 'Failed to stream answer.'
-    es.close()
-    currentEventSource = null
-  }
-}
-
-
-
+// Initial load
 onMounted(() => {
   loadConversations()
 })
