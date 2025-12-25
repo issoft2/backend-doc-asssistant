@@ -21,7 +21,7 @@ class QueryRequestStream(BaseModel):
     question: str
     conversation_id: str | None = None
     
-@router.post("/query/stream")
+@router.get("/query/stream")
 async def query_knowledge_stream(
     req: QueryRequestStream,
     request: Request,
