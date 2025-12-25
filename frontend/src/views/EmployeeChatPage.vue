@@ -211,10 +211,7 @@
 
         <!-- Ask form -->
           <!-- Ask form -->
-  <form
-    class="pt-2 border-t border-slate-800 space-y-2"
-    @submit.prevent="onAsk"
-  >
+  <form class="pt-2 border-t border-slate-800 space-y-2" @submit.prevent="onAsk">
     <label class="block text-[11px] font-medium text-slate-300 mb-1">
       Your question
     </label>

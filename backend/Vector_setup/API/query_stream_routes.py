@@ -9,7 +9,7 @@ from Vector_setup.API.ingest_routes import get_store
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.user.auth_jwt import get_current_user, TokenUser
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn
-from LLM_Configure.llm_pipeline import llm_pipeline_stream 
+from LLM_Config.llm_pipeline import llm_pipeline_stream 
 
 router = APIRouter()
 
