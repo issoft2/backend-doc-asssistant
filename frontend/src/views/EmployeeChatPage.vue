@@ -454,7 +454,7 @@ const onAsk = async () => {
   error.value = ''
   question.value = ''
 
-  const es = new EventSource(`/api/query/stream?${params.toString()}`)
+  const es = new EventSource(`/query/stream?${params.toString()}`)
   currentEventSource = es
 
   es.addEventListener('status', (e) => {
