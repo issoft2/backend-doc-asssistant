@@ -1,4 +1,6 @@
 import { ref } from 'vue'
+const token = localStorage.getItem('access_token') // example
+
 
 export function useQueryStream() {
   const answer = ref('')
@@ -19,6 +21,12 @@ export function useQueryStream() {
       collection_name: payload.collection_name ?? '',
     })
 
+
+    if (token) {
+      params.set('token', token)
+    }
+
+
     answer.value = ''
     status.value = 'Starting...'
     isStreaming.value = true
@@ -28,7 +36,7 @@ export function useQueryStream() {
       eventSource.value.close()
     }
 
-    const es = new EventSource(`/api/query/stream?${params.toString()}`)
+const es = new EventSource(`/api/query/stream?${params.toString()}`)
 
     eventSource.value = es
 

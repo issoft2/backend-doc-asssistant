@@ -19,7 +19,7 @@ async def query_knowledge_stream(
     conversation_id: str,
     top_k: int = 5,
     collection_name: Optional[str] = None,
-    current_user: TokenUser = Depends(get_current_user),
+    current_user: TokenUser = Depends(get_current_user_from_header_or_query),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
 ):

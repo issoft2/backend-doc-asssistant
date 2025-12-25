@@ -3,9 +3,10 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
+
 from pydantic import BaseModel
 from jose import JWTError, jwt
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from .auth_store import get_user_by_email
@@ -86,3 +87,20 @@ async def get_current_user(
         phone=user.phone,
         role=user.role,
         )
+
+
+async def get_current_user_from_header_or_query(
+    request: Request,
+) -> TokenUser:
+    # 1) Try Authorization header (existing behavior)
+    auth = request.headers.get("Authorization")
+    if auth and auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1]
+        return get_current_user(token)
+
+    # 2) Fallback: token from query param
+    token = request.query_params.get("token")
+    if token:
+        return decode_and_get_user(token)
+
+    raise HTTPException(status_code=401, detail="Not authenticated")
