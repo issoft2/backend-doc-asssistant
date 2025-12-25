@@ -266,7 +266,7 @@
                 class="absolute bottom-2 right-2 inline-flex items-center justify-center
                       h-8 w-8 rounded-full bg-indigo-600 text-white shadow
                       hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                :disabled="loading || !question.trim()"
+                :disabled="isSubmitDisabled"
               >
                 <svg
                   class="w-4 h-4 rotate-90"
@@ -514,6 +514,9 @@ const onAsk = async () => {
   })
 }
 
+const isSubmitDisabled = computed(() => {
+  return loading.value || !question.value.trim()
+})
 
 // When user clicks on suggestion, treat it as a new question
 async function onSuggestionClick(s){
