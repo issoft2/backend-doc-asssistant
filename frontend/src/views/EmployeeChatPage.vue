@@ -324,6 +324,10 @@ const selectedVoiceName = ref('')     // user’s chosen voice (by name)
 const streaming = ref(false)       // separate from loading if you want
 let currentEventSource = null
 
+
+// ADD THIS LINE
+const abortController = ref<AbortController | null>(null)
+
 // Load voices from the browser
 function loadVoices() {
   if (!('speechSynthesis' in window)) return
@@ -456,6 +460,7 @@ const onAsk = async () => {
 
   const es = new EventSource(`/query/stream?${params.toString()}`)
   currentEventSource = es
+
 
   es.addEventListener('status', (e) => {
     console.log('Status:', e.data) // Optional: show "Searching docs...", "Generating..."
