@@ -28,7 +28,10 @@ export function useQueryStream() {
       eventSource.value.close()
     }
 
-    const es = new EventSource(`/api/query/stream?${params.toString()}`)
+    const es = new EventSource('/api/query/stream?'  + params.toString(), {
+        withCredentials: true,
+      } as any)
+
     eventSource.value = es
 
     es.addEventListener('status', (e: MessageEvent) => {
