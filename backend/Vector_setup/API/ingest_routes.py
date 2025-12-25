@@ -329,7 +329,7 @@ def _describe_excel_sheet_shape(df: pd.DataFrame) -> str:
      Simple, format-agnostic heuristic that returns a one-line description
      of the sheet contents based on column types. 
     """
-    if df.empty():
+    if df.empty:
         return "This sheet is empty."
     
     num_cols = 0
