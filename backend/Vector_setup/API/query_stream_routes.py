@@ -6,7 +6,7 @@ from typing import Optional
 from Vector_setup.user.db import get_db
 from Vector_setup.API.ingest_routes import get_store
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
-from Vector_setup.user.auth_jwt import get_current_user, TokenUser
+from Vector_setup.user.auth_jwt import get_current_user, TokenUser, get_current_user_from_header_or_query
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn
 from LLM_Config.llm_pipeline import llm_pipeline_stream
 

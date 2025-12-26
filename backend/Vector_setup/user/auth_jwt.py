@@ -104,3 +104,28 @@ async def get_current_user_from_header_or_query(
         return decode_and_get_user(token)
 
     raise HTTPException(status_code=401, detail="Not authenticated")
+
+def decode_and_get_user(token: str) -> TokenUser:
+    """
+    Decode a JWT string and return a TokenUser.
+    Used when token is passed via query param instead of Authorization header.
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str | None = payload.get("sub")
+        tenant_id: str | None = payload.get("tenant_id")
+        if email is None or tenant_id is None:
+            raise  HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+                
+            )
+            
+        return TokenUser(email=email, tenant_id=tenant_id)
+    
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate token",
+        )
+   
