@@ -20,7 +20,6 @@ async def query_knowledge_stream(
     top_k: int = 5,
     collection_name: Optional[str] = None,
     current_user: TokenUser = Depends(get_current_user_from_header_or_query),
-    user: TokenUser = Depends(get_current_user),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
 ):
@@ -30,7 +29,7 @@ async def query_knowledge_stream(
     history_turns = get_last_n_turns(
         db=db,
         tenant_id=current_user.tenant_id,
-        user_id=user.id,
+        user_id=current_user.email,
         n_turns=3,
         conversation_id=conversation_id,
     )
@@ -60,7 +59,7 @@ async def query_knowledge_stream(
             save_chat_turn(
                 db=db,
                 tenant_id=current_user.tenant_id,
-                user_id=current_user.id,
+                user_id=current_user.email,
                 user_message=question,
                 assistant_message=answer_str,
                 conversation_id=conversation_id,

@@ -5,7 +5,7 @@ from typing import Optional
 
 
 from pydantic import BaseModel
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
@@ -123,7 +123,15 @@ def decode_and_get_user(token: str) -> TokenUser:
             
         return TokenUser(email=email, tenant_id=tenant_id)
     
-    except JWTError:
+    except ExpiredSignatureError:
+        # token is structurally OK but expired
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired",
+        )
+    except JWTError as e:
+        # signature mismatch, malformed, wrong algorithm, etc.
+        print("JWT decode error:", repr(e))  # TEMP: see logs
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate token",
