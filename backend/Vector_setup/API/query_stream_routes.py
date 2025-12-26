@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 from typing import Optional
+from LLM_Config.system_user_prompt import create_suggestion_prompt
+
 
 from Vector_setup.user.db import get_db
 from Vector_setup.API.ingest_routes import get_store
@@ -61,6 +63,8 @@ async def query_knowledge_stream(
 
         # Reconstruct final answer exactly as produced by LLM
         answer_str = "".join(full_answer)
+        
+        suggestions_list: list[str] = []
 
         if answer_str:
             save_chat_turn(
@@ -71,8 +75,17 @@ async def query_knowledge_stream(
                 assistant_message=answer_str,
                 conversation_id=conversation_id,
             )
-
+            
+            # Generate follow-up suggestions
+            suggestions_list = create_suggestion_prompt(question, answer_str)
+            # stream suggestions once, as JSON
+            import json
+            if suggestions_list:
+                payload = json.dumps(suggestions_list)
+                yield f"event: suggestions\ndata: {payload}\n\n"
+            
         yield "event: status\ndata: Finalizing.....\n\n"
         yield "event: done\ndata: END\n\n"
+
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -324,30 +324,19 @@ async def llm_pipeline(
 
 from LLM_Config.llm_setup import llm_client_streaming  # ChatOpenAI(streaming=True)
 
-
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
     question: str,
-    history: Optional[List[Tuple[str, str]]] = None,  # [(user, assistant), ...]
+    history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
+    result_holder: Optional[dict] = None,
 ) -> AsyncGenerator[str, None]:
-    """
-    Streaming version of the llm_pipeline function.
-
-    Yields text chunks ONLY for the final answer.
-    The caller (FastAPI SSE endpoint) is responsible for:
-      - Emitting status events ("analysing...", "retrieving...", etc.).
-      - Saving chat turns after collecting all chunks (if desired).
-    """
-
-    # 1) Infer intent & domain (same as llm_pipeline)
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # 2) Handle pure chitchat cheaply (no vector search)
     if intent == "CHITCHAT":
         msg = (
             "Hello! I’m your Organization Knowledge Assistant. "
@@ -355,13 +344,14 @@ async def llm_pipeline_stream(
             "financial information, contracts, projects, or other internal information, "
             "and I’ll answer based on the information I currently have access to."
         )
+        if result_holder is not None:
+            result_holder["answer"] = msg
+            result_holder["sources"] = []
         yield msg
         return
 
-    # 3) Decide the effective question used for retrieval + prompting
     effective_question = rewritten if rewritten else question
 
-    # 4) RETRIEVE from vector store (same as llm_pipeline)
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
@@ -375,17 +365,18 @@ async def llm_pipeline_stream(
             "The information I have access to right now is not sufficient to answer this question. "
             "Please consider checking with the appropriate internal team or rephrasing with more detail."
         )
+        if result_holder is not None:
+            result_holder["answer"] = msg
+            result_holder["sources"] = []
         yield msg
         return
 
-    # 5) Build context chunks and sources (same logic as llm_pipeline)
     context_chunks: List[str] = []
     sources: List[str] = []
 
     for hit in hits:
         doc_text = hit["document"]
         meta = hit.get("metadata", {}) or {}
-
         title = meta.get("title") or meta.get("filename") or "Unknown document"
         section = meta.get("section")
 
@@ -398,9 +389,8 @@ async def llm_pipeline_stream(
         context_chunks.append(chunk_str)
         sources.append(title)
 
-    unique_sources = sorted(set(sources))  # ready if you need it
+    unique_sources = sorted(set(sources))
 
-    # 6) Build system + user prompt from context + effective question
     system_prompt, user_prompt = create_context(
         context_chunks=context_chunks,
         user_question=effective_question,
@@ -408,7 +398,6 @@ async def llm_pipeline_stream(
         domain=domain,
     )
 
-    # 7) Build messages with optional history (same as llm_pipeline)
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
     if history:
@@ -418,17 +407,12 @@ async def llm_pipeline_stream(
 
     messages.append({"role": "user", "content": user_prompt})
 
-    # 8) STREAM main LLM answer with ChatOpenAI(streaming=True)
     try:
         full_answer_parts: List[str] = []
 
-        # LangChain ChatOpenAI streaming pattern: astream(messages)[web:51][web:57]
         async for chunk in llm_client_streaming.astream(messages):
-            # Newer LangChain: chunk is a ChatGenerationChunk / AIMessageChunk
-            # so chunk.content is the delta text.
             text = getattr(chunk, "content", None) or ""
             if not text:
-                # Fallback for older versions that expose generations
                 try:
                     text = chunk.generations[0].text  # type: ignore
                 except Exception:
@@ -438,11 +422,20 @@ async def llm_pipeline_stream(
                 full_answer_parts.append(text)
                 yield text
 
-        # At this point, full_answer = "".join(full_answer_parts).strip()
-        # The caller can reconstruct it if needed.
+        full_answer = "".join(full_answer_parts)
+
+        if result_holder is not None:
+            result_holder["answer"] = full_answer
+            result_holder["sources"] = unique_sources
 
     except Exception:
-        yield "There was a temporary problem contacting the model, please try again."
+        error_msg = (
+            "There was a temporary problem contacting the model, please try again."
+        )
+        if result_holder is not None:
+            result_holder["answer"] = error_msg
+            result_holder["sources"] = unique_sources
+        yield error_msg
         return
 
     # NOTE:
