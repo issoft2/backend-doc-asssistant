@@ -5,7 +5,8 @@ from typing import Optional
 import json
 
 from LLM_Config.system_user_prompt import create_suggestion_prompt
-from LLM_Config.llm_clients import suggestion_llm_client  # adjust import
+from LLM_Config.llm_setup import suggestion_llm_client
+
 
 from Vector_setup.user.db import get_db
 from Vector_setup.API.ingest_routes import get_store
