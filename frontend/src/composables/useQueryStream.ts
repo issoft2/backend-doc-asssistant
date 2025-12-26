@@ -1,6 +1,4 @@
 import { ref } from 'vue'
-const token = localStorage.getItem('access_token') // example
-
 
 export function useQueryStream() {
   const answer = ref('')
@@ -21,7 +19,8 @@ export function useQueryStream() {
       collection_name: payload.collection_name ?? '',
     })
 
-
+     const token = localStorage.getItem('access_token')   // read at call time
+  
     if (token) {
       params.set('token', token)
     }
