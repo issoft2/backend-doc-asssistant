@@ -333,21 +333,24 @@ const voices = ref([])
 const selectedVoiceName = ref('')
 
 // Markdown normalization to fix glued headings/bullets
-function normalizeMarkdown(raw) {
+function normalizeMarkdown(raw: string): string {
   if (!raw) return ''
   let text = raw
 
-  // Ensure blank line before headings like "### Revenue"
-  text = text.replace(/(#+\s[^\n]+)/g, '\n\n$1')
+  // Ensure a blank line before any heading (###, ##, etc.)
+  // "total: 935,000.0### Total Expenses" -> "total: 935,000.0\n\n### Total Expenses"
+  text = text.replace(/([^\n])(\s*)###\s/g, '$1\n\n### ')
 
-  // Separate "figures:### Revenue" -> "figures:\n\n### Revenue"
-  text = text.replace(/:\s*###/g, ':\n\n###')
+  // Also normalize other headings just in case
+  text = text.replace(/([^\n])(\s*)(##\s)/g, '$1\n\n$3')
+  text = text.replace(/([^\n])(\s*)(#\s)/g, '$1\n\n$3')
 
-  // Separate "Revenue- Total" -> "Revenue\n- Total"
+  // Separate "word- Item" -> "word\n- Item"
   text = text.replace(/([A-Za-z0-9])-\s/g, '$1\n- ')
 
   return text
 }
+
 
 // ----- Voices -----
 function loadVoices() {
