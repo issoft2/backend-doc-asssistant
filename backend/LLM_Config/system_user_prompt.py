@@ -267,26 +267,33 @@ Answer:
 
     return SYSTEM_PROMPT, user_prompt
 
-  
-    
-def create_suggestion_prompt(user_question: str, assistant_answer: str):
+
+        
+def create_suggestion_prompt(user_question: str, assistant_answer: str) -> list[dict]:
     """
-    Build message for the suggestion LLM:
-    - system: instructs it to generate follow-up questions.
-    - user: provides the last Q&A pair as context.
+    Build messages for the suggestion LLM.
+
+    It should return ONLY a JSON array of 3–5 short follow-up questions,
+    with no extra commentary or formatting.
     """
     user_content = f"""
+    You are helping to propose follow-up questions for a user who is asking about their company's internal documents and data.
+
     User question:
     {user_question}
 
     Assistant answer:
     {assistant_answer}
 
-    Generate 3-5 helpful follow-up questions as described in the system instructions.
-    Focus on concrete next steps the user might want, such as:
-    - Asking for breakdowns (e.g., by month, quarter, category).
-    - Asking for comparisons (e.g., revenue vs expenses, year-over-year changes).
-    - Asking for implications or how to use the information in practice.
+    Based on this Q&A pair, generate 3–5 concise, helpful follow-up questions the user might naturally ask next.
+    Focus on:
+    - Asking for breakdowns (for example: by month, quarter, category, department).
+    - Asking for comparisons (for example: revenue vs expenses, year-over-year changes, across business units).
+    - Asking for implications or how to use the information in practice (for example: what this means for performance or decisions).
+
+    Return your result as a pure JSON array of strings, with no explanations, no markdown, and no extra text.
+    Example format:
+    ["Question 1 ...", "Question 2 ...", "Question 3 ..."]
     """.strip()
 
     system_message = {"role": "system", "content": SUGGESTION_SYSTEM_PROMPT}
@@ -294,6 +301,4 @@ def create_suggestion_prompt(user_question: str, assistant_answer: str):
 
     return [system_message, user_message]
 
-    
-    
       

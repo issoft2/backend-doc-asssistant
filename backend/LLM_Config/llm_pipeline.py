@@ -2,7 +2,7 @@
 from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
 
-from LLM_Config.llm_setup import llm_client, suggestion_llm_client
+from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming
 from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
@@ -30,38 +30,38 @@ Respond as pure JSON:
 }}
 """.strip()
 
-FINANCE_KEYWORDS = [ 
-                    "budget", "expense", "cost", "financial", "invoice", "payment",
-                    "revenue", "profit", "loss", "fiscal", "audit"
-                    "forecast", "projection", "balance sheet", "cash flow", 
-                    "tax", "cashflow", "expenses", "earnings", "cash balance",
-                    "financial statement", "net income", "operating income"
-                    ]
+FINANCE_KEYWORDS = [
+    "budget", "expense", "cost", "financial", "invoice", "payment",
+    "revenue", "profit", "loss", "fiscal", "audit",  # fixed comma here
+    "forecast", "projection", "balance sheet", "cash flow",
+    "tax", "cashflow", "expenses", "earnings", "cash balance",
+    "financial statement", "net income", "operating income",
+]
 
 HR_KEYWORDS = [
-                    "leave", "vacation", "benefits", "payroll", "hiring",
-                    "onboarding", "offboarding", "performance review", "promotion",
-                    "disciplinary action", "work from home", "remote work",
-                    "employee relations", "training", "development", "compensation",
-                    "overtime", "time off", "sick leave", "maternity leave"
-        ]
+    "leave", "vacation", "benefits", "payroll", "hiring",
+    "onboarding", "offboarding", "performance review", "promotion",
+    "disciplinary action", "work from home", "remote work",
+    "employee relations", "training", "development", "compensation",
+    "overtime", "time off", "sick leave", "maternity leave",
+]
 
 TECH_KEYWORDS = [
-                    "deployment", "server", "database", "API",  "bug",
-                    "feature", "release", "version control", "CI/CD",
-                    "infrastructure", "scalability", "performance", "latency",
-                    "uptime", "monitoring", "logging", "cloud", "on-premise",
-                    "virtualization", "containerization", "microservices",
-                    "docker", "kubernetes", "load balancing", "networking",
-                    "ssh", "password", "network", "database", "backup",
-        ]
+    "deployment", "server", "database", "API", "bug",
+    "feature", "release", "version control", "CI/CD",
+    "infrastructure", "scalability", "performance", "latency",
+    "uptime", "monitoring", "logging", "cloud", "on-premise",
+    "virtualization", "containerization", "microservices",
+    "docker", "kubernetes", "load balancing", "networking",
+    "ssh", "password", "network", "backup",
+]
 
 POLICY_KEYWORDS = [
-                    "policy", "procedure", "guideline", "compliance",
-                    "regulation", "standard", "protocol", "rule",
-                    "governance", "audit", "risk management", "code of conduct",
-                    "ethics", "confidentiality", "data protection", "security",
-        ]
+    "policy", "procedure", "guideline", "compliance",
+    "regulation", "standard", "protocol", "rule",
+    "governance", "audit", "risk management", "code of conduct",
+    "ethics", "confidentiality", "data protection", "security",
+]
 
 
 def _format_history_for_intent(
@@ -73,8 +73,8 @@ def _format_history_for_intent(
     recent = history_turns[-max_turns:]
     lines: List[str] = []
     for u, a in recent:
-        lines.append(f"User: {u}")
-        lines.append(f"Assistant: {a}")
+        lines.append(f"USER: {u}")
+        lines.append(f"ASSISTANT: {a}")
     return "\n".join(lines)
 
 
@@ -90,14 +90,14 @@ def infer_intent_and_rewrite(
     """
     text = user_message.lower()
 
-    # ---- 1) Very simple chitchat detection (short-circuit) ----
+    # 1) Cheap chitchat short-circuit
     if any(x in text for x in [
         "thank you", "thanks", "got it", "great", "good job",
-        "well done", "appreciate it", "hello", "hi"
+        "well done", "appreciate it", "hello", "hi",
     ]):
         return "CHITCHAT", None, "GENERAL"
 
-    # ---- 2) Infer domain by keyword buckets (first match wins; tune order) ----
+    # 2) Domain guess
     domain = "GENERAL"
     if any(k in text for k in FINANCE_KEYWORDS):
         domain = "FINANCE"
@@ -108,12 +108,11 @@ def infer_intent_and_rewrite(
     elif any(k in text for k in POLICY_KEYWORDS):
         domain = "POLICY"
 
-    # ---- 3) Cheap local intent guess (numeric / procedure / lookup / general) ----
-    cheap_intent: str
+    # 3) Cheap intent guess
     if any(x in text for x in [
         "sum", "total", "calculate", "projection", "compare",
         "increase", "decrease", "analyze", "average",
-        "how much", "what is the amount", "amount of"
+        "how much", "what is the amount", "amount of",
     ]):
         cheap_intent = "NUMERIC_ANALYSIS"
     elif any(x in text for x in ["how do i", "steps", "procedure", "process"]):
@@ -123,15 +122,8 @@ def infer_intent_and_rewrite(
     else:
         cheap_intent = "GENERAL"
 
-    # ---- 4) Prepare history block for the LLM-based intent helper ----
-    history_block = ""
-    if history_turns:
-        # last N turns already selected by caller; just stringify compactly
-        lines = []
-        for u, a in history_turns:
-            lines.append(f"USER: {u}")
-            lines.append(f"ASSISTANT: {a}")
-        history_block = "\n".join(lines)
+    # 4) History block for LLM helper
+    history_block = _format_history_for_intent(history_turns)
 
     prompt = INTENT_PROMPT_TEMPLATE.format(
         history_block=history_block,
@@ -143,7 +135,7 @@ def infer_intent_and_rewrite(
         {"role": "user", "content": prompt},
     ]
 
-    # ---- 5) Call small LLM for fine-grained intent + rewrite (best-effort) ----
+    # 5) LLM-based intent + rewrite
     try:
         resp = suggestion_llm_client.invoke(messages)
         raw = getattr(resp, "content", None) or str(resp)
@@ -155,7 +147,7 @@ def infer_intent_and_rewrite(
         llm_intent = "UNSURE"
         rewritten = None
 
-    # ---- 6) Sanitize LLM intent label; fall back to cheap intent when needed ----
+    # 6) Sanitize LLM intent
     allowed_intents = {
         "FOLLOWUP_ELABORATE",
         "NEW_QUESTION",
@@ -166,45 +158,159 @@ def infer_intent_and_rewrite(
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
-    # Map UNSURE → cheap_intent; keep NEW_QUESTION/FOLLOWUP_ELABORATE/CHITCHAT as-is
-    if llm_intent == "UNSURE":
-        intent = cheap_intent
-    else:
-        intent = llm_intent
+    # Map UNSURE → cheap_intent
+    intent = cheap_intent if llm_intent == "UNSURE" else llm_intent
 
-    # If LLM says CHITCHAT, domain is effectively GENERAL
     if intent == "CHITCHAT":
         domain = "GENERAL"
 
     return intent, rewritten, domain
 
 
-async def llm_pipeline(
+async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
     question: str,
-    history: Optional[List[Tuple[str, str]]] = None,  # [(user, assistant), ...]
+    history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
-) -> Dict[str, Any]:
+    result_holder: Optional[dict] = None,
+) -> AsyncGenerator[str, None]:
     """
-    End-to-end RAG pipeline:
-      - Infer intent (and optionally domain) and rewrite vague follow-ups.
-      - Retrieve relevant chunks from Chroma for a given tenant.
-      - Build system + user prompts with context (+ optional history).
-      - Call main LLM for answer.
-      - Call small LLM for follow-up suggestions (best-effort).
-      - Return answer, follow_up, and sources.
+    Streaming RAG pipeline:
+      - Same intent, retrieval, and prompting as llm_pipeline.
+      - Yields text chunks for the final answer.
+      - Optionally populates result_holder with full answer and sources.
     """
-
-    # 1) Infer intent on the raw user message
-    # Extend this to optionally return a coarse domain label as well.
-    # Example return: intent="NUMERIC_ANALYSIS", domain="FINANCE", rewritten="..."
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # 2) Handle pure chitchat cheaply (no vector search)
+    # Chitchat fast path
+    if intent == "CHITCHAT":
+        msg = (
+            "Hello! I’m your Organization Knowledge Assistant. "
+            "You can ask me questions about your organization’s policies, procedures, guidelines, "
+            "financial information, contracts, projects, or other internal information, "
+            "and I’ll answer based on the information I currently have access to."
+        )
+        if result_holder is not None:
+            result_holder["answer"] = msg
+            result_holder["sources"] = []
+        yield msg
+        return
+
+    effective_question = rewritten or question
+
+    retrieval = await store.query_policies(
+        tenant_id=tenant_id,
+        collection_name=None,
+        query=effective_question,
+        top_k=top_k,
+    )
+    hits = retrieval.get("results", [])
+
+    if not hits:
+        msg = (
+            "The information I have access to right now is not sufficient to answer this question. "
+            "Please consider checking with the appropriate internal team or rephrasing with more detail."
+        )
+        if result_holder is not None:
+            result_holder["answer"] = msg
+            result_holder["sources"] = []
+        yield msg
+        return
+
+    context_chunks: List[str] = []
+    sources: List[str] = []
+
+    for hit in hits:
+        doc_text = hit["document"]
+        meta = hit.get("metadata", {}) or {}
+        title = meta.get("title") or meta.get("filename") or "Unknown document"
+        section = meta.get("section")
+
+        header_parts = [f"Title: {title}"]
+        if section:
+            header_parts.append(f"Section: {section}")
+        header = " | ".join(header_parts)
+
+        chunk_str = f"{header}\n\n{doc_text}"
+        context_chunks.append(chunk_str)
+        sources.append(title)
+
+    unique_sources = sorted(set(sources))
+
+    system_prompt, user_prompt = create_context(
+        context_chunks=context_chunks,
+        user_question=effective_question,
+        intent=intent,
+        domain=domain,
+    )
+
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+
+    if history:
+        for user_msg, assistant_msg in history:
+            messages.append({"role": "user", "content": user_msg})
+            messages.append({"role": "assistant", "content": assistant_msg})
+
+    messages.append({"role": "user", "content": user_prompt})
+
+    try:
+        full_answer_parts: List[str] = []
+
+        async for chunk in llm_client_streaming.astream(messages):
+            text = getattr(chunk, "content", None) or ""
+            if not text:
+                try:
+                    text = chunk.generations[0].text  # type: ignore
+                except Exception:
+                    text = ""
+
+            if text:
+                full_answer_parts.append(text)
+                yield text
+
+        full_answer = "".join(full_answer_parts)
+
+        if result_holder is not None:
+            result_holder["answer"] = full_answer
+            result_holder["sources"] = unique_sources
+
+    except Exception:
+        error_msg = (
+            "There was a temporary problem contacting the model, please try again."
+        )
+        if result_holder is not None:
+            result_holder["answer"] = error_msg
+            result_holder["sources"] = unique_sources
+        yield error_msg
+        return
+
+
+async def llm_pipeline(
+    store: MultiTenantChromaStoreManager,
+    tenant_id: str,
+    question: str,
+    history: Optional[List[Tuple[str, str]]] = None,
+    top_k: int = 5,
+) -> Dict[str, Any]:
+    """
+    End-to-end RAG pipeline:
+      - Infer intent/domain and optionally rewrite vague follow-ups.
+      - Retrieve relevant chunks from Chroma.
+      - Build system + user prompts with context (+ optional history).
+      - Call main LLM for answer.
+      - Call small LLM for follow-up suggestions (best-effort).
+      - Return answer, follow_up, and sources.
+    """
+    intent, rewritten, domain = infer_intent_and_rewrite(
+        user_message=question,
+        history_turns=history,
+    )
+
+    # Chitchat fast path
     if intent == "CHITCHAT":
         return {
             "answer": (
@@ -217,23 +323,16 @@ async def llm_pipeline(
             "sources": [],
         }
 
-    # 3) Decide the effective question used for retrieval + prompting
-    effective_question = rewritten if rewritten else question
+    effective_question = rewritten or question
 
-    # 4) RETRIEVE (make this the main place you later add domain-aware logic)
-    # You can extend query_policies to accept domain/doc_type hints if needed.
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
         query=effective_question,
         top_k=top_k,
-        # Optional future extension: doc_type/domain hint
-        # domain=domain,
-        # intent=intent,
     )
     hits = retrieval.get("results", [])
 
-    # 4b) If nothing comes back at all, fail gracefully but generically
     if not hits:
         return {
             "answer": (
@@ -244,37 +343,26 @@ async def llm_pipeline(
             "sources": [],
         }
 
-
-    # 5) Build context chunks and sources
     context_chunks: List[str] = []
     sources: List[str] = []
 
     for hit in hits:
         doc_text = hit["document"]
         meta = hit.get("metadata", {}) or {}
-
         title = meta.get("title") or meta.get("filename") or "Unknown document"
         section = meta.get("section")
-        # Keep doc_id only in metadata; do not encourage the model to repeat it
-        doc_id = meta.get("doc_id")
 
         header_parts = [f"Title: {title}"]
         if section:
             header_parts.append(f"Section: {section}")
-        # NOTE: intentionally NOT including Doc ID in the visible header string,
-        # to avoid leaking internal identifiers into the model's text context.
-
         header = " | ".join(header_parts)
+
         chunk_str = f"{header}\n\n{doc_text}"
         context_chunks.append(chunk_str)
-
         sources.append(title)
 
     unique_sources = sorted(set(sources))
 
-    # 6) Build system + user prompt from context + effective question
-    # Make sure your create_context uses the refined, generic SYSTEM_PROMPT
-    # and contains the numeric/financial + follow-up rules we discussed.
     system_prompt, user_prompt = create_context(
         context_chunks=context_chunks,
         user_question=effective_question,
@@ -282,7 +370,6 @@ async def llm_pipeline(
         domain=domain,
     )
 
-    # 7) Build messages with optional history
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
     if history:
@@ -292,7 +379,6 @@ async def llm_pipeline(
 
     messages.append({"role": "user", "content": user_prompt})
 
-    # 8) Call main LLM for the answer (guarded)
     try:
         response = llm_client.invoke(messages)
         answer = getattr(response, "content", None) or str(response)
@@ -305,7 +391,7 @@ async def llm_pipeline(
 
     answer = answer.strip()
 
-    # 9) Generate follow-up suggestions (best-effort, non-fatal)
+    # Suggestions (best-effort)
     follow_ups: List[Any] = []
     suggestion_message = create_suggestion_prompt(question, answer)
 
@@ -321,130 +407,3 @@ async def llm_pipeline(
         "follow_up": follow_ups,
         "sources": unique_sources,
     }
-
-from LLM_Config.llm_setup import llm_client_streaming  # ChatOpenAI(streaming=True)
-
-
-async def llm_pipeline_stream(
-    store: MultiTenantChromaStoreManager,
-    tenant_id: str,
-    question: str,
-    history: Optional[List[Tuple[str, str]]] = None,  # [(user, assistant), ...]
-    top_k: int = 5,
-) -> AsyncGenerator[str, None]:
-    """
-    Streaming version of the llm_pipeline function.
-
-    Yields text chunks ONLY for the final answer.
-    The caller (FastAPI SSE endpoint) is responsible for:
-      - Emitting status events ("analysing...", "retrieving...", etc.).
-      - Saving chat turns after collecting all chunks (if desired).
-    """
-
-    # 1) Infer intent & domain (same as llm_pipeline)
-    intent, rewritten, domain = infer_intent_and_rewrite(
-        user_message=question,
-        history_turns=history,
-    )
-
-    # 2) Handle pure chitchat cheaply (no vector search)
-    if intent == "CHITCHAT":
-        msg = (
-            "Hello! I’m your Organization Knowledge Assistant. "
-            "You can ask me questions about your organization’s policies, procedures, guidelines, "
-            "financial information, contracts, projects, or other internal information, "
-            "and I’ll answer based on the information I currently have access to."
-        )
-        yield msg
-        return
-
-    # 3) Decide the effective question used for retrieval + prompting
-    effective_question = rewritten if rewritten else question
-
-    # 4) RETRIEVE from vector store (same as llm_pipeline)
-    retrieval = await store.query_policies(
-        tenant_id=tenant_id,
-        collection_name=None,
-        query=effective_question,
-        top_k=top_k,
-    )
-    hits = retrieval.get("results", [])
-
-    if not hits:
-        msg = (
-            "The information I have access to right now is not sufficient to answer this question. "
-            "Please consider checking with the appropriate internal team or rephrasing with more detail."
-        )
-        yield msg
-        return
-
-    # 5) Build context chunks and sources (same logic as llm_pipeline)
-    context_chunks: List[str] = []
-    sources: List[str] = []
-
-    for hit in hits:
-        doc_text = hit["document"]
-        meta = hit.get("metadata", {}) or {}
-
-        title = meta.get("title") or meta.get("filename") or "Unknown document"
-        section = meta.get("section")
-
-        header_parts = [f"Title: {title}"]
-        if section:
-            header_parts.append(f"Section: {section}")
-
-        header = " | ".join(header_parts)
-        chunk_str = f"{header}\n\n{doc_text}"
-        context_chunks.append(chunk_str)
-        sources.append(title)
-
-    unique_sources = sorted(set(sources))  # ready if you need it
-
-    # 6) Build system + user prompt from context + effective question
-    system_prompt, user_prompt = create_context(
-        context_chunks=context_chunks,
-        user_question=effective_question,
-        intent=intent,
-        domain=domain,
-    )
-
-    # 7) Build messages with optional history (same as llm_pipeline)
-    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-
-    if history:
-        for user_msg, assistant_msg in history:
-            messages.append({"role": "user", "content": user_msg})
-            messages.append({"role": "assistant", "content": assistant_msg})
-
-    messages.append({"role": "user", "content": user_prompt})
-
-    # 8) STREAM main LLM answer with ChatOpenAI(streaming=True)
-    try:
-        full_answer_parts: List[str] = []
-
-        # LangChain ChatOpenAI streaming pattern: astream(messages)[web:51][web:57]
-        async for chunk in llm_client_streaming.astream(messages):
-            # Newer LangChain: chunk is a ChatGenerationChunk / AIMessageChunk
-            # so chunk.content is the delta text.
-            text = getattr(chunk, "content", None) or ""
-            if not text:
-                # Fallback for older versions that expose generations
-                try:
-                    text = chunk.generations[0].text  # type: ignore
-                except Exception:
-                    text = ""
-
-            if text:
-                full_answer_parts.append(text)
-                yield text
-
-        # At this point, full_answer = "".join(full_answer_parts).strip()
-        # The caller can reconstruct it if needed.
-
-    except Exception:
-        yield "There was a temporary problem contacting the model, please try again."
-        return
-
-    # NOTE:
-    # - No follow_up suggestions here; run suggestion_llm_client AFTER
-    #   you have collected the full answer on the server side if needed.
