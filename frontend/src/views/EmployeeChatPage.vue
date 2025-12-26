@@ -152,7 +152,15 @@
                   </div>
                 </div>
 
-                <p class="mt-1 text-sm text-slate-100 whitespace-pre-line">
+                <MarkdownText
+                  v-if="msg.role === 'assistant' "
+                  :content="msg.text"
+                  class="mt-1 text-sm text-slate-100  prose prose-invert max-w-none "
+                  />
+                <p
+                  v-else
+                  class="mt-1 text-sm text-slate-100 whitespace-pre-line"
+                >
                   {{ msg.text }}
                 </p>
 
@@ -297,6 +305,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { queryPolicies, listConversations, getConversation, deleteConversation } from '../api'
 import { useQueryStream } from '../composables/useQueryStream'
+import MarkdownText from '../components/MarkdownText.vue'
 
 // Streaming composable
 const {
