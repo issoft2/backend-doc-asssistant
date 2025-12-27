@@ -83,7 +83,7 @@ def list_user_conversations(
     return list_conversations_for_user(
         db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.id,
+        user_id=current_user.email
         limit=20,
     )
     
@@ -99,7 +99,7 @@ def get_conversation_detail(
        db=db,
        conversation_id=conversation_id,
        tenant_id=current_user.tenant_id,
-       user_id=current_user.id
+       user_id=current_user.email
    )  
 
 
@@ -112,7 +112,7 @@ def delete_a_conversation(
     delete_conv = delete_conversation(
         db=db,
         conversation_id=conversation_id,
-        user_id=current_user.id,
+        user_id=current_user.email,
         tenant_id=current_user.tenant_id
      )
     if delete_conv is False:
