@@ -83,7 +83,7 @@ def list_user_conversations(
     return list_conversations_for_user(
         db=db,
         tenant_id=current_user.tenant_id,
-        user_id=current_user.email
+        user_id=current_user.email,
         limit=20,
     )
     
