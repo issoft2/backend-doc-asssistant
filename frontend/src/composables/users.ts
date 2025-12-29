@@ -15,3 +15,7 @@ export function updateUser(userId: string, payload: any) {
 export function deactivateUser(userId: string) {
     return axios.post(`/admin/users/${userId}/deactivate`);
 }
+
+export function toggleUserActive(userId: string) {
+  return axios.post(`/admin/users/${userId}/toggle-active`)
+}

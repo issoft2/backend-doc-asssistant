@@ -30,6 +30,7 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
     role: Optional[str] = None
     is_active: bool = True
+    create_at: Optional[str] = None
     
     class Config:
         from_attributes = True
