@@ -128,7 +128,7 @@
               </div>
 
               <div v-else>
-                <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-between gap-2" if="msg.role === 'assistant'">
                   <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                     Answer
                   </h2>

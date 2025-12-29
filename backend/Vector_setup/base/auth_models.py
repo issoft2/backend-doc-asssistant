@@ -10,6 +10,15 @@ class UserCreate(BaseModel):
     date_of_birth: str
     phone: str
     role: str
+    is_active: bool = True
+    
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    date_of_birth: Optional[str] = None  # or date
+    phone: Optional[str] = None
+    role: Optional[str] = None
+    is_active: bool = True   
     
 class UserOut(BaseModel):
     id: str
@@ -20,10 +29,13 @@ class UserOut(BaseModel):
     date_of_birth: Optional[str] = None  # or date
     phone: Optional[str] = None
     role: Optional[str] = None
+    is_active: bool = True
     
     class Config:
         from_attributes = True
     
 class UserInDB(UserOut):
     hashed_password: str        
+    
+    
     

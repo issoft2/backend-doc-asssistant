@@ -7,6 +7,7 @@ from Vector_setup.API.ingest_routes import router as ingest_router
 from Vector_setup.API.query_routes import router as query_router
 from Vector_setup.API.auth_router import router as user_router
 from Vector_setup.API.query_stream_routes import router as query_stream_router
+from Vector_setup.API.admin_users import router as admin_router
 
 from Vector_setup.user.db import init_db, DBUser, engine
 from Vector_setup.user.password import get_password_hash
@@ -43,6 +44,7 @@ app.include_router(ingest_router, prefix="/api", tags=["ingest"])
 app.include_router(query_router, prefix="/api", tags=["query"])
 app.include_router(user_router, prefix="/api", tags=["user"])
 app.include_router(query_stream_router, prefix="/api", tags=["query_stream"])
+app.include_router(admin_router, prefix="/api", tags=["admin_users"])
 
 
 
