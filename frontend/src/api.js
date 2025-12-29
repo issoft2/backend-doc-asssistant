@@ -60,6 +60,8 @@ export function listCollections(tenantId) {
   return api.get(`/companies/${tenantId}/collections`)
 }
 
+
+
 // Upload document to current tenant + collection
 export function uploadDocument({ tenantId, collectionName, title, file, doc_id }) {
   const formData = new FormData()
@@ -125,4 +127,32 @@ export function createCollection({ name }) {
 
 export function deleteConversation(conversationId) {
   return api.delete(`/conversations/${conversationId}`)
+}
+
+// users
+export function listUsers() {
+  return api.get('/company/users');
+}
+
+export function getUser(userId) {
+  return api.get(`/company/users/${userId}`)
+}
+
+export function updateUser({ userId, first_name, last_name, phone, date_of_birth, role, is_active }) {
+  return api.put(`/company/users/${userId}`, {  // ✅ PATCH + correct path
+    first_name,
+    last_name,
+    phone,
+    date_of_birth,
+    role,
+    is_active
+  })
+}
+
+export function deactivateUser({userId}){
+  return api.post('company/user',{userId})
+}
+
+export function toggleUserActive({userId}) {
+  return api.post('company/user/toggle-active',{userId})
 }

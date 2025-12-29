@@ -40,7 +40,7 @@
         </RouterLink>
 
          <RouterLink
-          to="/admin/users"
+          to="/company/users"
           class="block rounded-md px-3 py-2 hover:bg-slate-800"
           active-class="bg-slate-800"
         >
@@ -149,7 +149,7 @@
             Companies & Collections
           </RouterLink>
           <RouterLink class="block rounded-md px-3 py-2 hover:bg-slate-800"
-            to="/admin/users"
+            to="/company/users"
             @active-class="bg-slate-800"
             @click="mobileNavOpen = false"
             >
