@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from Vector_setup.user.db import get_db, DBUser
-from Vector_setup.base.auth_models import UserOut, UserUpdate, UserCreate
-from Vector_setup.user.auth_jwt import get_current_active_user
+from Vector_setup.base.auth_models import UserOut, UserUpdate
 from Vector_setup.API.admin_permission import require_user_admin
 
 
