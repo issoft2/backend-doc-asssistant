@@ -9,7 +9,7 @@ from Vector_setup.API.admin_permission import require_user_admin
 # Get all users
 router = APIRouter(prefix="/admin/users", tags=["admin_users"])
 
-@router.get("/", response_model=list[UserOut])
+@router.get("/", response_model=list[DBUser])
 def list_users(
     db: Session = Depends(get_db),
     _: DBUser = Depends(require_user_admin)  # Assume some admin authentication dependency
@@ -18,11 +18,11 @@ def list_users(
     return db.query(DBUser).all()
 
 # Get user by ID
-@router.get("/{user_id}", response_model=UserOut)
+@router.get("/{user_id}", response_model=DBUser)
 def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    _: UserOut = Depends(...),  # Assume some admin authentication dependency
+    _: DBUser = Depends(require_user_admin)  # Assume some admin authentication dependency
     
 ):
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
@@ -31,7 +31,7 @@ def get_user(
     return user
 
 # Update user by ID
-@router.put("/{user_id}", response_model=UserOut)
+@router.put("/{user_id}", response_model=DBUser)
 def update_user(
     user_id: str,
     user_update: UserUpdate,
