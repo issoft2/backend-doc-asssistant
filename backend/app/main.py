@@ -44,7 +44,7 @@ app.include_router(ingest_router, prefix="/api", tags=["ingest"])
 app.include_router(query_router, prefix="/api", tags=["query"])
 app.include_router(user_router, prefix="/api", tags=["user"])
 app.include_router(query_stream_router, prefix="/api", tags=["query_stream"])
-app.include_router(admin_router, prefix="/api", tags=["admin_users"])
+app.include_router(admin_router, prefix="/api", tags=["company_users"])
 
 
 

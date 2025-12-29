@@ -139,7 +139,7 @@ export function getUser(userId) {
 }
 
 export function updateUser({ userId, first_name, last_name, phone, date_of_birth, role, is_active }) {
-  return api.patch(`/admin/users/${userId}`, {  // ✅ PATCH + correct path
+  return api.put(`/company/users/${userId}`, {  // ✅ PATCH + correct path
     first_name,
     last_name,
     phone,
