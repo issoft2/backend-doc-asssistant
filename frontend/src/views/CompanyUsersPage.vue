@@ -286,6 +286,7 @@ async function onToggleActive(user) {
 }
 
 onMounted(() => {
+    console.log('CompanyUsersPage script loaded')
   loadUsers()
 })
 </script>
