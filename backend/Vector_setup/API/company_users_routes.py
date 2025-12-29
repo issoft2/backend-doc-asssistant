@@ -10,9 +10,9 @@ router = APIRouter(prefix="/company/users", tags=["company_users"])
 @router.get("/", response_model=List[UserOut])  # ✅ List[UserOut] for frontend array
 def list_users(
     db: Session = Depends(get_db),
-    _: DBUser = Depends(require_user_admin)  # ✅ DBUser, not UserOut
+    current_user: DBUser = Depends(require_user_admin)  # ✅ DBUser, not UserOut
 ):
-    users = db.query(DBUser).all()
+    users = db.query(DBUser).filter(DBUser.role != 'vendor').filter(DBUser.tenant_id == current_user.tenant_id).all()
     return [UserOut.from_orm(user) for user in users]  # ✅ Convert to Pydantic for frontend
 
 @router.get("/{user_id}", response_model=UserOut)  # ✅ UserOut, not DBUser

@@ -38,6 +38,13 @@
         >
           Companies & Collections
         </RouterLink>
+           <RouterLink
+            to="/admin/users"
+            class="block rounded-md px-3 py-2 hover:bg-slate-800"
+            active-class="bg-slate-800"
+          >
+            Users
+        </RouterLink>
       </nav>
 
       <div class="px-4 py-3 border-t border-slate-800 text-xs text-slate-400">
@@ -141,7 +148,7 @@
             Companies & Collections
           </RouterLink>
           <RouterLink
-            to="/company/users"
+            to="/admin/users"
             class="block rounded-md px-3 py-2 hover:bg-slate-800"
             active-class="bg-slate-800"
           >
