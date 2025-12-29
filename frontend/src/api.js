@@ -129,30 +129,23 @@ export function deleteConversation(conversationId) {
   return api.delete(`/conversations/${conversationId}`)
 }
 
-// users
-export function listUsers() {
-  return api.get('/company/users');
+// List all users (admin only)
+export function listCompanyUsers() {
+  return api.get('/company/users/')
 }
 
-export function getUser(userId) {
+// Get single user (if need for detail/edit view)
+export function getCompanyUser(userId) {
   return api.get(`/company/users/${userId}`)
 }
 
-export function updateUser({ userId, first_name, last_name, phone, date_of_birth, role, is_active }) {
-  return api.put(`/company/users/${userId}`, {  // ✅ PATCH + correct path
-    first_name,
-    last_name,
-    phone,
-    date_of_birth,
-    role,
-    is_active
-  })
+// Update user
+export function updateCompanyUser(userId, payload) {
+  // payload matches userUpdate shape: {first_name?, last_name?, date_of_birth?, phone?, role?, is_active?}
+  return api.put(`/company/users/${userId}`, payload)
 }
 
-export function deactivateUser({userId}){
-  return api.post('company/user',{userId})
-}
-
-export function toggleUserActive({userId}) {
-  return api.post('company/user/toggle-active',{userId})
+// Toggle active / inactive
+export function toggleCompanyUserActive(userId) {
+  return api.post(`/company/users/${userId}/toggle-active`)
 }

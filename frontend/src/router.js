@@ -8,7 +8,7 @@ import LoginPage from './views/LoginPage.vue'
 import SignupPage from './views/SignupPage.vue'
 import { authState } from './authStore'
 import HomePage from './views/HomePage.vue'   // ⬅ add this
-import CompanyUsers from './views/CompanyUsers.vue'
+import CompanyUsersPage from './views/CompanyUsersPage.vue'
 
 
 const routes = [
@@ -38,10 +38,10 @@ const routes = [
         component: AdminCompaniesPage,
       },
       {
-        path: 'company/users',
+        path: 'users',
         name: 'company-users',
-        component: CompanyUsers,
-      }
+        component: CompanyUsersPage,
+      },
     ],
   },
 
