@@ -37,5 +37,6 @@ def get_user_by_email(email: str, db: Session) -> UserInDB | None:
         last_name=db_user.last_name,
         date_of_birth=db_user.date_of_birth,
         phone=db_user.phone,
-        role=db_user.role
+        role=db_user.role,
+        is_active=db_user.is_active
     )
