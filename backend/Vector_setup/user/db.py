@@ -38,6 +38,21 @@ class ChatMessage(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     conversation_id: str | None = Field(nullable=False, index=True)
         
+        
+class TenantGoogleDriveConfig(SQLModel, table=True):
+    __tablename__ = "tenant_google_drive_config"
+
+    id: int | None = Field(default=None, primary_key=True)
+    tenant_id: str = Field(index=True)
+    refresh_token: str
+    account_email: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_drivecfg_tenant"),
+    )
+        
 
 def init_db():
     SQLModel.metadata.create_all(engine)

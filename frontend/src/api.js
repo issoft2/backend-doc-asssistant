@@ -148,3 +148,12 @@ export function deleteConversation(conversationId) {
   return api.delete(`/conversations/${conversationId}`)
 }
 
+// Google Drive connections for ingest
+export function getGoogleDriveAuthUrl() {
+   return api.get('/google-drive/auth_url')
+}
+
+export function getGoogleDriveStatus() {
+  return api.get('/google-drive/status')
+}
+
