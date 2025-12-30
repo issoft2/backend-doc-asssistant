@@ -9,43 +9,64 @@ export const authState = reactive({
 })
 
 export async function login({ email, password }) {
-  // 1) login to get token
-  const { data: tokenData } = await apiLogin({ email, password })
-  const token = tokenData.access_token
+  const { data } = await apiLogin({ email, password })
+  // data can be:
+  // { access_token, token_type, requires_tenant_selection: false }
+  // or
+  // { requires_tenant_selection: true, tenants: [...] }
+
+  if (data.requires_tenant_selection) {
+    // phase 1 only: no token, no /me, no redirect
+    return data
+  }
+
+  // single-tenant case: token is already present
+  const token = data.access_token
+  if (!token) {
+    throw new Error('No token returned from login')
+  }
+
   authState.accessToken = token
   setAuthToken(token)
 
-  // 2) fetch current user (includes role, tenant_id, etc.)
   const { data: user } = await apiMe()
   authState.user = user
   localStorage.setItem('user', JSON.stringify(user))
 
-  // 3) redirect based on role
   if (['hr', 'executive', 'management'].includes(user.role)) {
-    await router.push('/admin/companies') // or /admin/ingest – your choice
+    await router.push('/admin/companies')
   } else {
     await router.push('/chat')
   }
+
+  return data
 }
+
 
 export async function loginToTenant({ email, tenant_id }) {
-  const res = await api.post('/login/tenant', { email, tenant_id })
+  const { data } = await api.post('/login/tenant', { email, tenant_id })
 
-  const token = res.data.access_token
+  const token = data.access_token
   if (!token) {
-    throw new Error("No token returned from tenant login")
+    throw new Error('No token returned from tenant login')
   }
 
-  // store token (adapt to your existing pattern)
-  authState.token = token
-  localStorage.setItem('access_token', token)
+  authState.accessToken = token
+  setAuthToken(token)
 
-  // optionally decode token to set authState.user /tenantId
-  // const payload = JSON.parse(atob(token.split('.)[1]))
+  const { data: user } = await apiMe()
+  authState.user = user
+  localStorage.setItem('user', JSON.stringify(user))
 
-  // redirect to main app, e.g. chat or admin
-  router.push('/chat')
+  if (['hr', 'executive', 'management'].includes(user.role)) {
+    await router.push('/admin/companies')
+  } else {
+    await router.push('/chat')
+  }
+
+  return data
 }
+
 
 export function logout() {
   authState.accessToken = null
