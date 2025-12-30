@@ -1,7 +1,9 @@
 // authStore.js
 import { reactive } from 'vue'
 import router from './router'
-import { setAuthToken, login as apiLogin, me as apiMe,  loginToTenant } from './api'
+import api from './api'
+
+import { setAuthToken, login as apiLogin, me as apiMe } from './api'
 
 export const authState = reactive({
   accessToken: localStorage.getItem('access_token') || null,
@@ -38,17 +40,22 @@ export async function login({ email, password }) {
   return data
 }
 
+export async function loginToTenant({ email, tenant_id }) {
+  const { data } = await api.post('/auth/login/tenant', {
+    email,
+    tenant_id,
+  })
 
-export async function loginTenant({ email, tenant_id }) {
-  const { data } = await loginToTenant({ email, tenant_id })
-  
   const token = data.access_token
-  if (!token) throw new Error('No token returned from tenant login')
+  if (!token) {
+    throw new Error('No token returned from tenant login')
+  }
 
   authState.accessToken = token
   setAuthToken(token)
 
-  const { data: user } = await apiMe()
+  const meResponse = await apiMe()
+  const user = meResponse.data
   authState.user = user
   localStorage.setItem('user', JSON.stringify(user))
 
@@ -60,7 +67,6 @@ export async function loginTenant({ email, tenant_id }) {
 
   return data
 }
-
 
 export function logout() {
   authState.accessToken = null

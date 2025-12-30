@@ -97,7 +97,7 @@
 <script setup>
 
 import { ref } from 'vue'
-import { login, loginTenant } from '../authStore'
+import { login, loginToTenant } from '../authStore'
 
 const email = ref('')
 const password = ref('')
@@ -137,11 +137,10 @@ async function onTenantSubmit() {
   error.value = ''
 
   try {
-    await loginTenant({
+    await loginToTenant({
       email: email.value,
       tenant_id: selectedTenantId.value,
     })
-    // loginToTenant store token and redirects
   } catch (e) {
     console.error('tenant error', e)
     error.value = e.response?.data?.detail || e.message || 'Tenant login failed.'

@@ -120,15 +120,6 @@ export function login({ email, password }) {
     })
 }
 
-export function loginToTenant({ email, tenantId }) {
-  // Backend expects: { "email": "...", "tenant_id": "..." }
-    const { data } =  api.post('/auth/login/tenant', {
-    email,
-    tenant_id: tenantId,
-  })
-  return data
-}
-
 // Employee chat query
 export function queryPolicies({ question, topK = 5, conversationId}) {
   return api.post('/query', {
