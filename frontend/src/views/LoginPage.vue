@@ -143,7 +143,8 @@ async function onTenantSubmit() {
     })
     // loginToTenant store token and redirects
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Tenant login failed.'
+    console.error('tenant error', e)
+    error.value = e.response?.data?.detail || e.message || 'Tenant login failed.'
   } finally {
     loading.value = false
   }

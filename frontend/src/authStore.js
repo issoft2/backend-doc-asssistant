@@ -45,11 +45,8 @@ export async function login({ email, password }) {
 
 export async function loginToTenant({ email, tenant_id }) {
   const { data } = await api.post('/login/tenant', { email, tenant_id })
-
   const token = data.access_token
-  if (!token) {
-    throw new Error('No token returned from tenant login')
-  }
+  if (!token) throw new Error('No token returned from tenant login')
 
   authState.accessToken = token
   setAuthToken(token)
