@@ -433,10 +433,10 @@ const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
 
 const isVendor = computed(() => currentRole.value === 'vendor')
 const canUpload = computed(() =>
-  ['hr', 'executive'].includes(currentRole.value?.toLowerCase()),
+  ['hr', 'executive', 'admin', 'management'].includes(currentRole.value?.toLowerCase()),
 )
 const canManageUsers = computed(() =>
-  ['vendor', 'hr', 'executive'].includes(currentRole.value?.toLowerCase()),
+  ['vendor', 'hr', 'executive', 'admin', 'management'].includes(currentRole.value?.toLowerCase()),
 )
 
 // Upload modal state
