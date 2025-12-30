@@ -34,8 +34,8 @@ def get_user_by_email(
     db: Session
 ) -> UserInDB | None:
     
-    stmt = select (
-        (DBUser)
+    stmt = (
+        select(DBUser)
         .where(DBUser.email == email)
         .where(DBUser.tenant_id == tenant_id)
     )
