@@ -35,7 +35,7 @@ export async function login({ email, password }) {
   authState.user = user
   localStorage.setItem('user', JSON.stringify(user))
 
-  if (['hr', 'executive', 'management'].includes(user.role)) {
+  if (['hr', 'executive', 'management', 'admin'].includes(user.role)) {
     await router.push('/admin/companies')
   } else {
     await router.push('/chat')
