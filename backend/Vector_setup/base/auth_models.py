@@ -39,4 +39,6 @@ class UserInDB(UserOut):
     hashed_password: str        
     
     
-    
+class LoginRequestTenant(BaseModel):
+    email: str
+    tenant_id: str    

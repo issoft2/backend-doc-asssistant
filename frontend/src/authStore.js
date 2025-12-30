@@ -28,6 +28,25 @@ export async function login({ email, password }) {
   }
 }
 
+export async function loginToTenant({ email, tenant_id }) {
+  const res = await api.post('/login/tenant', { email, tenant_id })
+
+  const token = res.data.access_token
+  if (!token) {
+    throw new Error("No token returned from tenant login")
+  }
+
+  // store token (adapt to your existing pattern)
+  authState.token = token
+  localStorage.setItem('access_token', token)
+
+  // optionally decode token to set authState.user /tenantId
+  // const payload = JSON.parse(atob(token.split('.)[1]))
+
+  // redirect to main app, e.g. chat or admin
+  router.push('/chat')
+}
+
 export function logout() {
   authState.accessToken = null
   authState.user = null

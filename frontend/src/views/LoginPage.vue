@@ -8,7 +8,12 @@
         Enter your work email to access your company policies.
       </p>
 
-      <form class="space-y-3" @submit.prevent="onSubmit">
+      <form 
+        v-if="!requiresTenantSelection" 
+        class="space-y-3"
+         @submit.prevent="onSubmit"
+         >
+
         <div class="space-y-1">
           <label class="block text-xs font-medium text-slate-700">
             Email
@@ -43,6 +48,45 @@
         </button>
       </form>
 
+      <form
+        v-else
+        class="space-y-3"
+        @submit.prevent="onTenantSubmit"
+      >
+        <p class="text-xs text-slate-500">
+          Select the company you want to sign in to.
+        </p>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-medium text-slate-700">
+            Company
+          </label>
+          <select
+            v-model="selectedTenantId"
+            class="w-full rounded-lg border px-3 py-2 text-sm"
+            required
+          >
+            <option disabled value="">Select a company…</option>
+            <option
+              v-for="t in tenantOptions"
+              :key="t.tenant_id"
+              :value="t.tenant_id"
+            >
+              {{ t.name || t.tenant_id }} – {{ t.role }}
+            </option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          class="btn-primary w-full"
+          :disabled="loading || !selectedTenantId"
+        >
+          <span v-if="!loading">Continue</span>
+          <span v-else>Signing in…</span>
+        </button>
+      </form>
+
       <p v-if="error" class="text-xs text-red-600">
         {{ error }}
       </p>
@@ -53,21 +97,53 @@
 <script setup>
 
 import { ref } from 'vue'
-import { login } from '../authStore'
+import { login, loginToTenant } from '../authStore'
 
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+const requiresTenantSelection = ref(false)
+const tenantOptions = ref([])
+const selectedTenantId = ref('')
+
 async function onSubmit() {
   loading.value = true
   error.value = ''
+  requiresTenantSelection.value = false
+  tenantOptions.value = []
+  selectedTenantId.value = ''
   try {
-    await login({ email: email.value, password: password.value })
+   const res = await login({ email: email.value, password: password.value })
+
+    // Expect shape: {access_token? requires_tenant_selection, tenants? }
+    if (res.requires_tenant_selection) {
+      requiresTenantSelection.value = true
+      tenantOptions.value = res.tenants || []
+    } else {
+      // Token already stored inside login(), redirect happens there
+    }
     // redirect handled inside login()
   } catch (e) {
     error.value = e.response?.data?.detail || 'Login failed.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function onTenantSubmit() {
+  loading.value = true
+  error.value = ''
+
+  try {
+    await loginToTenant({
+      email: email.value,
+      tenant_id: selectedTenantId.value,
+    })
+    // loginToTenant store token and redirects
+  } catch (e) {
+    error.value = e.response?.data?.detail || 'Tenant login failed.'
   } finally {
     loading.value = false
   }

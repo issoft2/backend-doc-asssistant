@@ -9,8 +9,9 @@ from jose import JWTError, jwt, ExpiredSignatureError
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from .auth_store import get_user_by_email
-from Vector_setup.base.auth_models import UserOut
+from .auth_store import get_user_by_email, get_users_by_email
+from Vector_setup.base.auth_models import UserOut, UserInDB
+from .db import DBUser
 import os
 from .password import verify_password
 from sqlmodel import Session
@@ -41,13 +42,19 @@ def create_access_token(
 
 
 
-def authenticate_user(email: str, password: str, db: Session):
-    user = get_user_by_email(email, db)
-    if not user:
+def authenticate_user(email: str, password: str, db: Session) -> tuple[UserInDB, list[DBUser]] | None:
+    
+    users = get_users_by_email(email, db)
+    if not users:
         return None
-    if not verify_password(password, user.hashed_password):
+    
+    # Assume same hashed_password for all; use the first as reference
+    ref = users[0]
+    if not verify_password(password, ref.hashed_password):
         return None
-    return user
+    
+    # Return one canonical user plus all tenant rows
+    return UserInDB.from_orm(ref), users
 
 
 class TokenUser(BaseModel):
@@ -73,7 +80,7 @@ async def get_current_user(
         raise credentials_exception
 
     # now pass db into get_user_by_email
-    user = get_user_by_email(email, db)
+    user = get_user_by_email(email, tenant_id, db)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
