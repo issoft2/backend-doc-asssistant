@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { authState, logout } from '../authStore'
 
 const canSeeAdmin = computed(() =>
-  ['hr', 'executive', 'management', 'vendor'].includes(authState.user?.role)
+  ['hr', 'executive', 'management', 'vendor', 'admin'].includes(authState.user?.role)
 )
 
 const roleLabel = computed(() => {
