@@ -6,6 +6,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from Vector_setup.user.db import DBUser, TenantGoogleDriveConfig, get_db
 from Vector_setup.API.admin_permission import require_tenant_admin
+import os
 
 from dotenv import load_dotenv
 
