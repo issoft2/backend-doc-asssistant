@@ -6,7 +6,7 @@ from typing import Annotated
 
 
 # Permission/Access authentication dependencies would be defined elsewhere
-ALLOWED_ADMIN_ROLES = {"hr", "executive", "management", "vendor"}
+ALLOWED_ADMIN_ROLES = {"hr", "executive", "management", "vendor", "admin"}
 
 def require_user_admin(user: UserOut = Depends(get_current_user)) -> UserOut:
     if user.role not in ALLOWED_ADMIN_ROLES:
