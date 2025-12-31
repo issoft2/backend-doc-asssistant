@@ -24,7 +24,7 @@ const routes = [
     component: AdminLayout,
     meta: {
       requiresAuth: true,
-      roles: ['hr', 'executive', 'management', 'vendor'], // only these see admin layout
+      roles: ['hr', 'executive', 'management', 'vendor', 'admin'], // only these see admin layout
     },
     children: [
       {
