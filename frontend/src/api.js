@@ -150,7 +150,7 @@ export function deleteConversation(conversationId) {
 
 // Google Drive connections for ingest
 export function getGoogleDriveAuthUrl() {
-   return api.get('/google-drive/auth_url')
+   return api.get('/google-drive/auth-url')
 }
 
 export function getGoogleDriveStatus() {
