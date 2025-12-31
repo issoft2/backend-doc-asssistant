@@ -5,6 +5,7 @@ from Vector_setup.user.db import get_db, DBUser
 from Vector_setup.base.auth_models import UserOut, UserUpdate
 from Vector_setup.API.admin_permission import require_user_admin
 
+
 router = APIRouter(prefix="/company/users", tags=["company_users"])
 
 @router.get("/", response_model=List[UserOut])  # ✅ List[UserOut] for frontend array

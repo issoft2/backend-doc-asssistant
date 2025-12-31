@@ -301,33 +301,96 @@
     </section>
 
     <!-- Google-Drive connection session-->
-     <section class="mt-6 border rounded-lg p-4">
-  <h2 class="text-sm font-semibold text-slate-800">
-    Google Drive
-  </h2>
-  <p class="text-xs text-slate-500 mt-1">
-    Connect your company’s Google Drive to ingest documents.
-  </p>
+    <section class="mt-6 border rounded-lg p-4">
+      <h2 class="text-sm font-semibold text-slate-800">
+        Google Drive
+      </h2>
+      <p class="text-xs text-slate-500 mt-1">
+        Connect your company’s Google Drive to ingest documents.
+      </p>
 
-  <div class="mt-3 flex items-center justify-between">
-    <div class="text-xs text-slate-600">
-      <span v-if="googleDriveStatus === 'connected'">
-        Connected<span v-if="googleDriveEmail"> as {{ googleDriveEmail }}</span>.
-      </span>
-      <span v-else>
-        Not connected.
-      </span>
-    </div>
+      <div class="mt-3 flex items-center justify-between">
+        <div class="text-xs text-slate-600">
+          <span v-if="googleDriveStatus === 'connected'">
+            Connected<span v-if="googleDriveEmail"> as {{ googleDriveEmail }}</span>.
+          </span>
+          <span v-else>
+            Not connected.
+          </span>
+        </div>
 
-    <button
-      type="button"
-      class="btn-secondary text-xs"
-      @click="connectGoogleDrive"
+        <button
+          type="button"
+          class="btn-secondary text-xs"
+          @click="connectGoogleDrive"
+        >
+          {{ googleDriveStatus === 'connected' ? 'Reconnect' : 'Connect Google Drive' }}
+        </button>
+      </div>
+    </section>
+
+
+
+    <section
+      class="mt-4 border rounded-lg p-4"
+      v-if="googleDriveStatus === 'connected'"
     >
-      {{ googleDriveStatus === 'connected' ? 'Reconnect' : 'Connect Google Drive' }}
-    </button>
-  </div>
-</section>
+      <h3 class="text-sm font-semibold text-slate-800">
+        Import from Google Drive
+      </h3>
+      <p class="text-xs text-slate-500 mt-1">
+        Browse your Drive files and import them into the selected collection.
+      </p>
+
+      <div class="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          class="btn-secondary text-xs"
+          @click="loadDriveFiles"
+          :disabled="driveLoading"
+        >
+          {{ driveLoading ? 'Loading…' : 'Load Drive files' }}
+        </button>
+        <span class="text-[11px] text-slate-500">
+          Collection:
+          <span class="font-semibold">
+            {{ activeCollectionName || 'none selected' }}
+          </span>
+        </span>
+      </div>
+
+      <p v-if="driveError" class="text-xs text-red-600 mt-2">
+        {{ driveError }}
+      </p>
+      <p v-if="driveIngestMessage" class="text-xs text-emerald-600 mt-2">
+        {{ driveIngestMessage }}
+      </p>
+
+      <ul
+        v-if="driveFiles.length"
+        class="mt-3 space-y-1 max-h-60 overflow-auto text-xs"
+      >
+        <li
+          v-for="file in driveFiles"
+          :key="file.id"
+          class="flex items-center justify-between border-b pb-1"
+        >
+          <span class="truncate mr-2">{{ file.name }}</span>
+          <button
+            type="button"
+            class="btn-primary text-[11px]"
+            @click="onIngestDriveFile(file)"
+          >
+            Ingest
+          </button>
+        </li>
+      </ul>
+
+      <p v-else-if="!driveLoading" class="text-[11px] text-slate-400 mt-2">
+        No files loaded yet. Click "Load Drive files" to see your Drive.
+      </p>
+    </section>
+
 
   </div>
 </template>
@@ -341,7 +404,9 @@ import {
   uploadDocument,
   listCollections,
   getGoogleDriveAuthUrl,
-  getGoogleDriveStatus
+  getGoogleDriveStatus,
+  listDriveFiles,
+  ingestDriveFile,
 } from '../api'
 
 const collections = ref([])
@@ -368,9 +433,15 @@ const uploadError = ref('')
 
 const fileInput = ref(null)
 
-const googleDriveStatus = ref<'connected' | 'disconnected'>('disconnected')
+// remove TS type annotation here
+const googleDriveStatus = ref('disconnected') // 'connected' | 'disconnected'
 const googleDriveEmail = ref('')
 const connectingDrive = ref(false)
+
+const driveFiles = ref([])
+const driveLoading = ref(false)
+const driveError = ref('')
+const driveIngestMessage = ref('')
 
 // Role awareness
 const currentUser = computed(() => authState.user)
@@ -379,7 +450,9 @@ const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
 
 const isVendor = computed(() => currentRole.value === 'vendor')
 const canCreateCollections = computed(() =>
-  ['hr', 'executive', 'admin', 'management'].includes(currentRole.value?.toLowerCase())
+  ['hr', 'executive', 'admin', 'management'].includes(
+    currentRole.value?.toLowerCase()
+  )
 )
 
 async function loadCollections() {
@@ -405,10 +478,6 @@ async function loadCollections() {
 onMounted(() => {
   loadCollections()
   loadGoogleDriveStatus()
-
-  if (route.query.googleDriveConnected === '1') {
-    // optional toast/snackbar that Drive is now connected
-  }
 })
 
 // Vendor: configure company + first collection
@@ -539,35 +608,78 @@ async function onUpload() {
   }
 }
 
-
-// Google Drive ingest connection:
+// Google Drive ingest connection
 async function connectGoogleDrive() {
+  if (connectingDrive.value) return
+  connectingDrive.value = true
   try {
-
-    const {data } = await getGoogleDriveAuthUrl()
-    // data.auth_url should be generated by backend
-     window.location.href = data.auth_url
-     // expected shape: { connected: boolean, account_email: string | null }
-    googleDriveStatus.value = data.connected ? 'connected' : 'disconnected'
-    googleDriveEmail.value = data.account_email || ''
+    const { data } = await getGoogleDriveAuthUrl()
+    // Backend returns the URL to redirect the user to OAuth
+    window.location.href = data.auth_url
+    // After redirect and callback, your backend should persist status.
+    // Frontend will pick it up on next load via loadGoogleDriveStatus.
   } catch (e) {
     console.error('Failed to start Google Drive auth', e)
     googleDriveStatus.value = 'disconnected'
     googleDriveEmail.value = ''
+  } finally {
+    connectingDrive.value = false
   }
 }
 
-
-// optional: load status from backend
+// load status from backend
 async function loadGoogleDriveStatus() {
   try {
-    const { data } = await getGoogleDriveStatus()  //
-    // expected shape: { connected: boolean, account_email: string | null }
+    const { data } = await getGoogleDriveStatus()
     googleDriveStatus.value = data.connected ? 'connected' : 'disconnected'
     googleDriveEmail.value = data.account_email || ''
-  } catch {
+  } catch (e) {
+    console.error('Failed to load Google Drive status', e)
     googleDriveStatus.value = 'disconnected'
     googleDriveEmail.value = ''
   }
 }
+
+async function loadDriveFiles() {
+  driveLoading.value = true
+  driveError.value = ''
+  driveIngestMessage.value = ''
+  try {
+    const resp = await listDriveFiles()
+    driveFiles.value = resp.data || []
+  } catch (e) {
+    console.error('Failed to load Drive files', e)
+    driveError.value = 'Failed to load Google Drive files.'
+    driveFiles.value = []
+  } finally {
+    driveLoading.value = false
+  }
+}
+
+async function onIngestDriveFile(fileObj) {
+  driveError.value = ''
+  driveIngestMessage.value = ''
+
+  if (!currentTenantId.value) {
+    driveError.value = 'No tenant is associated with your account.'
+    return
+  }
+  if (!activeCollectionName.value) {
+    driveError.value = 'Select a collection before ingesting from Drive.'
+    return
+  }
+
+  try {
+    await ingestDriveFile({
+      fileId: fileObj.id,
+      collectionName: activeCollectionName.value,
+      title: fileObj.name,
+    })
+    driveIngestMessage.value = `Ingested "${fileObj.name}" from Google Drive.`
+  } catch (e) {
+    console.error('Failed to ingest Drive file', e)
+    driveError.value = 'Failed to ingest file from Google Drive.'
+  }
+}
 </script>
+

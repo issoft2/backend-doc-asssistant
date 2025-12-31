@@ -14,6 +14,8 @@ services:
       - ./data:/app/data
 
     restart: unless-stopped
+    networks:
+      - app_net
 
   frontend:
     build: ./frontend
@@ -24,6 +26,13 @@ services:
       - backend
     # NO GPU - web static files
     restart: unless-stopped
+    networks:
+      - app_net
+
 
 volumes:
   chroma_data:
+
+networks:
+  app_net:
+    driver: bridge  

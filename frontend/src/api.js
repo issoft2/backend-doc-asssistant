@@ -157,3 +157,15 @@ export function getGoogleDriveStatus() {
   return api.get('/google-drive/status')
 }
 
+export function listDriveFiles() {
+  return api.get('/google-drive/files')
+}
+
+
+export function ingestDriveFile(payload) {
+  return api.post('/google-drive/ingest', {
+    file_id: payload.fileId,
+    collection_name: payload.collectionName,
+    title: payload.title,
+  })
+}

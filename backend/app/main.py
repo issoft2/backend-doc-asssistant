@@ -56,6 +56,8 @@ VENDOR_EMAIL = os.getenv("VENDOR_EMAIL", "vendor@example.com")
 VENDOR_PASSWORD = os.getenv("VENDOR_PASSWORD", "change_me_vendor")
 VENDOR_TENANT_ID = os.getenv("VENDOR_TENANT_ID", "vendor-root")  # special tenant_id
 
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 @app.on_event("startup")
 def seed_vendor_user():
     with Session(engine) as session:
