@@ -222,21 +222,26 @@
               Your question
             </label>
 
-            <div class="relative">
-              <!-- Rotating "working..." indicator -->
-              <div
-                v-if="loading || isStreaming"
-                class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1 mb-1"
-                role="status"
-              >
-                <div
-                  class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"
-                ></div>
-                <span class="text-[11px] font-medium text-slate-100">
-                  {{ isStreaming ? (streamStatus || 'Generating…') : 'Working…' }}
-                </span>
-              </div>
 
+            <!-- System interaction while generating -->
+          <div v-if="loading || isStreaming" class="mb-2 space-y-1">
+            <div
+              class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
+              role="status"
+            >
+              <div class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"></div>
+              <span class="text-[11px] font-medium text-slate-100">
+                {{ streamStatus || 'Processing your question…' }}
+              </span>
+            </div>
+
+            <ul class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto">
+              <li v-for="(step, i) in statusSteps" :key="i">
+                {{ step }}
+              </li>
+            </ul>
+          </div>
+            <div class="relative">
               <!-- Stop button when streaming -->
               <button
                 v-if="isStreaming"
@@ -307,6 +312,7 @@ import MarkdownText from '../components/MarkdownText.vue'
 const {
   answer: streamedAnswer,
   status: streamStatus,
+  statuses: statusSteps,
   isStreaming,
   suggestions,          // <- from composable
   startStream,

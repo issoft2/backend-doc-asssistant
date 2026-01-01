@@ -2,10 +2,11 @@ import { ref } from 'vue'
 
 export function useQueryStream() {
   const answer = ref('')
-  const status = ref('')
+  const statuses = ref<string[]>([])
   const isStreaming = ref(false)
   const eventSource = ref<EventSource | null>(null)
   const suggestions = ref<string[]>([])
+  const status = ref('')
 
   const startStream = (payload: {
     question: string
@@ -27,7 +28,8 @@ export function useQueryStream() {
 
     // reset state for new request
     answer.value = ''
-    status.value = 'Starting...'
+    status.value = ''
+    statuses.value = []
     suggestions.value = []
     isStreaming.value = true
 
@@ -41,7 +43,9 @@ export function useQueryStream() {
     eventSource.value = es
 
     es.addEventListener('status', (e: MessageEvent) => {
-      status.value = e.data || ''
+      const msg = e.data || ''
+      status.value = msg
+      if (msg) statuses.value.push(msg)
     })
 
     es.addEventListener('token', (e: MessageEvent) => {
@@ -60,6 +64,7 @@ export function useQueryStream() {
 
     es.addEventListener('done', () => {
       status.value = 'Completed'
+      statuses.value.push('Completed')
       isStreaming.value = false
       es.close()
       eventSource.value = null
@@ -67,6 +72,7 @@ export function useQueryStream() {
 
     es.onerror = () => {
       status.value = 'Error occurred during streaming.'
+      statuses.value.push('Error occurred during streaming.')
       isStreaming.value = false
       es.close()
       eventSource.value = null
@@ -79,12 +85,14 @@ export function useQueryStream() {
       eventSource.value = null
     }
     status.value = 'Stopped'
+    statuses.value.push('Stopped')
     isStreaming.value = false
   }
 
   return {
     answer,
     status,
+    statuses,
     isStreaming,
     suggestions,
     startStream,

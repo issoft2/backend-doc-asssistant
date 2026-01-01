@@ -68,7 +68,15 @@ const routes = [
 
   { path: '/auth', redirect: '/login' },
 
-  { path: '/not-allowed', name: 'not-allowed', component: NotAllowedPage },
+  { 
+    path: '/not-allowed',
+    name: 'not-allowed',
+    component: NotAllowedPage,
+    meta: {
+      // no roles, and usually no requireAuth so guard won't reject it
+      // requiresAuth: false
+    }
+   },
 
 ]
 
@@ -81,19 +89,24 @@ export const router = createRouter({
 router.beforeEach((to, from, next) => {
   const isAuthenticated = !!authState.accessToken
   const role = authState.user?.role
-
+  
+  // Auth check
   if (to.matched.some(r => r.meta.requiresAuth) && !isAuthenticated) {
+    // if we are already on login, just proceed
+    if (to.name === 'login') return next()
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
+  // Role check
   const requiredRoles = to.matched
     .filter(r => r.meta && r.meta.roles)
     .flatMap(r => r.meta.roles || [])
 
   if (requiredRoles.length && role && !requiredRoles.includes(role)){
-    // Instead of sending back into /chat (which caused the loop).
-    // send to a dedicated "not allowed" page.
-    return next({name: 'not_allowed'})
+    // if already no not-allowed, don't redirect again
+    if (to.name === 'not-allowed') return next()
+    // single, safe target that does NOT have conflicting meta.roles
+    return next({name: 'not-allowed'})
   }
 
   next()

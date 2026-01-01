@@ -21,6 +21,90 @@ from LLM_Config.llm_pipeline import llm_pipeline_stream
 router = APIRouter()
 
 
+# @router.get("/query/stream")
+# async def query_knowledge_stream(
+#     request: Request,
+#     question: str,
+#     conversation_id: str,
+#     top_k: int = 5,
+#     collection_name: Optional[str] = None,  # currently unused
+#     current_user: TokenUser = Depends(get_current_user_from_header_or_query),
+#     store: MultiTenantChromaStoreManager = Depends(get_store),
+#     db: Session = Depends(get_db),
+# ):
+#     if not conversation_id:
+#         raise HTTPException(status_code=403, detail="Session has expired!")
+
+#     history_turns = get_last_n_turns(
+#         db=db,
+#         tenant_id=current_user.tenant_id,
+#         user_id=current_user.email,
+#         n_turns=3,
+#         conversation_id=conversation_id,
+#     )
+
+#     async def event_generator():
+#         full_answer: list[str] = []
+
+#         # Status events
+#         yield "event: status\ndata: Analyzing your request...\n\n"
+#         yield "event: status\ndata: Retrieving relevant information...\n\n"
+
+#         # Stream main answer
+#         async for chunk in llm_pipeline_stream(
+#             store=store,
+#             tenant_id=current_user.tenant_id,
+#             question=question,
+#             history=history_turns,
+#             top_k=top_k,
+#         ):
+#             if await request.is_disconnected():
+#                 break
+#             if not chunk:
+#                 continue
+
+#             # Preserve exact LLM text
+#             full_answer.append(chunk)
+
+#             # Encode newlines for safer streaming; frontend will decode
+#             safe_chunk = chunk.replace("\n", "<|n|>")
+#             yield f"event: token\ndata: {safe_chunk}\n\n"
+
+#         # Reconstruct final answer exactly as produced
+#         answer_str = "".join(full_answer)
+
+#         if answer_str:
+#             # Persist chat turn
+#             save_chat_turn(
+#                 db=db,
+#                 tenant_id=current_user.tenant_id,
+#                 user_id=current_user.email,
+#                 user_message=question,
+#                 assistant_message=answer_str,
+#                 conversation_id=conversation_id,
+#             )
+
+#             # Generate follow-up suggestions (same pattern as llm_pipeline)
+#             suggestions_list: list[str] = []
+#             try:
+#                 suggestion_messages = create_suggestion_prompt(question, answer_str)
+#                 raw = suggestion_llm_client.invoke(suggestion_messages)
+#                 raw_content = getattr(raw, "content", None) or str(raw)
+#                 suggestions_list = json.loads(raw_content)
+#             except Exception:
+#                 suggestions_list = []
+
+#             # Stream suggestions once, as JSON
+#             if suggestions_list:
+#                 payload = json.dumps(suggestions_list)
+#                 yield f"event: suggestions\ndata: {payload}\n\n"
+
+#         yield "event: status\ndata: Finalizing...\n\n"
+#         yield "event: done\ndata: END\n\n"
+
+#     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,
@@ -43,14 +127,25 @@ async def query_knowledge_stream(
         conversation_id=conversation_id,
     )
 
+    def send_status(msg: str) -> str:
+        # Helper to keep status event formatting consistent
+        return f"event: status\ndata: {msg}\n\n"
+
     async def event_generator():
         full_answer: list[str] = []
 
-        # Status events
-        yield "event: status\ndata: Analyzing your request...\n\n"
-        yield "event: status\ndata: Retrieving relevant information...\n\n"
+        # --- high-level pipeline steps ---
+        # 1) Understand question
+        yield send_status("Analyzing your question…")
 
-        # Stream main answer
+        # 2) Retrieve & rank docs for RAG
+        yield send_status("Retrieving relevant information…")
+        yield send_status("Ranking and summarizing retrieved information…")
+
+        # 3) Generate answer (streaming tokens)
+        yield send_status("Generating final answer…")
+
+        # --- main answer streaming ---
         async for chunk in llm_pipeline_stream(
             store=store,
             tenant_id=current_user.tenant_id,
@@ -63,18 +158,19 @@ async def query_knowledge_stream(
             if not chunk:
                 continue
 
-            # Preserve exact LLM text
             full_answer.append(chunk)
 
-            # Encode newlines for safer streaming; frontend will decode
             safe_chunk = chunk.replace("\n", "<|n|>")
             yield f"event: token\ndata: {safe_chunk}\n\n"
 
         # Reconstruct final answer exactly as produced
         answer_str = "".join(full_answer)
 
+        # --- persistence + suggestions ---
         if answer_str:
-            # Persist chat turn
+            # 4) Save conversation turn
+            yield send_status("Saving this conversation…")
+
             save_chat_turn(
                 db=db,
                 tenant_id=current_user.tenant_id,
@@ -84,7 +180,9 @@ async def query_knowledge_stream(
                 conversation_id=conversation_id,
             )
 
-            # Generate follow-up suggestions (same pattern as llm_pipeline)
+            # 5) Generate follow-up suggestions
+            yield send_status("Generating related follow-up questions…")
+
             suggestions_list: list[str] = []
             try:
                 suggestion_messages = create_suggestion_prompt(question, answer_str)
@@ -94,12 +192,12 @@ async def query_knowledge_stream(
             except Exception:
                 suggestions_list = []
 
-            # Stream suggestions once, as JSON
             if suggestions_list:
                 payload = json.dumps(suggestions_list)
                 yield f"event: suggestions\ndata: {payload}\n\n"
 
-        yield "event: status\ndata: Finalizing...\n\n"
+        # 6) Finalize
+        yield send_status("Finalizing…")
         yield "event: done\ndata: END\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
