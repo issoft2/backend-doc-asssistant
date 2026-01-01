@@ -8,6 +8,7 @@ from Vector_setup.API.admin_permission import require_user_admin
 
 router = APIRouter(prefix="/company/users", tags=["company_users"])
 
+@router.get("", include_in_schema=False)
 @router.get("/", response_model=List[UserOut])  # ✅ List[UserOut] for frontend array
 def list_users(
     db: Session = Depends(get_db),
