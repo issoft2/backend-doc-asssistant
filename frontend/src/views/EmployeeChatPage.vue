@@ -116,6 +116,7 @@
             <div
               v-for="(msg, idx) in messages"
               :key="idx"
+              v-if="msg.role === 'user' || !isStreaming || idx < messages.length - 1"
               class="border border-slate-800 rounded-xl p-3 space-y-2 bg-slate-900/60"
             >
               <div v-if="msg.role === 'user'">
@@ -134,6 +135,7 @@
                   </h2>
                   <div class="flex items-center gap-2">
                     <button
+                      v-if="!isStreaming"
                       type="button"
                       class="btn-primary text-[11px] px-2 py-1"
                       @click="speak(msg.text)"
@@ -178,9 +180,9 @@
                   </ul>
                 </div>
 
-                <!-- Follow-up suggestions (only under latest assistant answer) -->
+                <!-- Follow-up suggestions (only under latest assistant answer, once done) -->
                 <div
-                  v-if="idx === messages.length - 1 && suggestions.length"
+                  v-if="idx === messages.length - 1 && suggestions.length && !isStreaming"
                   class="mt-4 border-t border-slate-800 pt-2"
                 >
                   <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
@@ -306,6 +308,7 @@
     </div>
   </div>
 </template>
+
 
 
 <script setup lang="ts">
