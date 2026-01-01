@@ -227,9 +227,9 @@
 
             <div class="relative">
               <!-- System interaction while generating -->
-              <div v-if="statusSteps.length || isStreaming" class="mb-2 space-y-1">
+              <div v-if="isStreaming" class="mb-2 space-y-1">
+                <!-- Current status pill -->
                 <div
-                  v-if="isStreaming"
                   class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
                   role="status"
                 >
@@ -239,12 +239,17 @@
                   </span>
                 </div>
 
-                <ul class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto">
+                <!-- Optional: transient step list while streaming -->
+                <ul
+                  v-if="statusSteps.length"
+                  class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
+                >
                   <li v-for="(step, i) in statusSteps" :key="i">
                     {{ step }}
                   </li>
                 </ul>
               </div>
+
 
 
               <!-- Stop button when streaming -->
