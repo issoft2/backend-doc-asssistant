@@ -222,26 +222,27 @@
             <!-- Statuses above textarea -->
             <div class="flex items-start justify-between gap-2 mb-1">
               <div class="flex-1">
-                <div v-if="isStreaming" class="mb-1 space-y-1">
+                <div v-if="isStreaming" class="mb-2 space-y-2">
                   <div
-                    class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
+                    class="inline-flex items-center gap-3 rounded-full bg-slate-800/90 border border-slate-600 px-3 py-1.5"
                     role="status"
                   >
-                    <div class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"></div>
-                    <span class="text-[11px] font-medium text-slate-100">
+                    <div class="w-3.5 h-3.5 border-2 border-slate-400 border-t-indigo-400 rounded-full animate-spin"></div>
+                    <span class="text-xs md:text-sm font-semibold text-slate-50">
                       {{ streamStatus || 'Processing your question…' }}
                     </span>
                   </div>
 
                   <ul
                     v-if="statusSteps && statusSteps.length"
-                    class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
+                    class="text-xs md:text-sm text-slate-100 font-medium list-disc list-inside max-h-28 overflow-y-auto pl-4 space-y-0.5"
                   >
                     <li v-for="(step, i) in statusSteps" :key="i">
                       {{ step }}
                     </li>
                   </ul>
                 </div>
+
 
                 <label class="block text-[11px] font-medium text-slate-300">
                   Your question
