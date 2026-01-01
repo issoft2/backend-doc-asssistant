@@ -1,7 +1,5 @@
 <template>
-  <!-- Let layout control width; this just fills available space -->
   <div class="min-h-full bg-black flex px-2 py-3">
-    <!-- Column on mobile, row on md+ -->
     <div class="flex flex-col md:flex-row w-full gap-3">
       <!-- Sidebar -->
       <aside
@@ -36,7 +34,6 @@
               </div>
             </div>
 
-            <!-- Delete icon -->
             <button
               type="button"
               class="ml-2 text-slate-500 hover:text-red-400 p-1 rounded-full hover:bg-slate-900"
@@ -116,10 +113,9 @@
             <div
               v-for="(msg, idx) in messages"
               :key="idx"
-              v-if="shouldShowMessage(msg, idx)"
               class="border border-slate-800 rounded-xl p-3 space-y-2 bg-slate-900/60"
             >
-              <!-- User block -->
+              <!-- User message -->
               <div v-if="msg.role === 'user'">
                 <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                   Your question
@@ -129,80 +125,83 @@
                 </p>
               </div>
 
-              <!-- Assistant block -->
+              <!-- Assistant message -->
               <div v-else>
-                <div class="flex items-center justify-between gap-2">
-                  <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                    Answer
-                  </h2>
-                  <div class="flex items-center gap-2">
-                    <button
-                      v-if="!isStreaming"
-                      type="button"
-                      class="btn-primary text-[11px] px-2 py-1"
-                      @click="speak(msg.text)"
-                    >
-                      Listen
-                    </button>
-                    <button
-                      v-if="isSpeaking"
-                      type="button"
-                      class="btn-primary text-[11px] px-2 py-1"
-                      @click="stopSpeaking"
-                    >
-                      Stop
-                    </button>
+                <!-- Hide latest assistant while streaming -->
+                <template v-if="!(isStreaming && idx === messages.length - 1)">
+                  <div class="flex items-center justify-between gap-2">
+                    <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                      Answer
+                    </h2>
+                    <div class="flex items-center gap-2">
+                      <button
+                        v-if="!isStreaming"
+                        type="button"
+                        class="btn-primary text-[11px] px-2 py-1"
+                        @click="speak(msg.text)"
+                      >
+                        Listen
+                      </button>
+                      <button
+                        v-if="isSpeaking"
+                        type="button"
+                        class="btn-primary text-[11px] px-2 py-1"
+                        @click="stopSpeaking"
+                      >
+                        Stop
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <MarkdownText
-                  v-if="msg.role === 'assistant'"
-                  :content="normalizeMarkdown(msg.text)"
-                  class="mt-1 text-sm text-slate-100 prose prose-invert max-w-none"
-                />
-                <p
-                  v-else
-                  class="mt-1 text-sm text-slate-100 whitespace-pre-line"
-                >
-                  {{ msg.text }}
-                </p>
-
-                <div
-                  v-if="msg.sources && msg.sources.length"
-                  class="mt-2 space-y-1"
-                >
-                  <h3 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                    Sources
-                  </h3>
-                  <ul class="list-disc list-inside text-[11px] text-slate-300">
-                    <li v-for="s in msg.sources" :key="s">
-                      {{ s }}
-                    </li>
-                  </ul>
-                </div>
-
-                <!-- Follow-up suggestions only under latest answer, once done -->
-                <div
-                  v-if="idx === messages.length - 1 && suggestions.length && !isStreaming"
-                  class="mt-4 border-t border-slate-800 pt-2"
-                >
-                  <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
-                    Related questions
+                  <MarkdownText
+                    v-if="msg.role === 'assistant'"
+                    :content="normalizeMarkdown(msg.text)"
+                    class="mt-1 text-sm text-slate-100 prose prose-invert max-w-none"
+                  />
+                  <p
+                    v-else
+                    class="mt-1 text-sm text-slate-100 whitespace-pre-line"
+                  >
+                    {{ msg.text }}
                   </p>
 
-                  <div class="flex flex-col gap-1">
-                    <button
-                      v-for="s in suggestions"
-                      :key="s"
-                      type="button"
-                      class="text-left w-full text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-800
-                            text-slate-100 hover:bg-slate-700 hover:border-indigo-500"
-                      @click="onSuggestionClick(s)"
-                    >
-                      {{ s }}
-                    </button>
+                  <div
+                    v-if="msg.sources && msg.sources.length"
+                    class="mt-2 space-y-1"
+                  >
+                    <h3 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                      Sources
+                    </h3>
+                    <ul class="list-disc list-inside text-[11px] text-slate-300">
+                      <li v-for="s in msg.sources" :key="s">
+                        {{ s }}
+                      </li>
+                    </ul>
                   </div>
-                </div>
+
+                  <!-- Related questions only on latest answer, once done -->
+                  <div
+                    v-if="idx === messages.length - 1 && suggestions.length && !isStreaming"
+                    class="mt-4 border-t border-slate-800 pt-2"
+                  >
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                      Related questions
+                    </p>
+
+                    <div class="flex flex-col gap-1">
+                      <button
+                        v-for="s in suggestions"
+                        :key="s"
+                        type="button"
+                        class="text-left w-full text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-800
+                              text-slate-100 hover:bg-slate-700 hover:border-indigo-500"
+                        @click="onSuggestionClick(s)"
+                      >
+                        {{ s }}
+                      </button>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
           </section>
@@ -220,11 +219,10 @@
 
           <!-- Ask form -->
           <form class="pt-2 border-t border-slate-800 space-y-2" @submit.prevent="onAsk">
-            <!-- Statuses ABOVE the textarea / answer entry -->
+            <!-- Statuses above textarea -->
             <div class="flex items-start justify-between gap-2 mb-1">
               <div class="flex-1">
                 <div v-if="isStreaming" class="mb-1 space-y-1">
-                  <!-- Current status pill -->
                   <div
                     class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
                     role="status"
@@ -235,7 +233,6 @@
                     </span>
                   </div>
 
-                  <!-- Step list -->
                   <ul
                     v-if="statusSteps && statusSteps.length"
                     class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
@@ -251,7 +248,6 @@
                 </label>
               </div>
 
-              <!-- Stop button aligned to the right -->
               <button
                 v-if="isStreaming"
                 type="button"
@@ -275,7 +271,6 @@
                 @keydown.enter.exact.prevent="handleEnter"
               ></textarea>
 
-              <!-- Send button inside bottom-right -->
               <button
                 type="submit"
                 class="absolute bottom-2 right-2 inline-flex items-center justify-center
@@ -311,11 +306,6 @@
     </div>
   </div>
 </template>
-
-
-
-
-
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
