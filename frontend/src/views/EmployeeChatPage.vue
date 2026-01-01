@@ -110,15 +110,16 @@
         <div class="flex-1 flex flex-col gap-2 min-h-0">
           <!-- Conversation history -->
           <section
-            v-if="messages.length"
+            v-if="messages && messages.length"
             class="flex-1 overflow-y-auto space-y-2 pr-1"
           >
             <div
               v-for="(msg, idx) in messages"
               :key="idx"
-              v-if="msg.role === 'user' || !isStreaming || idx < messages.length - 1"
+              v-if="shouldShowMessage(msg, idx)"
               class="border border-slate-800 rounded-xl p-3 space-y-2 bg-slate-900/60"
             >
+              <!-- User block -->
               <div v-if="msg.role === 'user'">
                 <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                   Your question
@@ -128,6 +129,7 @@
                 </p>
               </div>
 
+              <!-- Assistant block -->
               <div v-else>
                 <div class="flex items-center justify-between gap-2">
                   <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
@@ -153,7 +155,6 @@
                   </div>
                 </div>
 
-                <!-- Assistant markdown rendering -->
                 <MarkdownText
                   v-if="msg.role === 'assistant'"
                   :content="normalizeMarkdown(msg.text)"
@@ -219,10 +220,9 @@
 
           <!-- Ask form -->
           <form class="pt-2 border-t border-slate-800 space-y-2" @submit.prevent="onAsk">
-            <!-- Statuses ABOVE the answer/textarea section -->
+            <!-- Statuses ABOVE the textarea / answer entry -->
             <div class="flex items-start justify-between gap-2 mb-1">
               <div class="flex-1">
-                <!-- System interaction while generating -->
                 <div v-if="isStreaming" class="mb-1 space-y-1">
                   <!-- Current status pill -->
                   <div
@@ -235,9 +235,9 @@
                     </span>
                   </div>
 
-                  <!-- Transient step list while streaming -->
+                  <!-- Step list -->
                   <ul
-                    v-if="statusSteps.length"
+                    v-if="statusSteps && statusSteps.length"
                     class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
                   >
                     <li v-for="(step, i) in statusSteps" :key="i">
@@ -316,6 +316,7 @@
 
 
 
+
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
@@ -357,6 +358,20 @@ const conversations = ref<any[]>([])
 const isSpeaking = ref(false)
 const voices = ref<SpeechSynthesisVoice[]>([])
 const selectedVoiceName = ref('')
+
+const shouldShowMessage = (msg: any, idx: number) => {
+  // Guard against undefined
+  if (!msg) return false
+
+  // Always show user messages
+  if (msg.role === 'user') return true
+
+  // For assistant messages: hide the very latest one while streaming
+  if (isStreaming.value && idx === messages.value.length - 1) return false
+
+  return true
+}
+
 
 function normalizeMarkdown(raw: string): string {
   return raw || ''
