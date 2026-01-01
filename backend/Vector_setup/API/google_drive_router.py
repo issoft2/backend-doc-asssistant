@@ -102,8 +102,7 @@ def google_drive_callback(
 
     # 3) Exchange code for tokens
     authorization_response = str(request.url)
-    https_authorization_url = authorization_response.replace("http://", "https://", 1)
-    flow.fetch_token(authorization_response=https_authorization_url)
+    flow.fetch_token(authorization_response=authorization_response)
     creds = flow.credentials
     if not creds.refresh_token:
         raise HTTPException(status_code=400, detail="No refresh token from Google")
