@@ -223,32 +223,33 @@
             <div class="flex items-start justify-between gap-2 mb-1">
               <div class="flex-1">
                <div v-if="isStreaming" class="mb-2 space-y-2">
-                  <!-- Main status pill -->
-                  <div
-                    class="inline-flex items-center gap-3 rounded-full bg-slate-900/90 border border-violet-500/70 px-3 py-1.5"
-                    role="status"
-                  >
-                    <div class="w-3.5 h-3.5 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin"></div>
-                    <span class="text-xs md:text-sm font-semibold text-violet-200">
-                      {{ streamStatus || 'Processing your question…' }}
-                    </span>
-                  </div>
+                      <!-- Main status pill -->
+                      <div
+                        class="inline-flex items-center gap-3 rounded-full bg-slate-900/90 border border-violet-500/70 px-3 py-1.5"
+                        role="status"
+                      >
+                        <div class="w-3.5 h-3.5 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin"></div>
+                        <span class="text-xs md:text-sm font-semibold text-violet-200">
+                          {{ streamStatus || 'Processing your question…' }}
+                        </span>
+                      </div>
 
-                  <!-- Event steps (backend statuses) -->
-                  <ul
-                    v-if="statusSteps && statusSteps.length"
-                    class="text-xs md:text-sm text-violet-200/95 font-medium list-disc list-inside
-                          max-h-32 overflow-y-auto pl-4 space-y-0.5"
-                  >
-                    <li
-                      v-for="(step, i) in statusSteps"
-                      :key="i"
-                      class="leading-snug"
-                    >
-                      {{ step }}
-                    </li>
-                  </ul>
-                </div>
+                      <!-- Event steps (backend statuses) -->
+                      <ul
+                        v-if="statusSteps.length"
+                        class="text-xs md:text-sm text-violet-200/95 font-medium list-disc list-inside
+                              max-h-32 overflow-y-auto pl-4 space-y-0.5"
+                      >
+                        <li
+                          v-for="(step, i) in statusSteps"
+                          :key="i"
+                          class="leading-snug"
+                        >
+                          {{ step }}
+                        </li>
+                      </ul>
+                    </div>
+
 
                 <label class="block text-[11px] font-medium text-slate-300">
                   Your question
