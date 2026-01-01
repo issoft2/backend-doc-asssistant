@@ -180,7 +180,7 @@
                   </ul>
                 </div>
 
-                <!-- Follow-up suggestions (only under latest assistant answer, once done) -->
+                <!-- Follow-up suggestions only under latest answer, once done -->
                 <div
                   v-if="idx === messages.length - 1 && suggestions.length && !isStreaming"
                   class="mt-4 border-t border-slate-800 pt-2"
@@ -219,43 +219,46 @@
 
           <!-- Ask form -->
           <form class="pt-2 border-t border-slate-800 space-y-2" @submit.prevent="onAsk">
-            <label class="block text-[11px] font-medium text-slate-300 mb-1">
-              Your question
-            </label>
+            <!-- Statuses ABOVE the answer/textarea section -->
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div class="flex-1">
+                <!-- System interaction while generating -->
+                <div v-if="isStreaming" class="mb-1 space-y-1">
+                  <!-- Current status pill -->
+                  <div
+                    class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
+                    role="status"
+                  >
+                    <div class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"></div>
+                    <span class="text-[11px] font-medium text-slate-100">
+                      {{ streamStatus || 'Processing your question…' }}
+                    </span>
+                  </div>
 
-            <!-- System interaction while generating -->
-            <div class="relative mb-1">
-              <div v-if="isStreaming" class="mb-2 space-y-1">
-                <!-- Current status pill -->
-                <div
-                  class="inline-flex items-center gap-2 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-1"
-                  role="status"
-                >
-                  <div class="w-3 h-3 border-2 border-slate-500 border-t-indigo-400 rounded-full animate-spin"></div>
-                  <span class="text-[11px] font-medium text-slate-100">
-                    {{ streamStatus || 'Processing your question…' }}
-                  </span>
+                  <!-- Transient step list while streaming -->
+                  <ul
+                    v-if="statusSteps.length"
+                    class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
+                  >
+                    <li v-for="(step, i) in statusSteps" :key="i">
+                      {{ step }}
+                    </li>
+                  </ul>
                 </div>
 
-                <!-- Transient step list while streaming -->
-                <ul
-                  v-if="statusSteps.length"
-                  class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
-                >
-                  <li v-for="(step, i) in statusSteps" :key="i">
-                    {{ step }}
-                  </li>
-                </ul>
+                <label class="block text-[11px] font-medium text-slate-300">
+                  Your question
+                </label>
               </div>
 
-              <!-- Stop button when streaming -->
+              <!-- Stop button aligned to the right -->
               <button
                 v-if="isStreaming"
                 type="button"
-                class="stop-btn absolute right-2 top-0 text-[11px] px-2 py-1 rounded-md bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
+                class="stop-btn text-[11px] px-2 py-1 rounded-md bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
                 @click="stopStream"
               >
-                Stop generating
+                Stop
               </button>
             </div>
 
@@ -308,6 +311,8 @@
     </div>
   </div>
 </template>
+
+
 
 
 
