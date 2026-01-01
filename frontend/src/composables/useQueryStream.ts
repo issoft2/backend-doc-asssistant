@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 export function useQueryStream() {
   const answer = ref('')
@@ -7,32 +7,7 @@ export function useQueryStream() {
   const suggestions = ref<string[]>([])
 
   const isStreaming = ref(false)
-  const showStreamingUI = ref(false)
-
   const eventSource = ref<EventSource | null>(null)
-
-  let streamingStartedAt: number | null = null
-  const MIN_STREAMING_UI_MS = 700
-
-  // Control UI visibility with a minimum duration
-  watch(isStreaming, (val) => {
-    if (val) {
-      streamingStartedAt = performance.now()
-      showStreamingUI.value = true
-    } else {
-      const now = performance.now()
-      const elapsed = streamingStartedAt ? now - streamingStartedAt : 0
-      const remaining = MIN_STREAMING_UI_MS - elapsed
-
-      if (remaining <= 0) {
-        showStreamingUI.value = false
-      } else {
-        setTimeout(() => {
-          showStreamingUI.value = false
-        }, remaining)
-      }
-    }
-  })
 
   const startStream = (payload: {
     question: string
@@ -120,7 +95,6 @@ export function useQueryStream() {
     status,
     statuses,
     isStreaming,
-    showStreamingUI,
     suggestions,
     startStream,
     stopStream,
