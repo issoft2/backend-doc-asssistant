@@ -14,6 +14,14 @@ export function useQueryStream() {
     top_k?: number
     collection_name?: string | null
   }) => {
+
+     // 🔹 Reset per-run state here
+    answer.value = ''
+    suggestions.value = []
+    statuses.value = []        // clear previous steps
+    status.value = ''
+    isStreaming.value = true   // mark as active
+    
     const params = new URLSearchParams({
       question: payload.question,
       conversation_id: payload.conversation_id,
