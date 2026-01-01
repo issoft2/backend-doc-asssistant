@@ -128,7 +128,7 @@
               </div>
 
               <div v-else>
-                <div class="flex items-center justify-between gap-2" if="msg.role === 'assistant'">
+                <div class="flex items-center justify-between gap-2">
                   <h2 class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                     Answer
                   </h2>
@@ -157,7 +157,6 @@
                   :content="normalizeMarkdown(msg.text)"
                   class="mt-1 text-sm text-slate-100 prose prose-invert max-w-none"
                 />
-                <!-- (This else branch doesn’t hit because we’re in msg.role !== 'user', but keep for safety) -->
                 <p
                   v-else
                   class="mt-1 text-sm text-slate-100 whitespace-pre-line"
@@ -222,11 +221,8 @@
               Your question
             </label>
 
-
-           
-
-            <div class="relative">
-              <!-- System interaction while generating -->
+            <!-- System interaction while generating -->
+            <div class="relative mb-1">
               <div v-if="isStreaming" class="mb-2 space-y-1">
                 <!-- Current status pill -->
                 <div
@@ -239,7 +235,7 @@
                   </span>
                 </div>
 
-                <!-- Optional: transient step list while streaming -->
+                <!-- Transient step list while streaming -->
                 <ul
                   v-if="statusSteps.length"
                   class="text-[10px] text-slate-400 list-disc list-inside max-h-24 overflow-y-auto"
@@ -250,18 +246,18 @@
                 </ul>
               </div>
 
-
-
               <!-- Stop button when streaming -->
               <button
                 v-if="isStreaming"
                 type="button"
-                class="stop-btn absolute right-2 top-2 text-[11px] px-2 py-1 rounded-md bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
+                class="stop-btn absolute right-2 top-0 text-[11px] px-2 py-1 rounded-md bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700"
                 @click="stopStream"
               >
                 Stop generating
               </button>
+            </div>
 
+            <div class="relative">
               <textarea
                 v-model="question"
                 rows="3"
@@ -310,6 +306,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
