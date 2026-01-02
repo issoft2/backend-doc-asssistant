@@ -157,8 +157,10 @@ export function getGoogleDriveStatus() {
   return api.get('/google-drive/status')
 }
 
-export function listDriveFiles() {
-  return api.get('/google-drive/files')
+export function listDriveFiles(params) {
+  return api.get('/google-drive/files', {
+    params: params || {}
+  })
 }
 
 
