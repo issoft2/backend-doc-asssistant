@@ -330,72 +330,99 @@
     </section>
 
 
-
-    <section
-      class="mt-4 border rounded-lg p-4"
-      v-if="googleDriveStatus === 'connected'"
-    >
-      <h3 class="text-sm font-semibold text-slate-800">
-        Import from Google Drive
-      </h3>
-      <p class="text-xs text-slate-500 mt-1">
-        Browse your Drive files and import them into the selected collection.
-      </p>
-
-      <div class="mt-2 flex items-center gap-2">
-        <button
-          type="button"
-          class="btn-secondary text-xs"
-          @click="loadDriveFiles"
-          :disabled="driveLoading"
-        >
-          {{ driveLoading ? 'Loading…' : 'Load Drive files' }}
-        </button>
-        <span class="text-[11px] text-slate-500">
-          Collection:
-          <span class="font-semibold">
-            {{ activeCollectionName || 'none selected' }}
-          </span>
-        </span>
-      </div>
-
-      <p v-if="driveError" class="text-xs text-red-600 mt-2">
-        {{ driveError }}
-      </p>
-      <p v-if="driveIngestMessage" class="text-xs text-emerald-600 mt-2">
-        {{ driveIngestMessage }}
-      </p>
-
-      <ul
-        v-if="driveFiles.length"
-        class="mt-3 space-y-1 max-h-60 overflow-auto text-xs"
+      <section
+        v-if="googleDriveStatus === 'connected'"
+        class="mt-4 border rounded-lg p-4"
       >
-        <li
-          v-for="file in driveFiles"
-          :key="file.id"
-          class="flex items-center justify-between border-b pb-1"
-        >
-          <span class="truncate mr-2">{{ file.name }}</span>
+        <h3 class="text-sm font-semibold text-slate-800">
+          Import from Google Drive
+        </h3>
+        <p class="text-xs text-slate-500 mt-1">
+          Browse your Drive files and import them into the selected collection.
+        </p>
+
+        <div class="mt-2 flex items-center gap-2">
           <button
             type="button"
-            class="btn-primary text-[11px]"
-            @click="onIngestDriveFile(file)"
+            class="btn-secondary text-xs"
+            @click="loadDriveFiles()"
+            :disabled="driveLoading"
           >
-            Ingest
+            {{ driveLoading ? 'Loading…' : 'Load Drive files' }}
           </button>
-        </li>
-      </ul>
+          <span class="text-[11px] text-slate-500">
+            Collection:
+            <span class="font-semibold">
+              {{ activeCollectionName || 'none selected' }}
+            </span>
+          </span>
+        </div>
 
-      <p v-else-if="!driveLoading" class="text-[11px] text-slate-400 mt-2">
-        No files loaded yet. Click "Load Drive files" to see your Drive.
-      </p>
-    </section>
+        <p v-if="driveError" class="text-xs text-red-600 mt-2">
+          {{ driveError }}
+        </p>
+        <p v-if="driveIngestMessage" class="text-xs text-emerald-600 mt-2">
+          {{ driveIngestMessage }}
+        </p>
+
+        <ul
+          v-if="driveFiles.length"
+          class="mt-3 space-y-1 max-h-60 overflow-auto text-xs"
+        >
+          <li
+            v-for="file in driveFiles"
+            :key="file.id"
+            class="flex items-center justify-between px-2 py-1 rounded-md hover:bg-slate-100 cursor-pointer"
+            @click="onDriveItemClick(file)"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <!-- Folder vs file badge -->
+              <span
+                class="inline-flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-semibold flex-shrink-0"
+                :class="file.is_folder
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                  : 'bg-slate-800 text-slate-100 border border-slate-600'"
+              >
+                <span v-if="file.is_folder">F</span>
+                <span v-else>•</span>
+              </span>
+
+              <div class="flex flex-col min-w-0">
+                <span
+                  class="truncate"
+                  :class="file.is_folder ? 'text-amber-800 font-medium' : 'text-slate-800'"
+                >
+                  {{ file.name }}
+                </span>
+                <span class="text-[10px] text-slate-400 truncate">
+                  {{ file.mime_type }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Ingest button only for non-folders -->
+            <button
+              v-if="!file.is_folder"
+              type="button"
+              class="btn-primary text-[11px] ml-2"
+              @click.stop="onIngestDriveFile(file)"
+            >
+              Ingest
+            </button>
+          </li>
+        </ul>
+
+        <p v-else-if="!driveLoading" class="text-[11px] text-slate-400 mt-2">
+          No files loaded yet. Click "Load Drive files" to see your Drive.
+        </p>
+      </section>
+
 
 
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { authState } from '../authStore'
 import {
@@ -409,14 +436,24 @@ import {
   ingestDriveFile,
 } from '../api'
 
-const collections = ref([])
+// ---- Types ----
+interface DriveFileOut {
+  id: string
+  name: string
+  mime_type: string
+  is_folder: boolean
+}
+
+// ---- Collections / config state ----
+const collections = ref<string[]>([])
 
 const tenantId = ref('')
 const collectionName = ref('')
 const tenantCollectionName = ref('')
 const activeCollectionName = ref('')
+
 const docTitle = ref('')
-const file = ref(null)
+const file = ref<File | null>(null)
 const dragOver = ref(false)
 
 const configureLoading = ref(false)
@@ -431,19 +468,22 @@ const uploadLoading = ref(false)
 const uploadMessage = ref('')
 const uploadError = ref('')
 
-const fileInput = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 
-// remove TS type annotation here
-const googleDriveStatus = ref('disconnected') // 'connected' | 'disconnected'
+// ---- Google Drive connection state ----
+const googleDriveStatus = ref<'connected' | 'disconnected'>('disconnected')
 const googleDriveEmail = ref('')
 const connectingDrive = ref(false)
 
-const driveFiles = ref([])
+// ---- Google Drive files / ingest ----
 const driveLoading = ref(false)
 const driveError = ref('')
 const driveIngestMessage = ref('')
 
-// Role awareness
+const currentFolderId = ref<string | null>(null)
+const driveFiles = ref<DriveFileOut[]>([])
+
+// ---- Role awareness ----
 const currentUser = computed(() => authState.user)
 const currentRole = computed(() => currentUser.value?.role || '')
 const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
@@ -455,6 +495,7 @@ const canCreateCollections = computed(() =>
   )
 )
 
+// ---- Collections helpers ----
 async function loadCollections() {
   if (!currentTenantId.value) {
     collections.value = []
@@ -464,7 +505,7 @@ async function loadCollections() {
   try {
     const resp = await listCollections(currentTenantId.value)
     const rows = resp.data || []
-    collections.value = rows.map((row) => row.collection_name)
+    collections.value = rows.map((row: any) => row.collection_name)
 
     if (!activeCollectionName.value && collections.value.length) {
       activeCollectionName.value = collections.value[0]
@@ -474,11 +515,6 @@ async function loadCollections() {
     collections.value = []
   }
 }
-
-onMounted(() => {
-  loadCollections()
-  loadGoogleDriveStatus()
-})
 
 // Vendor: configure company + first collection
 async function onConfigure() {
@@ -493,7 +529,7 @@ async function onConfigure() {
       collectionName: collectionName.value,
     })
     configureMessage.value = `Company "${tenantId.value}" and collection "${collectionName.value}" created.`
-  } catch (e) {
+  } catch (e: any) {
     configureError.value =
       e.response?.data?.detail ||
       'Failed to configure company and collection.'
@@ -528,7 +564,7 @@ async function onCreateCollection() {
     if (!collections.value.includes(name)) {
       collections.value.push(name)
     }
-  } catch (e) {
+  } catch (e: any) {
     createCollectionError.value =
       e.response?.data?.detail || 'Failed to create collection.'
   } finally {
@@ -536,8 +572,10 @@ async function onCreateCollection() {
   }
 }
 
-function onFileChange(event) {
-  const picked = event.target.files?.[0] || null
+// ---- Local file upload ----
+function onFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const picked = target.files?.[0] || null
   if (!picked) {
     file.value = null
     return
@@ -552,16 +590,13 @@ function onClickDropzone() {
 function onDragEnter() {
   dragOver.value = true
 }
-
 function onDragOver() {
   dragOver.value = true
 }
-
 function onDragLeave() {
   dragOver.value = false
 }
-
-function onDrop(event) {
+function onDrop(event: DragEvent) {
   dragOver.value = false
   const dropped = event.dataTransfer?.files?.[0] || null
   if (!dropped) return
@@ -596,11 +631,12 @@ async function onUpload() {
       collectionName: name,
       title: docTitle.value,
       file: file.value,
+      doc_id: ''
     })
     uploadMessage.value = 'Document uploaded and indexed successfully.'
     if (fileInput.value) fileInput.value.value = ''
     file.value = null
-  } catch (e) {
+  } catch (e: any) {
     uploadError.value =
       e.response?.data?.detail || 'Failed to upload document.'
   } finally {
@@ -608,16 +644,13 @@ async function onUpload() {
   }
 }
 
-// Google Drive ingest connection
+// ---- Google Drive connection ----
 async function connectGoogleDrive() {
   if (connectingDrive.value) return
   connectingDrive.value = true
   try {
     const { data } = await getGoogleDriveAuthUrl()
-    // Backend returns the URL to redirect the user to OAuth
     window.location.href = data.auth_url
-    // After redirect and callback, your backend should persist status.
-    // Frontend will pick it up on next load via loadGoogleDriveStatus.
   } catch (e) {
     console.error('Failed to start Google Drive auth', e)
     googleDriveStatus.value = 'disconnected'
@@ -627,7 +660,6 @@ async function connectGoogleDrive() {
   }
 }
 
-// load status from backend
 async function loadGoogleDriveStatus() {
   try {
     const { data } = await getGoogleDriveStatus()
@@ -640,12 +672,14 @@ async function loadGoogleDriveStatus() {
   }
 }
 
-async function loadDriveFiles() {
+// ---- Google Drive files navigation + ingest ----
+async function loadDriveFiles(folderId: string | null = null) {
+  currentFolderId.value = folderId
   driveLoading.value = true
   driveError.value = ''
   driveIngestMessage.value = ''
   try {
-    const resp = await listDriveFiles()
+    const resp = await listDriveFiles(folderId ? { folder_id: folderId } : {})
     driveFiles.value = resp.data || []
   } catch (e) {
     console.error('Failed to load Drive files', e)
@@ -656,7 +690,14 @@ async function loadDriveFiles() {
   }
 }
 
-async function onIngestDriveFile(fileObj) {
+function onDriveItemClick(fileObj: DriveFileOut) {
+  if (fileObj.is_folder) {
+    loadDriveFiles(fileObj.id)
+  }
+  // Files are handled by the Ingest button (@click.stop)
+}
+
+async function onIngestDriveFile(fileObj: DriveFileOut) {
   driveError.value = ''
   driveIngestMessage.value = ''
 
@@ -681,5 +722,11 @@ async function onIngestDriveFile(fileObj) {
     driveError.value = 'Failed to ingest file from Google Drive.'
   }
 }
+
+// ---- Lifecycle ----
+onMounted(() => {
+  loadCollections()
+  loadGoogleDriveStatus()
+})
 </script>
 

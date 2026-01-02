@@ -198,8 +198,8 @@ class DriveFileOut(BaseModel):
     id: str
     name: str
     mime_type: str
+    is_folder: bool
 
-GOOGLE_FOLDER_MIME = "application/vn.google-apps.folder"    
 
 @router.get("/files", response_model=List[DriveFileOut])
 def list_drive_files(
@@ -276,10 +276,10 @@ def list_drive_files(
             id=f["id"],
             name=f["name"],
             mime_type=f.get("mimeType", ""),
+            is_folder=(f.get("mimeType") == GOOGLE_FOLDER_MIME),
             # Optional: parent_id=f.get("parents", [None])[0] if you want
         )
         for f in files
-        if f.get("mimeType") != GOOGLE_FOLDER_MIME # exclude folders themselves
     ]
     
     
@@ -294,6 +294,7 @@ class DriveIngestRequest(BaseModel):
     file_id: str
     collection_name: str
     title: Optional[str] = None
+    
 
 
 
@@ -301,6 +302,7 @@ class DriveIngestRequest(BaseModel):
 GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet"
 GOOGLE_SLIDE_MIME = "application/vnd.google-apps.presentation"
+GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
 
 @router.post("/ingest")
 async def ingest_drive_file(
@@ -335,7 +337,7 @@ async def ingest_drive_file(
     if mime_type.startswith("application/vnd.google-apps"):
         # Google Workspace files: choose export target per type
         if mime_type == GOOGLE_DOC_MIME:
-            export_mime = "application/pdf"
+            export_mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             synthetic_filename = f"{original_name}.pdf"
         elif mime_type == GOOGLE_SHEET_MIME:
             # if your pipeline handles excel with pandas/openyxl
