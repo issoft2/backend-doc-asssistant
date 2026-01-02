@@ -20,104 +20,6 @@ from LLM_Config.llm_pipeline import llm_pipeline_stream
 
 router = APIRouter()
 
-# @router.get("/query/stream")
-# async def query_knowledge_stream(
-#     request: Request,
-#     question: str,
-#     conversation_id: str,
-#     top_k: int = 5,
-#     collection_name: Optional[str] = None,  # currently unused
-#     current_user: TokenUser = Depends(get_current_user_from_header_or_query),
-#     store: MultiTenantChromaStoreManager = Depends(get_store),
-#     db: Session = Depends(get_db),
-# ):
-#     if not conversation_id:
-#         raise HTTPException(status_code=403, detail="Session has expired!")
-
-#     history_turns = get_last_n_turns(
-#         db=db,
-#         tenant_id=current_user.tenant_id,
-#         user_id=current_user.email,
-#         n_turns=3,
-#         conversation_id=conversation_id,
-#     )
-
-#     def send_status(msg: str) -> str:
-#         # Helper to keep status event formatting consistent
-#         return f"event: status\ndata: {msg}\n\n"
-
-#     async def event_generator():
-#         full_answer: list[str] = []
-
-#         # --- high-level pipeline steps ---
-#         # 1) Understand question
-#         yield send_status("Analyzing your question…")
-
-#         # 2) Retrieve & rank docs for RAG
-#         yield send_status("Retrieving relevant information…")
-#         yield send_status("Ranking and summarizing retrieved information…")
-
-#         # 3) Generate answer (streaming tokens)
-#         yield send_status("Generating final answer…")
-
-#         # --- main answer streaming ---
-#         async for chunk in llm_pipeline_stream(
-#             store=store,
-#             tenant_id=current_user.tenant_id,
-#             question=question,
-#             history=history_turns,
-#             top_k=top_k,
-#         ):
-#             if await request.is_disconnected():
-#                 break
-#             if not chunk:
-#                 continue
-
-#             full_answer.append(chunk)
-
-#             safe_chunk = chunk.replace("\n", "<|n|>")
-#             yield f"event: token\ndata: {safe_chunk}\n\n"
-
-#         # Reconstruct final answer exactly as produced
-#         answer_str = "".join(full_answer)
-
-#         # --- persistence + suggestions ---
-#         if answer_str:
-#             # 4) Save conversation turn
-#             yield send_status("Saving this conversation…")
-
-#             save_chat_turn(
-#                 db=db,
-#                 tenant_id=current_user.tenant_id,
-#                 user_id=current_user.email,
-#                 user_message=question,
-#                 assistant_message=answer_str,
-#                 conversation_id=conversation_id,
-#             )
-
-#             # 5) Generate follow-up suggestions
-#             yield send_status("Generating related follow-up questions…")
-
-#             suggestions_list: list[str] = []
-#             try:
-#                 suggestion_messages = create_suggestion_prompt(question, answer_str)
-#                 raw = suggestion_llm_client.invoke(suggestion_messages)
-#                 raw_content = getattr(raw, "content", None) or str(raw)
-#                 suggestions_list = json.loads(raw_content)
-#             except Exception:
-#                 suggestions_list = []
-
-#             if suggestions_list:
-#                 payload = json.dumps(suggestions_list)
-#                 yield f"event: suggestions\ndata: {payload}\n\n"
-
-#         # 6) Finalize
-#         yield send_status("Finalizing…")
-#         yield "event: done\ndata: END\n\n"
-
-#     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,
@@ -140,86 +42,78 @@ async def query_knowledge_stream(
         conversation_id=conversation_id,
     )
 
-    def sse_event(event: str, data: str) -> str:
-        # Generic SSE formatter
-        return f"event: {event}\ndata: {data}\n\n"
-
     def send_status(msg: str) -> str:
-        return sse_event("status", msg)
+        # Helper to keep status event formatting consistent
+        return f"event: status\ndata: {msg}\n\n"
 
     async def event_generator():
-        full_answer_parts: list[str] = []
+        full_answer: list[str] = []
 
-        try:
-            # 1) Understand question
-            yield send_status("Analyzing your question…")
+        # --- high-level pipeline steps ---
+        # 1) Understand question
+        yield send_status("Analyzing your question…")
 
-            # 2) Retrieve & rank docs for RAG
-            yield send_status("Retrieving relevant information…")
-            yield send_status("Ranking and summarizing retrieved information…")
+        # 2) Retrieve & rank docs for RAG
+        yield send_status("Retrieving relevant information…")
+        yield send_status("Ranking and summarizing retrieved information…")
 
-            # 3) Generate answer (LLM work, but we buffer tokens)
-            yield send_status("Generating final answer…")
+        # 3) Generate answer (streaming tokens)
+        yield send_status("Generating final answer…")
 
-            async for chunk in llm_pipeline_stream(
-                store=store,
+        # --- main answer streaming ---
+        async for chunk in llm_pipeline_stream(
+            store=store,
+            tenant_id=current_user.tenant_id,
+            question=question,
+            history=history_turns,
+            top_k=top_k,
+        ):
+            if await request.is_disconnected():
+                break
+            if not chunk:
+                continue
+
+            full_answer.append(chunk)
+
+            safe_chunk = chunk.replace("\n", "<|n|>")
+            yield f"event: token\ndata: {safe_chunk}\n\n"
+
+        # Reconstruct final answer exactly as produced
+        answer_str = "".join(full_answer)
+
+        # --- persistence + suggestions ---
+        if answer_str:
+            # 4) Save conversation turn
+            yield send_status("Saving this conversation…")
+
+            save_chat_turn(
+                db=db,
                 tenant_id=current_user.tenant_id,
-                question=question,
-                history=history_turns,
-                top_k=top_k,
-            ):
-                if await request.is_disconnected():
-                    # Client went away; stop early
-                    return
-                if not chunk:
-                    continue
+                user_id=current_user.email,
+                user_message=question,
+                assistant_message=answer_str,
+                conversation_id=conversation_id,
+            )
 
-                full_answer_parts.append(chunk)
+            # 5) Generate follow-up suggestions
+            yield send_status("Generating related follow-up questions…")
 
-            # Reconstruct final answer exactly as produced
-            answer_str = "".join(full_answer_parts).strip()
+            suggestions_list: list[str] = []
+            try:
+                suggestion_messages = create_suggestion_prompt(question, answer_str)
+                raw = suggestion_llm_client.invoke(suggestion_messages)
+                raw_content = getattr(raw, "content", None) or str(raw)
+                suggestions_list = json.loads(raw_content)
+            except Exception:
+                suggestions_list = []
 
-            if answer_str:
-                # 4) Save conversation turn
-                yield send_status("Saving this conversation…")
+            if suggestions_list:
+                payload = json.dumps(suggestions_list)
+                yield f"event: suggestions\ndata: {payload}\n\n"
 
-                save_chat_turn(
-                    db=db,
-                    tenant_id=current_user.tenant_id,
-                    user_id=current_user.email,
-                    user_message=question,
-                    assistant_message=answer_str,
-                    conversation_id=conversation_id,
-                )
-
-                # 5) Generate follow-up suggestions
-                yield send_status("Generating related follow-up questions…")
-
-                suggestions_list: list[str] = []
-                try:
-                    suggestion_messages = create_suggestion_prompt(question, answer_str)
-                    raw = suggestion_llm_client.invoke(suggestion_messages)
-                    raw_content = getattr(raw, "content", None) or str(raw)
-                    suggestions_list = json.loads(raw_content)
-                except Exception:
-                    suggestions_list = []
-
-                # 6) Send final answer + suggestions
-                safe_answer = answer_str.replace("\n", "<|n|>")
-                yield sse_event("token", safe_answer)
-
-                if suggestions_list:
-                    payload = json.dumps(suggestions_list)
-                    yield sse_event("suggestions", payload)
-
-            # 7) Finalize
-            yield send_status("Finalizing…")
-            yield sse_event("done", "END")
-
-        except Exception:
-            # Emit an error status and terminate stream
-            yield send_status("An error occurred while processing your request.")
-            yield sse_event("done", "ERROR")
+        # 6) Finalize
+        yield send_status("Finalizing…")
+        yield "event: done\ndata: END\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
