@@ -140,24 +140,27 @@ async def query_knowledge_stream(
         conversation_id=conversation_id,
     )
 
+    def sse_event(event: str, data: str) -> str:
+        # Generic SSE formatter
+        return f"event: {event}\ndata: {data}\n\n"
+
     def send_status(msg: str) -> str:
-        # Helper to keep status event formatting consistent
-        return f"event: status\ndata: {msg}\n\n"
+        return sse_event("status", msg)
 
     async def event_generator():
         full_answer_parts: list[str] = []
 
-        # 1) Understand question
-        yield send_status("Analyzing your question…")
-
-        # 2) Retrieve & rank docs for RAG
-        yield send_status("Retrieving relevant information…")
-        yield send_status("Ranking and summarizing retrieved information…")
-
-        # 3) Generate answer (LLM work, but we buffer tokens)
-        yield send_status("Generating final answer…")
-
         try:
+            # 1) Understand question
+            yield send_status("Analyzing your question…")
+
+            # 2) Retrieve & rank docs for RAG
+            yield send_status("Retrieving relevant information…")
+            yield send_status("Ranking and summarizing retrieved information…")
+
+            # 3) Generate answer (LLM work, but we buffer tokens)
+            yield send_status("Generating final answer…")
+
             async for chunk in llm_pipeline_stream(
                 store=store,
                 tenant_id=current_user.tenant_id,
@@ -172,50 +175,51 @@ async def query_knowledge_stream(
                     continue
 
                 full_answer_parts.append(chunk)
+
+            # Reconstruct final answer exactly as produced
+            answer_str = "".join(full_answer_parts).strip()
+
+            if answer_str:
+                # 4) Save conversation turn
+                yield send_status("Saving this conversation…")
+
+                save_chat_turn(
+                    db=db,
+                    tenant_id=current_user.tenant_id,
+                    user_id=current_user.email,
+                    user_message=question,
+                    assistant_message=answer_str,
+                    conversation_id=conversation_id,
+                )
+
+                # 5) Generate follow-up suggestions
+                yield send_status("Generating related follow-up questions…")
+
+                suggestions_list: list[str] = []
+                try:
+                    suggestion_messages = create_suggestion_prompt(question, answer_str)
+                    raw = suggestion_llm_client.invoke(suggestion_messages)
+                    raw_content = getattr(raw, "content", None) or str(raw)
+                    suggestions_list = json.loads(raw_content)
+                except Exception:
+                    suggestions_list = []
+
+                # 6) Send final answer + suggestions
+                safe_answer = answer_str.replace("\n", "<|n|>")
+                yield sse_event("token", safe_answer)
+
+                if suggestions_list:
+                    payload = json.dumps(suggestions_list)
+                    yield sse_event("suggestions", payload)
+
+            # 7) Finalize
+            yield send_status("Finalizing…")
+            yield sse_event("done", "END")
+
         except Exception:
-            # Optional: emit an error status and finalize
-            yield send_status("An error occurred while generating the answer.")
-            yield "event: done\ndata: ERROR\n\n"
-            return
-
-        # Reconstruct final answer exactly as produced
-        answer_str = "".join(full_answer_parts).strip()
-
-        if answer_str:
-            # 4) Save conversation turn
-            yield send_status("Saving this conversation…")
-
-            save_chat_turn(
-                db=db,
-                tenant_id=current_user.tenant_id,
-                user_id=current_user.email,
-                user_message=question,
-                assistant_message=answer_str,
-                conversation_id=conversation_id,
-            )
-
-            # 5) Generate follow-up suggestions
-            yield send_status("Generating related follow-up questions…")
-
-            suggestions_list: list[str] = []
-            try:
-                suggestion_messages = create_suggestion_prompt(question, answer_str)
-                raw = suggestion_llm_client.invoke(suggestion_messages)
-                raw_content = getattr(raw, "content", None) or str(raw)
-                suggestions_list = json.loads(raw_content)
-            except Exception:
-                suggestions_list = []
-
-            # 6) Send final answer + suggestions
-            safe_answer = answer_str.replace("\n", "<|n|>")
-            yield f"event: token\ndata: {safe_answer}\n\n"
-
-            if suggestions_list:
-                payload = json.dumps(suggestions_list)
-                yield f"event: suggestions\ndata: {payload}\n\n"
-
-        # 7) Finalize
-        yield send_status("Finalizing…")
-        yield "event: done\ndata: END\n\n"
+            # Emit an error status and terminate stream
+            yield send_status("An error occurred while processing your request.")
+            yield sse_event("done", "ERROR")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
