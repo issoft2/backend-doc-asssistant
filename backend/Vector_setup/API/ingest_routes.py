@@ -451,6 +451,5 @@ def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
 
         return "\n".join(parts)
     
-    
-     logger.warning("Unsupported file type for text extraction: %s", filename)
+    logger.warning("Unsupported file type for text extraction: %s", filename)
     return ""
