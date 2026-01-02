@@ -296,6 +296,8 @@ class MultiTenantChromaStoreManager:
         collection_name: Optional[str],
         query: str,
         top_k: int = 5,
+        where: Optional[dict] = None,   # <-- NEW: optional metadata filter
+
     ) -> dict:
         """
         Vector search within tenant collections.
@@ -303,6 +305,7 @@ class MultiTenantChromaStoreManager:
         - Single collection if collection_name provided
         - All tenant collections if None
         Uses local embedding model  to embed the query.
+         Optionally filters by metadata via `where` (e.g. {"doc_id": "..."}).
         """
         
         hits: list[dict] = []
@@ -334,6 +337,7 @@ class MultiTenantChromaStoreManager:
                 query_embeddings=query_embeddings,   #  [[...]]
                 n_results=top_k,
                 include=["documents", "metadatas", "distances"],
+                 where=where or {}, 
             )
 
             ids = results.get("ids", [[]])[0]
