@@ -323,7 +323,7 @@ async def ingest_drive_file(
     # Get file metadata
     file_meta = (
         service.files()
-        .get(field=req.file_id, fields="id, name, mimeType")
+        .get(fileId=req.file_id, fields="id, name, mimeType")
         .execute()
     )
     original_name = file_meta["name"]
