@@ -19,21 +19,32 @@ Conversation (most recent last):
 Latest user message:
 "{user_message}"
 
-Decide:
-- If the user is clearly asking a new, specific question, label it NEW_QUESTION.
-- If the user is giving a short confirmation or vague follow-up like "Yes", "I want more information",
-  "Tell me more", "I still need details", or "following the information you have", label it FOLLOWUP_ELABORATE
-  and rewrite it into a more explicit question about the assistant's last answer or the same document.
-- If the message is just small talk or courtesy (for example "Thanks", "Thank you, it is working now"),
-  label it CHITCHAT and do not rewrite.
+Decide the intent of the latest message:
+
+- If the user is clearly asking a new, specific question that does not simply ask to expand on the last answer,
+  label it NEW_QUESTION.
+
+- If the user is giving a short confirmation or follow-up that is mainly asking to elaborate on the assistant's
+  previous answer (for example: "Yes", "I want more information", "Tell me more", "How did you arrive at your answer?",
+  "Can you break this down?", "I still need details", "following the information you have"),
+  label it FOLLOWUP_ELABORATE and rewrite it into a more explicit question ABOUT THE ASSISTANT'S LAST ANSWER
+  or the SAME DOCUMENT. The rewritten question should:
+  - Mention the main topic of the last answer (for example, retention rates, a specific policy, or a calculation),
+  - If the last answer included a formula or numeric result, ask to explain the calculation step by step,
+  - Otherwise, ask to provide more detail, examples, implications, or a clearer breakdown of that answer.
+
+- If the message is just small talk or courtesy (for example: "Thanks", "Thank you, it is working now",
+  "Great, that helps"), label it CHITCHAT and do not rewrite.
+
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
 {{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | UNSURE>",
-  "rewritten_question": "<a clear, explicit question, or empty string if not needed>"
+  "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
 }}
 """.strip()
+
 
 FINANCE_KEYWORDS = [
     "budget", "expense", "cost", "financial", "invoice", "payment",
@@ -194,6 +205,7 @@ async def llm_pipeline_stream(
     history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
     result_holder: Optional[dict] = None,
+    last_doc_id: Optional[str] = None,   # <-- NEW: anchor doc for follow-ups
 ) -> AsyncGenerator[str, None]:
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
@@ -211,11 +223,18 @@ async def llm_pipeline_stream(
 
     effective_question = rewritten or question
 
+    # Build optional filter for follow-ups / implications / strategy
+    query_filter = None
+    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
+        # Adapt this to your Chroma where/filter API
+        query_filter = {"doc_id": last_doc_id}
+
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
         query=effective_question,
         top_k=top_k,
+        where=query_filter,  # <-- pass filter when available
     )
     hits = retrieval.get("results", [])
 
@@ -296,6 +315,7 @@ async def llm_pipeline_stream(
             result_holder["sources"] = unique_sources
         yield error_msg
         return
+
 
 
 async def llm_pipeline(

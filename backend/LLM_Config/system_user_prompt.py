@@ -326,9 +326,9 @@ def create_context(
 
     if intent == "FOLLOWUP_ELABORATE":
         extra_instructions.append(
-            "Treat this as a request to elaborate on your previous answer using the same context and topic. "
-            "Provide more detail, breakdowns, and practical examples based on the existing documents, "
-            "rather than giving a new generic explanation."
+             "This is a follow-up asking you to elaborate on your previous answer in this conversation. "
+            "Use the same topic and documents as before, and provide more detail, breakdowns, examples, or "
+            "step-by-step reasoning about that answer, instead of switching to a new topic."
         )
 
     # Generic fallback
@@ -338,7 +338,7 @@ def create_context(
         "suggest what the user should do next. Do not say the documents do not specify if you can answer by "
         "combining or summarizing information that is present."
     )
-
+    
     extra_block = "\n".join(extra_instructions)
 
     user_prompt = f"""
