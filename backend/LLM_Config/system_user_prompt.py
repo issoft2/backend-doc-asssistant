@@ -13,6 +13,8 @@ Your role and constraints:
 - Never expose internal identifiers such as doc_id values, UUIDs, database IDs, file paths, or collection names in your answer.
 - Your first priority is to give a clear answer based on the documents. Only when the context does not contain enough information to answer safely should you say you do not have enough information.
 - ONLY when you cannot answer from the documents may you suggest who or where the user could ask internally (for example: Finance, HR, Legal, IT, or a relevant business owner). Do NOT add these referrals when the documents already provide a clear or partially helpful answer.
+- Apply the same careful, context-grounded approach to non-financial topics such as HR, policies, procedures, operations, and customer or employee metrics.
+- Do not start answers with generic greetings or capability descriptions (for example, do not say “Hello! I’m your Organization Knowledge Assistant...”); start directly with the answer to the user’s question.
 
 Using structured and numerical data (all domains):
 - The context can include numeric tables and figures of many kinds (for example: financial tables, headcounts, usage metrics, dates, amounts, percentages, balances, or other numeric columns).
@@ -32,7 +34,6 @@ time range, or source document.
 you MUST compute these percentages and list them explicitly. Use plain-text formulas where helpful, such as "Percentage = (Monthly value / Total for the year) * 100",
 instead of LaTeX, so that the answer is easy to read in a chat interface.
 
-
 Handling cash flow / projections / related concepts (finance-specific behavior):
 - Users may ask about “cash flow”, “cash flow projection”, or “cash flow report” even if the documents only contain related data such as monthly cash balances, revenue, expenses, or net income.
 - If there is NO explicit cash flow statement, but there ARE related figures:
@@ -45,7 +46,6 @@ Handling cash flow / projections / related concepts (finance-specific behavior):
   - When the user asks in a very general way (for example, “Cashflow projection”), first describe what the historical data shows and briefly explain how it could inform a projection (for example, “cash has increased steadily; a simple projection would assume similar growth, but exact future values are not in the documents”).
   - You may describe trends and simple extrapolations qualitatively, but do NOT invent specific future numeric projections unless the user explicitly requests a hypothetical example and understands it is illustrative.
   - When you answer a cash flow–style question using cash balances, revenue, expenses, or net income (because there is no formal cash flow statement), clearly label this as a "cash flow view based on available figures" rather than implying that it is a formal cash flow statement. For example: "This is a cash flow view based on monthly cash balances and net income, not a formal cash flow statement."
-
 
 Context usage:
 - You receive:
@@ -71,7 +71,6 @@ Answering style:
 - Only go into detailed bullet points, numeric amounts, or step-by-step procedures when the user explicitly asks for details about that specific item, or when they ask to “break it down”, “show the details”, or similar.
 - Keep answers tightly focused on what the user asked. Avoid unnecessary extra details or generic advice that does not come from the documents.
 - For follow-up queries that are short verbs or phrases like "break it down", "include percentages", "show details", or "on monthly basis", do NOT respond with generic definitions of these phrases. Instead, directly apply the requested operation to the data you have already presented (for example, compute the percentages, show the monthly breakdown, or add more detailed bullet points).
-
 
 Grounding and references:
 - Every factual statement must be grounded in the provided context. If the context does not support a statement, you must not state it as fact.
@@ -127,7 +126,6 @@ Examples of behavior:
 - When you provide a breakdown of a previously summarized numeric answer (for example, the user first asks for "financial report details" and then says "break it down monthly"), include all of the main metrics you previously mentioned that have monthly or periodic values in the context (for example: revenue, expenses, net income, cash balances, assets, liabilities, equity), unless the user clearly narrows the scope to a specific subset.
 - If you cannot fully break down every metric (because some only have annual totals), still include the ones you can break down and explicitly state which metrics are only available at annual or aggregate level.
 
-
 Markdown formatting for all answers:
 - Format answers as valid Markdown so they render cleanly in a chat UI.
 - Put each bullet point on its own line starting with "- " or "1. ".
@@ -160,10 +158,9 @@ Markdown formatting for all answers:
 - Ensure that headings (for example, "### Total Expenses") are always preceded by at least one blank line so they are visually separated from the previous sentence.
 - When you show formulas, write them in plain text instead of LaTeX (for example: "Percentage = (Monthly Net Income / Total Net Income) * 100") so that they render clearly in environments that do not support LaTeX.
 
-
-
 Your primary goal is to give accurate, context-grounded, and practically useful answers that help employees correctly use and interpret their company's documents and structured data, while hiding internal technical identifiers and only providing as much detail and sourcing information as the user requested. When the documents give a clear answer — especially when numeric tables or figures allow you to compute or approximate the answer — provide it directly without unnecessary referrals. Only when the documents do NOT provide enough information should you admit that and suggest contacting an appropriate human team.
 """.strip()
+
 
 
 SUGGESTION_SYSTEM_PROMPT = """
@@ -183,25 +180,98 @@ Output:
 
 
 
+# def create_context(
+#     context_chunks,
+#     user_question: str,
+#     intent: str = "GENERAL",
+#     domain: str = "GENERAL",
+# ):
+#     """
+#     Build the context block and user prompt for the LLM.
+
+#     context_chunks: list of text chunks (each can already include title/metadata if you choose).
+#     user_question: the user's natural-language question.
+#     intent: high-level intent label (e.g. "NUMERIC_ANALYSIS", "LOOKUP", "PROCEDURE", "GENERAL").
+#     domain: coarse domain label (e.g. "FINANCE", "HR", "TECH", "POLICY", "GENERAL").
+
+#     Returns:
+#         system_prompt (str), user_prompt (str)
+#     """
+
+#     # 1) Build context text
+#     context_lines = ["Context documents:", ""]
+#     for i, chunk in enumerate(context_chunks, 1):
+#         context_lines.append(f"[Document {i}]")
+#         context_lines.append(chunk)
+#         context_lines.append("")
+
+#     context_text = "\n".join(context_lines).strip()
+
+#     # 2) Build intent/domain-specific guidance
+#     extra_instructions: list[str] = []
+
+#     # Numeric / financial behaviour (only if relevant)
+#     if domain == "FINANCE" or intent == "NUMERIC_ANALYSIS":
+#         extra_instructions.append(
+#             "If the context contains any financial figures (such as revenue, expenses, net income, "
+#             "cash balances, or other numeric tables), you MUST use those figures to provide the most "
+#             "informative answer you can, even if the user asks for a specific report name that does not exist. "
+#             "If there is no formal cash flow or projection report but there are related figures, clearly explain "
+#             "what data is available (for example, cash balances, revenue, expenses, net income) and use it to "
+#             "describe trends or partial views instead of saying the documents do not specify."
+#             "When summarizing financial figures, use clear Markdown bullet lists with each item on its own line (e.g., '- Total revenue: ...', '- Total expenses: ...') and headings separated by blank lines."
+#         )
+
+#     # Procedure / “how to” questions
+#     if intent == "PROCEDURE":
+#         extra_instructions.append(
+#             "When the user is asking how to do something and the context provides steps or procedures, "
+#             "present them as a clear, ordered set of steps. If multiple procedures are mentioned, choose "
+#             "the one that best matches the question."
+#         )
+
+#     # Lookup / listing questions
+#     if intent == "LOOKUP":
+#         extra_instructions.append(
+#             "When the user asks to list or look up items (such as policies, reports, or categories), "
+#             "return a concise list of the relevant items based on the context, without internal IDs."
+#         )
+
+#     # Generic fallback
+#     extra_instructions.append(
+#         "If the context contains only non-financial text related to the topic, base your answer on that text. "
+#         "Only if the context truly does not contain any relevant information should you say so and, if appropriate, "
+#         "suggest what the user should do next. Do not say the documents do not specify if you can answer by "
+#         "combining or summarizing information that is present."
+#     )
+
+#     extra_block = "\n".join(extra_instructions)
+
+#     # 3) Final user prompt
+#     user_prompt = f"""
+# Use the context below to answer the user's question.
+
+# {extra_block}
+
+# --------------------- CONTEXT START -----------------
+# {context_text}
+# ---------------------- CONTEXT END ------------------
+
+# User question: {user_question}
+
+# Answer:
+# """.strip()
+
+#     return SYSTEM_PROMPT, user_prompt
+  
+  
 def create_context(
     context_chunks,
     user_question: str,
     intent: str = "GENERAL",
     domain: str = "GENERAL",
 ):
-    """
-    Build the context block and user prompt for the LLM.
-
-    context_chunks: list of text chunks (each can already include title/metadata if you choose).
-    user_question: the user's natural-language question.
-    intent: high-level intent label (e.g. "NUMERIC_ANALYSIS", "LOOKUP", "PROCEDURE", "GENERAL").
-    domain: coarse domain label (e.g. "FINANCE", "HR", "TECH", "POLICY", "GENERAL").
-
-    Returns:
-        system_prompt (str), user_prompt (str)
-    """
-
-    # 1) Build context text
+     # 1) Build context text
     context_lines = ["Context documents:", ""]
     for i, chunk in enumerate(context_chunks, 1):
         context_lines.append(f"[Document {i}]")
@@ -210,10 +280,8 @@ def create_context(
 
     context_text = "\n".join(context_lines).strip()
 
-    # 2) Build intent/domain-specific guidance
     extra_instructions: list[str] = []
 
-    # Numeric / financial behaviour (only if relevant)
     if domain == "FINANCE" or intent == "NUMERIC_ANALYSIS":
         extra_instructions.append(
             "If the context contains any financial figures (such as revenue, expenses, net income, "
@@ -221,11 +289,11 @@ def create_context(
             "informative answer you can, even if the user asks for a specific report name that does not exist. "
             "If there is no formal cash flow or projection report but there are related figures, clearly explain "
             "what data is available (for example, cash balances, revenue, expenses, net income) and use it to "
-            "describe trends or partial views instead of saying the documents do not specify."
-            "When summarizing financial figures, use clear Markdown bullet lists with each item on its own line (e.g., '- Total revenue: ...', '- Total expenses: ...') and headings separated by blank lines."
+            "describe trends or partial views instead of saying the documents do not specify. "
+            "When summarizing financial figures, use clear Markdown bullet lists with each item on its own line "
+            "(e.g., '- Total revenue: ...', '- Total expenses: ...') and headings separated by blank lines."
         )
 
-    # Procedure / “how to” questions
     if intent == "PROCEDURE":
         extra_instructions.append(
             "When the user is asking how to do something and the context provides steps or procedures, "
@@ -233,11 +301,34 @@ def create_context(
             "the one that best matches the question."
         )
 
-    # Lookup / listing questions
     if intent == "LOOKUP":
         extra_instructions.append(
             "When the user asks to list or look up items (such as policies, reports, or categories), "
             "return a concise list of the relevant items based on the context, without internal IDs."
+        )
+
+    # NEW: implications / strategy / follow-up elaboration
+
+    if intent == "IMPLICATIONS":
+        extra_instructions.append(
+            "The user is asking for implications or what this information means in practice. "
+            "Do not just restate definitions or formulas. Explain what the metrics, rules, or trends imply "
+            "for decisions, risks, prioritization, or strategy in the organization."
+        )
+
+    if intent == "STRATEGY":
+        extra_instructions.append(
+            "The user is asking for additional strategies or actions beyond what the document explicitly lists. "
+            "Use the document as a foundation, then propose realistic initiatives that align with its logic "
+            "(for example, interventions for at-risk segments, communication, training, product improvements), "
+            "clearly separating what comes directly from the context from your additional suggestions."
+        )
+
+    if intent == "FOLLOWUP_ELABORATE":
+        extra_instructions.append(
+            "Treat this as a request to elaborate on your previous answer using the same context and topic. "
+            "Provide more detail, breakdowns, and practical examples based on the existing documents, "
+            "rather than giving a new generic explanation."
         )
 
     # Generic fallback
@@ -250,7 +341,6 @@ def create_context(
 
     extra_block = "\n".join(extra_instructions)
 
-    # 3) Final user prompt
     user_prompt = f"""
 Use the context below to answer the user's question.
 
@@ -266,6 +356,9 @@ Answer:
 """.strip()
 
     return SYSTEM_PROMPT, user_prompt
+  
+  
+  
 
 
         

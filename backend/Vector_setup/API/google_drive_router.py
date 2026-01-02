@@ -392,7 +392,6 @@ async def ingest_drive_file(
     
     # Run through the existing extraction pipeline using synthetic filename
     text = extract_text_from_upload(synthetic_filename, raw_bytes)
-    logger.warning("Document Content: %s", text)
     if not isinstance(text, str) or not text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -426,88 +425,6 @@ async def ingest_drive_file(
         
     return {"status": "ok", "doc_id": doc_id}                        
             
-                
-            
-
-
-
-# @router.post("/ingest")
-# async def ingest_drive_file(
-#     req: DriveIngestRequest,
-#     db: Session = Depends(get_db),
-#     store: MultiTenantChromaStoreManager = Depends(get_store),
-#     current_user: DBUser = Depends(require_tenant_admin),
-# ):
-#     """
-#     Download a file from Google Drive for this tenant and ingest it into a collection.
-#     """
-#     tenant_id = current_user.tenant_id
-#     service = get_drive_service_for_tenant(tenant_id, db)
-
-#     # 1) Get file metadata
-#     file_meta = (
-#         service.files()
-#         .get(fileId=req.file_id, fields="id, name, mimeType")
-#         .execute()
-#     )
-#     filename = file_meta["name"]
-#     mime_type = file_meta.get("mimeType", "")
-
-#     # 2) Download or export contents
-#     buf = BytesIO()
-#     if mime_type.startswith("application/vnd.google-apps"):
-#         # Google Docs/Sheets/Slides/etc → export to PDF
-#         export_mime = "application/pdf"
-#         request = service.files().export_media(
-#             fileId=req.file_id, mimeType=export_mime
-#         )
-#     else:
-#         # Normal Drive binary files (PDF, DOCX, etc.)
-#         request = service.files().get_media(fileId=req.file_id)
-
-#     downloader = MediaIoBaseDownload(buf, request)
-#     done = False
-#     while not done:
-#         status_chunk, done = downloader.next_chunk()
-#         # optional: log status_chunk.progress()
-
-#     raw_bytes = buf.getvalue()
-
-#     # 3) Run through your existing extraction pipeline
-#     text = extract_text_from_upload(filename, raw_bytes)
-#     if not isinstance(text, str) or not text.strip():
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="No text could be extracted from the Google Drive file.",
-#         )
-
-#     doc_id = str(uuid.uuid4())
-#     metadata = {
-#         "filename": filename,
-#         "title": req.title or filename,
-#         "content_type": mime_type,
-#         "source": "google_drive",
-#         "drive_file_id": req.file_id,
-#         "tenant_id": tenant_id,
-#         "collection": req.collection_name,
-#     }
-
-#     result = await store.add_document(
-#         tenant_id=tenant_id,
-#         collection_name=req.collection_name,
-#         doc_id=doc_id,
-#         text=text,
-#         metadata=metadata,
-#     )
-
-#     if result.get("status") != "ok":
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail=result.get("message", "Indexing failed"),
-#         )
-
-#     return {"status": "ok", "doc_id": doc_id}
-
 
            
              

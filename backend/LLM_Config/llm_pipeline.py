@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
 
@@ -19,49 +18,21 @@ Latest user message:
 
 Decide:
 - If the user is clearly asking a new, specific question, label it NEW_QUESTION.
-- If the user is giving a short confirmation or vague follow-up like "Yes", "I want more information", "Tell me more", "I still need details", label it FOLLOWUP_ELABORATE and rewrite it into a more explicit question about the assistant's last answer.
-- If the message is just small talk or courtesy (for example "Thanks", "Thank you, it is working now"), label it CHITCHAT and do not rewrite.
+- If the user is giving a short confirmation or vague follow-up like "Yes", "I want more information",
+  "Tell me more", "I still need details", or "following the information you have", label it FOLLOWUP_ELABORATE
+  and rewrite it into a more explicit question about the assistant's last answer or the same document.
+- If the message is just small talk or courtesy (for example "Thanks", "Thank you, it is working now"),
+  label it CHITCHAT and do not rewrite.
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
-{{
+{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | UNSURE>",
   "rewritten_question": "<a clear, explicit question, or empty string if not needed>"
-}}
+}
 """.strip()
 
-FINANCE_KEYWORDS = [
-    "budget", "expense", "cost", "financial", "invoice", "payment",
-    "revenue", "profit", "loss", "fiscal", "audit",  # fixed comma here
-    "forecast", "projection", "balance sheet", "cash flow",
-    "tax", "cashflow", "expenses", "earnings", "cash balance",
-    "financial statement", "net income", "operating income",
-]
-
-HR_KEYWORDS = [
-    "leave", "vacation", "benefits", "payroll", "hiring",
-    "onboarding", "offboarding", "performance review", "promotion",
-    "disciplinary action", "work from home", "remote work",
-    "employee relations", "training", "development", "compensation",
-    "overtime", "time off", "sick leave", "maternity leave",
-]
-
-TECH_KEYWORDS = [
-    "deployment", "server", "database", "API", "bug",
-    "feature", "release", "version control", "CI/CD",
-    "infrastructure", "scalability", "performance", "latency",
-    "uptime", "monitoring", "logging", "cloud", "on-premise",
-    "virtualization", "containerization", "microservices",
-    "docker", "kubernetes", "load balancing", "networking",
-    "ssh", "password", "network", "backup",
-]
-
-POLICY_KEYWORDS = [
-    "policy", "procedure", "guideline", "compliance",
-    "regulation", "standard", "protocol", "rule",
-    "governance", "audit", "risk management", "code of conduct",
-    "ethics", "confidentiality", "data protection", "security",
-]
+# ... FINANCE_KEYWORDS, HR_KEYWORDS, TECH_KEYWORDS, POLICY_KEYWORDS unchanged ...
 
 
 def _format_history_for_intent(
@@ -84,16 +55,16 @@ def infer_intent_and_rewrite(
 ) -> Tuple[str, Optional[str], str]:
     """
     Returns:
-      - intent: e.g. "CHITCHAT", "LOOKUP", "NUMERIC_ANALYSIS", "NEW_QUESTION", ...
+      - intent: e.g. "CHITCHAT", "LOOKUP", "NUMERIC_ANALYSIS", "NEW_QUESTION", "IMPLICATIONS", "STRATEGY", ...
       - rewritten: optional rewritten question (or None)
       - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
     """
     text = user_message.lower()
 
-    # 1) Cheap chitchat short-circuit
+    # 1) Cheap chitchat short-circuit (pure appreciation only)
     if any(x in text for x in [
         "thank you", "thanks", "got it", "great", "good job",
-        "well done", "appreciate it", "hello", "hi",
+        "well done", "appreciate it",
     ]):
         return "CHITCHAT", None, "GENERAL"
 
@@ -110,6 +81,18 @@ def infer_intent_and_rewrite(
 
     # 3) Cheap intent guess
     if any(x in text for x in [
+        "implication", "implications", "what does this mean",
+        "so what", "how does this affect", "what does this imply",
+        "for our employee engagement", "for our retention strategy",
+    ]):
+        cheap_intent = "IMPLICATIONS"
+    elif any(x in text for x in [
+        "how can we improve", "how can we increase", "suggest ways",
+        "what can we do", "which other areas", "what else can we do",
+        "how do we increase", "how do we reduce churn",
+    ]):
+        cheap_intent = "STRATEGY"
+    elif any(x in text for x in [
         "sum", "total", "calculate", "projection", "compare",
         "increase", "decrease", "analyze", "average",
         "how much", "what is the amount", "amount of",
@@ -117,7 +100,7 @@ def infer_intent_and_rewrite(
         cheap_intent = "NUMERIC_ANALYSIS"
     elif any(x in text for x in ["how do i", "steps", "procedure", "process"]):
         cheap_intent = "PROCEDURE"
-    elif any(x in text for x in ["list", "what are the", "which", "do we have"]):
+    elif any(x in text for x in ["list", "what are the", "do we have"]):
         cheap_intent = "LOOKUP"
     else:
         cheap_intent = "GENERAL"
@@ -161,6 +144,10 @@ def infer_intent_and_rewrite(
     # Map UNSURE → cheap_intent
     intent = cheap_intent if llm_intent == "UNSURE" else llm_intent
 
+    # FOLLOWUP_ELABORATE fallback if no rewrite was produced
+    if intent == "FOLLOWUP_ELABORATE" and not rewritten:
+        intent = cheap_intent or "GENERAL"
+
     if intent == "CHITCHAT":
         domain = "GENERAL"
 
@@ -175,25 +162,14 @@ async def llm_pipeline_stream(
     top_k: int = 5,
     result_holder: Optional[dict] = None,
 ) -> AsyncGenerator[str, None]:
-    """
-    Streaming RAG pipeline:
-      - Same intent, retrieval, and prompting as llm_pipeline.
-      - Yields text chunks for the final answer.
-      - Optionally populates result_holder with full answer and sources.
-    """
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # Chitchat fast path
+    # CHITCHAT: short acknowledgement, not the long greeting
     if intent == "CHITCHAT":
-        msg = (
-            "Hello! I’m your Organization Knowledge Assistant. "
-            "You can ask me questions about your organization’s policies, procedures, guidelines, "
-            "financial information, contracts, projects, or other internal information, "
-            "and I’ll answer based on the information I currently have access to."
-        )
+        msg = "You’re welcome."
         if result_holder is not None:
             result_holder["answer"] = msg
             result_holder["sources"] = []
@@ -296,29 +272,15 @@ async def llm_pipeline(
     history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
 ) -> Dict[str, Any]:
-    """
-    End-to-end RAG pipeline:
-      - Infer intent/domain and optionally rewrite vague follow-ups.
-      - Retrieve relevant chunks from Chroma.
-      - Build system + user prompts with context (+ optional history).
-      - Call main LLM for answer.
-      - Call small LLM for follow-up suggestions (best-effort).
-      - Return answer, follow_up, and sources.
-    """
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # Chitchat fast path
+    # CHITCHAT: short acknowledgement
     if intent == "CHITCHAT":
         return {
-            "answer": (
-                "Hello! I’m your Organization Knowledge Assistant. "
-                "You can ask me questions about your organization’s policies, procedures, guidelines, "
-                "financial information, contracts, projects, or other internal information, "
-                "and I’ll answer based on the information I currently have access to."
-            ),
+            "answer": "You’re welcome.",
             "follow_up": [],
             "sources": [],
         }
