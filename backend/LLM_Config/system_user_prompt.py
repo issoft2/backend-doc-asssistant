@@ -250,13 +250,16 @@ def create_context(
             "(for example, interventions for at-risk segments, communication, training, product improvements), "
             "clearly separating what comes directly from the context from your additional suggestions."
         )
-
+        
     if intent == "FOLLOWUP_ELABORATE":
         extra_instructions.append(
-             "This is a follow-up asking you to elaborate on your previous answer in this conversation. "
+            "This is a follow-up asking you to elaborate on your previous answer in this conversation. "
             "Use the same topic and documents as before, and provide more detail, breakdowns, examples, or "
-            "step-by-step reasoning about that answer, instead of switching to a new topic."
+            "step-by-step reasoning about that answer, instead of switching to a new topic. "
+            "If your previous answer included a numeric calculation or formula, restate the formula and show "
+            "each arithmetic step clearly to explain how you arrived at the result."
         )
+
 
     # Generic fallback
     extra_instructions.append(

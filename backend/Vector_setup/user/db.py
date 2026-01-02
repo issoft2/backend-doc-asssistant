@@ -37,6 +37,7 @@ class ChatMessage(SQLModel, table=True):
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     conversation_id: str | None = Field(nullable=False, index=True)
+    doc_id: str | None
         
         
 class TenantGoogleDriveConfig(SQLModel, table=True):

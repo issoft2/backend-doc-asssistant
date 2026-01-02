@@ -82,6 +82,7 @@ Respond as pure JSON:
 """.strip()
 
 
+
 FINANCE_KEYWORDS = [
     "budget", "expense", "cost", "financial", "invoice", "payment",
     "revenue", "profit", "loss", "fiscal", "audit",
@@ -116,16 +117,15 @@ POLICY_KEYWORDS = [
 ]
 
 def _format_history_for_intent(
-    history_turns: Optional[List[Tuple[str, str]]],
-    max_turns: int = 3,
+    history_turns: Optional[List[Tuple[str, str]]]
 ) -> str:
     if not history_turns:
-        return "(no previous turns)"
-    recent = history_turns[-max_turns:]
+        return "(no prior conversation)"
+
     lines: List[str] = []
-    for u, a in recent:
-        lines.append(f"USER: {u}")
-        lines.append(f"ASSISTANT: {a}")
+    for user_msg, assistant_msg in history_turns[-5:]:
+        lines.append(f"User: {user_msg}")
+        lines.append(f"Assistant: {assistant_msg}")
     return "\n".join(lines)
 
 
@@ -135,7 +135,8 @@ def infer_intent_and_rewrite(
 ) -> Tuple[str, Optional[str], str]:
     """
     Returns:
-      - intent: e.g. "CHITCHAT", "LOOKUP", "NUMERIC_ANALYSIS", "NEW_QUESTION", "IMPLICATIONS", "STRATEGY", ...
+      - intent: e.g. "CHITCHAT", "LOOKUP", "NUMERIC_ANALYSIS", "NEW_QUESTION",
+                "IMPLICATIONS", "STRATEGY", "FOLLOWUP_ELABORATE", ...
       - rewritten: optional rewritten question (or None)
       - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
     """
@@ -159,8 +160,18 @@ def infer_intent_and_rewrite(
     elif any(k in text for k in POLICY_KEYWORDS):
         domain = "POLICY"
 
-    # 3) Cheap intent guess
+    # 3) Cheap intent guess (rule-based hybrid layer)
+    # 3a) Explicit follow-up patterns like "How did you arrive at your answer?"
     if any(x in text for x in [
+        "how did you arrive at your answer",
+        "how did you arrive at that answer",
+        "how did you get this answer",
+        "explain how you arrived at your answer",
+        "explain how you arrived at that",
+        "how did you come up with this answer",
+    ]):
+        cheap_intent = "FOLLOWUP_ELABORATE"
+    elif any(x in text for x in [
         "implication", "implications", "what does this mean",
         "so what", "how does this affect", "what does this imply",
         "for our employee engagement", "for our retention strategy",
@@ -204,7 +215,7 @@ def infer_intent_and_rewrite(
         raw = getattr(resp, "content", None) or str(resp)
         data = json.loads(raw)
 
-        llm_intent = data.get("intent", "UNSURE")
+        llm_intent = (data.get("intent") or "UNSURE").strip().upper()
         rewritten = data.get("rewritten_question") or None
     except Exception:
         llm_intent = "UNSURE"
@@ -217,21 +228,29 @@ def infer_intent_and_rewrite(
         "CHITCHAT",
         "UNSURE",
     }
-
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
-    # Map UNSURE → cheap_intent
-    intent = cheap_intent if llm_intent == "UNSURE" else llm_intent
+    # 7) Combine rule-based and LLM intents
+    # If the LLM confidently says FOLLOWUP_ELABORATE / NEW_QUESTION / CHITCHAT, trust it.
+    if llm_intent in {"FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT"}:
+        intent = llm_intent
+    else:
+        # llm_intent == "UNSURE": fall back to cheap_intent
+        intent = cheap_intent
 
-    # FOLLOWUP_ELABORATE fallback if no rewrite was produced
+    # FOLLOWUP_ELABORATE fallback if no rewrite was produced:
+    # We keep FOLLOWUP_ELABORATE if there is history; otherwise, demote to cheap_intent.
     if intent == "FOLLOWUP_ELABORATE" and not rewritten:
-        intent = cheap_intent or "GENERAL"
+        if not history_turns:
+            intent = cheap_intent or "GENERAL"
 
+    # CHITCHAT should always be GENERAL
     if intent == "CHITCHAT":
         domain = "GENERAL"
 
     return intent, rewritten, domain
+
 
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
