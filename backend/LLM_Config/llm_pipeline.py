@@ -8,6 +8,8 @@ from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
 IntentType = Literal["FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "UNSURE"]
 
+
+
 INTENT_PROMPT_TEMPLATE = """
 You are classifying a user's latest message in a policy/HR/finance assistant chat.
 
@@ -27,10 +29,10 @@ Decide:
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
-{
+{{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | UNSURE>",
   "rewritten_question": "<a clear, explicit question, or empty string if not needed>"
-}
+}}
 """.strip()
 
 FINANCE_KEYWORDS = [
