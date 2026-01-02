@@ -371,6 +371,7 @@ async def ingest_drive_file(
     
     # Run through the existing extraction pipeline using synthetic filename
     text = extract_text_from_upload(synthetic_filename, raw_bytes)
+    logger.warning("Document Content: %s", text)
     if not isinstance(text, str) or not text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
