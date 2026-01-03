@@ -421,28 +421,56 @@
                 </div>
               </div>
                 <div class="flex items-center gap-2">
-                <span
-                  v-if="file.already_ingested && !file.is_folder"
-                  class="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5"
-                >
-                  Already ingested
-                </span>
-                <span
-                  v-else-if="!file.is_folder && !file.is_supported"
-                  class="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 rounded px-1 py-0.5"
-                >
-                  Unsupported
-                </span>
+                  <!-- Status indicator -->
+                  <span
+                    v-if="!file.is_folder && ingestStatusById[file.id] === 'running'"
+                    class="text-[10px] text-indigo-700 flex items-center gap-1"
+                  >
+                    <span class="inline-block h-2 w-2 rounded-full animate-pulse bg-indigo-500" />
+                    Ingesting…
+                  </span>
+                  <span
+                    v-else-if="!file.is_folder && ingestStatusById[file.id] === 'success'"
+                    class="text-[10px] text-emerald-700"
+                  >
+                    ✓ Done
+                  </span>
+                  <span
+                    v-else-if="!file.is_folder && ingestStatusById[file.id] === 'error'"
+                    class="text-[10px] text-red-600"
+                  >
+                    Failed
+                  </span>
 
-                <input
-                  v-if="!file.is_folder"
-                  type="checkbox"
-                  class="h-3 w-3"
-                  :disabled="file.already_ingested || !file.is_supported"
-                  :checked="selectedDriveFileIds.has(file.id)"
-                  @change="toggleDriveFileSelection(file.id)"
-                />
-              </div>
+                  <!-- Existing badges -->
+                  <span
+                    v-if="file.already_ingested && !file.is_folder"
+                    class="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5"
+                  >
+                    Already ingested
+                  </span>
+                  <span
+                    v-else-if="!file.is_folder && !file.is_supported"
+                    class="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 rounded px-1 py-0.5"
+                  >
+                    Unsupported
+                  </span>
+
+                  <!-- Checkbox (disabled if unsupported / already ingested or while ingest running for that file) -->
+                  <input
+                    v-if="!file.is_folder"
+                    type="checkbox"
+                    class="h-3 w-3"
+                    :disabled="
+                      file.already_ingested ||
+                      !file.is_supported ||
+                      ingestStatusById[file.id] === 'running'
+                    "
+                    :checked="selectedDriveFileIds.has(file.id)"
+                    @change="toggleDriveFileSelection(file.id)"
+                  />
+                </div>
+
 
             </li>
           </ul>
@@ -503,6 +531,8 @@ const createCollectionLoading = ref(false)
 const createCollectionMessage = ref('')
 const createCollectionError = ref('')
 
+const ingestStatusById = ref<Record<string, IngestStatus>>({})
+
 const uploadLoading = ref(false)
 const uploadMessage = ref('')
 const uploadError = ref('')
@@ -528,6 +558,8 @@ const ingesting = ref(false)
 const currentUser = computed(() => authState.user)
 const currentRole = computed(() => currentUser.value?.role || '')
 const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
+type IngestStatus = 'idle' | 'running' | 'success' | 'error'
+
 
 const isVendor = computed(() => currentRole.value === 'vendor')
 const canCreateCollections = computed(() =>
@@ -810,21 +842,51 @@ async function ingestSelectedDriveFiles() {
 
   ingesting.value = true
   try {
+
+    // mark all selected as idle initially
+    const statusMap: Record<string, ingestStatus> = {}
+    ids.forEach(id => { statusMap[id] = 'idle'})
+    ingestStatusById.value = statusMap
+
     // simplest: loop; you can introduce a batch endpoint later
     for (const id of ids) {
       const fileObj = driveFiles.value.find(f => f.id == id)
       if (!fileObj) continue
 
-      await ingestDriveFile({
+      // mark as running 
+      ingestStatusById.value = {
+        ...ingestStatusById.value,
+        [id]: 'running',
+      }
+
+      try{
+          await ingestDriveFile({
         fileId: fileObj.id,
         collectionName: activeCollectionName.value,
         title: fileObj.name,
       })
+
+      // mark as success
+      ingestStatusById.value = {
+        ...ingestStatusById.value,
+        [id]: 'success',
+      }
+
+      }catch (e) {
+        console.error('Failded to ingest Drive file', fileObj.name, e)
+        ingestStatusById.value = {
+          ...ingestStatusById.value,
+          [id]: 'error',
+        }
+      }
+    
     }
 
-    driveIngestMessage.value = `Ingested ${ids.length} files(s) from Google Drive.`
+    driveIngestMessage.value = `Finished ingesting ${ids.length} files(s) from Google Drive.`
     // Refresh list so already_ingested flags update
     await loadDriveFiles(currentFolderId.value)
+    // after reload, you may choose to clear selection
+    selectedDriveFileIds.value = new Set()
   } catch (e) {
      console.error('Failed to ingest Drive files', e)
      driveError.value = 'Failed to ingest one or more files from Google Drive.'
