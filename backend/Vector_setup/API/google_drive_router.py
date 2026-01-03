@@ -236,8 +236,9 @@ def list_drive_files(
                 pageSize=page_size,
                 fields=(
                     "nextPageToken, "
-                    "files(id, name, mimeType, parents size, modifiedTime)"
+                    "files(id, name, mimeType, parents, size, modifiedTime)"
                 ),
+                
             )
             .execute()
         )
