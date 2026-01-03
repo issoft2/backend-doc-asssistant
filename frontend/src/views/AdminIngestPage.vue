@@ -426,7 +426,7 @@
                     v-if="!file.is_folder && ingestStatusById[file.id] === 'running'"
                     class="text-[10px] text-indigo-700 flex items-center gap-1"
                   >
-                    <span class="inline-block h-2 w-2 rounded-full animate-pulse bg-indigo-500">
+                    <span class="inline-block h-2 w-2 rounded-full animate-pulse bg-indigo-500" />
                     Ingesting…
                   </span>
                   <span
