@@ -477,6 +477,7 @@ interface DriveFileOut {
 
 // ---- Collections / config state ----
 const collections = ref<string[]>([])
+const selectedDriveFileIds = ref<Set<string>>(new Set())
 
 const tenantId = ref('')
 const collectionName = ref('')
@@ -705,6 +706,41 @@ async function loadGoogleDriveStatus() {
   }
 }
 
+
+const selectableDriveFiles = computed<DriveFileOut[]>(() => {
+  return (driveFiles.value || []).filter(
+    f => !f.is_folder && !f.already_ingested,
+  )
+})
+
+const allSelected = computed(() =>
+  selectableDriveFiles.value.length > 0 &&
+  selectableDriveFiles.value.every(f => selectedDriveFileIds.value.has(f.id)),
+)
+
+const someSelected = computed(() =>
+  selectableDriveFiles.value.some(f => selectedDriveFileIds.value.has(f.id)) &&
+  !allSelected.value,
+)
+
+function toggleSelectAllDrive() {
+  const next = new Set(selectedDriveFileIds.value)
+  if (allSelected.value) {
+    selectableDriveFiles.value.forEach(f => next.delete(f.id))
+  } else {
+    selectableDriveFiles.value.forEach(f => next.add(f.id))
+  }
+  selectedDriveFileIds.value = next
+}
+
+function toggleDriveFileSelection(fileId: string) {
+  const next = new Set(selectedDriveFileIds.value)
+  if (next.has(fileId)) next.delete(fileId)
+  else next.add(fileId)
+  selectedDriveFileIds.value = next
+}
+
+
 // ---- Google Drive files navigation + ingest ----
 async function loadDriveFiles(folderId: string | null = null) {
   currentFolderId.value = folderId
@@ -737,40 +773,7 @@ const selectedDriveFiles = computed(() =>
   driveFiles.value.filter(f => !f.is_folder && !f.already_ingested),
 )
 
-const allSelected = computed(() => 
-selectedDriveFiles.value.length > 0 &&
-selectedDriveFiles.value.every(f => selectedDriverFileIds.value.has(f.id)),
-)
 
-const someSelected = computed(() => 
-  selectedDriveFiles.value.some(f => selectedDriverFileIds.value.has(f.id)) && 
-  !allSelected.value,
-)
-
-function toggleSelectAllDrive() {
-  const next = new Set(selectedDriverFileIds.value)
-  if(allSelected.value) {
-    // deselect all selectable
-    selectedDriveFiles.value.forEach(f => next.delete(f.id))
-
-  }else {
-    // Select all selectable
-    selectedDriveFiles.value.forEach(f => next.add(f.id))
-  }
-  selectedDriverFileIds.value = next
-}
-
-function toggleDriveFileSelection(fileId: string) {
-  const next = new Set(selectedDriverFileIds.value)
-  if (next.has(fileId)) next.delete(fileId)
-  else next.add(fileId)
-  selectedDriverFileIds.value = next
-}
-
-const selectableDriveFiles = computed(() => {
-  const files = driveFiles.value || []
-  return files.filter(f => !f.is_folder && !f.already_ingested)
-})
 
 function onDriveItemClick(fileObj: DriveFileOut) {
   if (fileObj.is_folder) {
