@@ -426,7 +426,7 @@
                     v-if="!file.is_folder && ingestStatusById[file.id] === 'running'"
                     class="text-[10px] text-indigo-700 flex items-center gap-1"
                   >
-                    <span class="inline-block h-2 w-2 rounded-full animate-pulse bg-indigo-500" />
+                    <span class="inline-block h-2 w-2 rounded-full animate-pulse bg-indigo-500">
                     Ingesting…
                   </span>
                   <span
@@ -826,75 +826,76 @@ async function ingestSelectedDriveFiles() {
   driveIngestMessage.value = ''
 
   if (!currentTenantId.value) {
-      driveError.value = 'No tenant is associated with your account.'
-      return 
+    driveError.value = 'No tenant is associated with your account.'
+    return
   }
   if (!activeCollectionName.value) {
     driveError.value = 'Select a collection before ingesting from Drive.'
-    return 
+    return
   }
 
-  const ids = Array.from(selectedDriverFileIds.value)
+  const ids = Array.from(selectedDriveFileIds.value)
   if (!ids.length) {
     driveError.value = 'No files selected for ingestion.'
     return
   }
 
   ingesting.value = true
-  try {
+  driveIngestMessage.value = ''
+  // reset per-file status
+  const statusMap: Record<string, IngestStatus> = {}
+  ids.forEach(id => { statusMap[id] = 'idle' })
+  ingestStatusById.value = statusMap
 
-    // mark all selected as idle initially
-    const statusMap: Record<string, ingestStatus> = {}
-    ids.forEach(id => { statusMap[id] = 'idle'})
-    ingestStatusById.value = statusMap
+  let successCount = 0
+  let errorCount = 0
 
-    // simplest: loop; you can introduce a batch endpoint later
-    for (const id of ids) {
-      const fileObj = driveFiles.value.find(f => f.id == id)
-      if (!fileObj) continue
+  for (const id of ids) {
+    const fileObj = driveFiles.value.find(f => f.id === id)
+    if (!fileObj) continue
 
-      // mark as running 
-      ingestStatusById.value = {
-        ...ingestStatusById.value,
-        [id]: 'running',
-      }
+    // mark as running
+    ingestStatusById.value = {
+      ...ingestStatusById.value,
+      [id]: 'running',
+    }
 
-      try{
-          await ingestDriveFile({
+    try {
+      // Each call hits /google-drive/ingest and returns; no extra wrapping request
+      await ingestDriveFile({
         fileId: fileObj.id,
         collectionName: activeCollectionName.value,
         title: fileObj.name,
       })
 
-      // mark as success
       ingestStatusById.value = {
         ...ingestStatusById.value,
         [id]: 'success',
       }
-
-      }catch (e) {
-        console.error('Failded to ingest Drive file', fileObj.name, e)
-        ingestStatusById.value = {
-          ...ingestStatusById.value,
-          [id]: 'error',
-        }
+      successCount += 1
+    } catch (e) {
+      console.error('Failed to ingest Drive file', fileObj.name, e)
+      ingestStatusById.value = {
+        ...ingestStatusById.value,
+        [id]: 'error',
       }
-    
+      errorCount += 1
     }
-
-    driveIngestMessage.value = `Finished ingesting ${ids.length} files(s) from Google Drive.`
-    // Refresh list so already_ingested flags update
-    await loadDriveFiles(currentFolderId.value)
-    // after reload, you may choose to clear selection
-    selectedDriveFileIds.value = new Set()
-  } catch (e) {
-     console.error('Failed to ingest Drive files', e)
-     driveError.value = 'Failed to ingest one or more files from Google Drive.'
-  } finally {
-    ingesting.value = false
   }
 
+  if (successCount > 0) {
+    driveIngestMessage.value = `Ingested ${successCount} file(s) from Google Drive.${errorCount ? ' Some files failed.' : ''}`
+  } else if (errorCount > 0) {
+    driveError.value = 'Failed to ingest the selected files from Google Drive.'
+  }
+
+  // Refresh flags
+  await loadDriveFiles(currentFolderId.value)
+  selectedDriveFileIds.value = new Set()
+
+  ingesting.value = false
 }
+
 
 // ---- Lifecycle ----
 onMounted(() => {
