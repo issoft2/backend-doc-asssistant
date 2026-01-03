@@ -767,6 +767,11 @@ function toggleDriveFileSelection(fileId: string) {
   selectedDriverFileIds.value = next
 }
 
+const selectableDriveFiles = computed(() => {
+  const files = driveFiles.value || []
+  return files.filter(f => !f.is_folder && !f.already_ingested)
+})
+
 function onDriveItemClick(fileObj: DriveFileOut) {
   if (fileObj.is_folder) {
     loadDriveFiles(fileObj.id)
