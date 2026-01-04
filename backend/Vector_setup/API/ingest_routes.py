@@ -258,7 +258,11 @@ async def upload_document(
 
     # Generate doc_id if not supplied
     final_doc_id = doc_id or str(uuid.uuid4())
-
+    # Look up collection info
+    collection_info = store.get_collection_info(tenant_id, collection_name) # to be implemented
+    collection_display_name = collection_info.get("display_name", collection_name)
+    high_level_topic = collection_info.get("topic") # e.g. "HR & Policies", "Engineering", etc.
+    
     # Build document-level metadata (for later source display)
     metadata = {
         "filename": file.filename,
@@ -267,6 +271,8 @@ async def upload_document(
         "size_bytes": len(raw_bytes),
         "tenant_id": tenant_id,
         "collection": collection_name,
+         "collection_display_name": collection_display_name,
+        "high_level_topic": high_level_topic,
     }
 
     # Delegate to vector store (chunking + embeddings)

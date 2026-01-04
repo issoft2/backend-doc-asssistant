@@ -1,12 +1,42 @@
 from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
+import textwrap
 
 from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming
 from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt, create_critique_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
 
-import textwrap
+def build_capabilities_message_from_store(store_summary: dict) -> str:
+    collections = store_summary.get("collections", [])
+    if not collections:
+        return (
+            "I can answer questions based on any documents you upload or connect, "
+            "including policies, technical documentation, reports, contracts, and more. "
+            "Once documents are ingested, you can ask questions directly about their content."
+        )
+
+    lines = ["I can help you with questions about documents in this workspace, including:"]
+    example_qs: list[str] = []
+
+    for c in collections:
+        label = c.get("display_name") or c.get("name")
+        topics = c.get("topics") or []
+        if topics:
+            lines.append(f"- {label} ({', '.join(topics)})")
+        else:
+            lines.append(f"- {label}")
+        if c.get("example_questions"):
+            example_qs.extend(c["example_questions"])
+
+    msg = "\n".join(lines)
+
+    if example_qs:
+        preview = "\n".join(f'- "{q}"' for q in example_qs[:3])
+        msg += "\n\nYou can ask things like:\n" + preview
+
+    return msg
+
 
 RERANK_SYSTEM_PROMPT = """
 You are a ranking assistant.
@@ -41,9 +71,13 @@ Return a JSON array of indices from most relevant to least relevant.
     ]
 
 
-
-IntentType = Literal["FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "UNSURE"]
-
+IntentType = Literal[
+    "FOLLOWUP_ELABORATE",
+    "NEW_QUESTION",
+    "CHITCHAT",
+    "CAPABILITIES",
+    "UNSURE",
+]
 
 
 INTENT_PROMPT_TEMPLATE = """
@@ -70,17 +104,24 @@ Decide the intent of the latest message:
   - Otherwise, ask to provide more detail, examples, implications, or a clearer breakdown of that answer.
 
 - If the message is just small talk or courtesy (for example: "Thanks", "Thank you, it is working now",
-  "Great, that helps"), label it CHITCHAT and do not rewrite.
+  "Great, that helps", "Hello", "Hi", "Good morning", "Good afternoon", "Good evening"),
+  label it CHITCHAT and do not rewrite.
+
+- If the user is asking what you can do, what topics you know, or what information you currently have
+  (for example: "What information can you help me with now?",
+   "What can you do for me?",
+   "What topics should I ask you about?",
+   "What do you know?"),
+  label it CAPABILITIES and do not rewrite.
 
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
-{{
-  "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | UNSURE>",
+{
+  "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE>",
   "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
-}}
+}
 """.strip()
-
 
 
 FINANCE_KEYWORDS = [
@@ -116,6 +157,7 @@ POLICY_KEYWORDS = [
     "ethics", "confidentiality", "data protection", "security",
 ]
 
+
 def _format_history_for_intent(
     history_turns: Optional[List[Tuple[str, str]]]
 ) -> str:
@@ -135,21 +177,36 @@ def infer_intent_and_rewrite(
 ) -> Tuple[str, Optional[str], str]:
     """
     Returns:
-      - intent: e.g. "CHITCHAT", "LOOKUP", "NUMERIC_ANALYSIS", "NEW_QUESTION",
-                "IMPLICATIONS", "STRATEGY", "FOLLOWUP_ELABORATE", ...
+      - intent: e.g. "CHITCHAT", "CAPABILITIES", "LOOKUP", "NUMERIC_ANALYSIS",
+                "NEW_QUESTION", "IMPLICATIONS", "STRATEGY", "FOLLOWUP_ELABORATE", ...
       - rewritten: optional rewritten question (or None)
       - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
     """
-    text = user_message.lower()
+    text = (user_message or "").lower().strip()
 
-    # 1) Cheap chitchat short-circuit (pure appreciation only)
+    # 1) Cheap chitchat short-circuit (greetings & pure appreciation)
     if any(x in text for x in [
-        "thank you", "thanks", "got it", "great", "good job",
+        "thank you", "thanks", "thx", "got it", "great", "good job",
         "well done", "appreciate it",
+        "hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening",
     ]):
         return "CHITCHAT", None, "GENERAL"
 
-    # 2) Domain guess
+    # 2) Cheap CAPABILITIES detection
+    if any(x in text for x in [
+        "what can you do",
+        "what information can you help me with",
+        "what information can you currently have",
+        "what information do you have",
+        "what topics should i ask you",
+        "what do you know",
+        "what is your knowledge base",
+        "what can you assist me with",
+        "what information can you provide for me now",
+    ]):
+        return "CAPABILITIES", None, "GENERAL"
+
+    # 3) Domain guess
     domain = "GENERAL"
     if any(k in text for k in FINANCE_KEYWORDS):
         domain = "FINANCE"
@@ -160,8 +217,7 @@ def infer_intent_and_rewrite(
     elif any(k in text for k in POLICY_KEYWORDS):
         domain = "POLICY"
 
-    # 3) Cheap intent guess (rule-based hybrid layer)
-    # 3a) Explicit follow-up patterns like "How did you arrive at your answer?"
+    # 4) Cheap intent guess (rule-based hybrid layer)
     if any(x in text for x in [
         "how did you arrive at your answer",
         "how did you arrive at that answer",
@@ -196,7 +252,7 @@ def infer_intent_and_rewrite(
     else:
         cheap_intent = "GENERAL"
 
-    # 4) History block for LLM helper
+    # 5) History block for LLM helper
     history_block = _format_history_for_intent(history_turns)
 
     prompt = INTENT_PROMPT_TEMPLATE.format(
@@ -209,44 +265,41 @@ def infer_intent_and_rewrite(
         {"role": "user", "content": prompt},
     ]
 
-    # 5) LLM-based intent + rewrite
+    # 6) LLM-based intent + rewrite
     try:
         resp = suggestion_llm_client.invoke(messages)
         raw = getattr(resp, "content", None) or str(resp)
         data = json.loads(raw)
-
         llm_intent = (data.get("intent") or "UNSURE").strip().upper()
         rewritten = data.get("rewritten_question") or None
     except Exception:
         llm_intent = "UNSURE"
         rewritten = None
 
-    # 6) Sanitize LLM intent
+    # 7) Sanitize LLM intent
     allowed_intents = {
         "FOLLOWUP_ELABORATE",
         "NEW_QUESTION",
         "CHITCHAT",
+        "CAPABILITIES",
         "UNSURE",
     }
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
-    # 7) Combine rule-based and LLM intents
-    # If the LLM confidently says FOLLOWUP_ELABORATE / NEW_QUESTION / CHITCHAT, trust it.
-    if llm_intent in {"FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT"}:
+    # 8) Combine rule-based and LLM intents
+    if llm_intent in {"FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "CAPABILITIES"}:
         intent = llm_intent
     else:
-        # llm_intent == "UNSURE": fall back to cheap_intent
         intent = cheap_intent
 
-    # FOLLOWUP_ELABORATE fallback if no rewrite was produced:
-    # We keep FOLLOWUP_ELABORATE if there is history; otherwise, demote to cheap_intent.
+    # FOLLOWUP_ELABORATE fallback if no rewrite was produced
     if intent == "FOLLOWUP_ELABORATE" and not rewritten:
         if not history_turns:
             intent = cheap_intent or "GENERAL"
 
-    # CHITCHAT should always be GENERAL
-    if intent == "CHITCHAT":
+    # CHITCHAT and CAPABILITIES should always be GENERAL
+    if intent in {"CHITCHAT", "CAPABILITIES"}:
         domain = "GENERAL"
 
     return intent, rewritten, domain
@@ -259,25 +312,47 @@ async def llm_pipeline_stream(
     history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
     result_holder: Optional[dict] = None,
-    last_doc_id: Optional[str] = None,   # anchor doc for follow-ups
+    last_doc_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
 
-    # CHITCHAT: short acknowledgement
+    text_lower = (question or "").lower()
+
+    # 1) CHITCHAT
     if intent == "CHITCHAT":
-        msg = "You’re welcome."
+        if any(p in text_lower for p in ["thank you", "thanks", "thx", "appreciate it"]):
+            msg = "You’re welcome. If you have more questions, feel free to ask."
+        elif any(p in text_lower for p in ["hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening"]):
+            msg = (
+                "Hello! I can help you with questions about the documents and data in this workspace. "
+                "What would you like to explore?"
+            )
+        else:
+            msg = "I’m here to help with your questions about the documents and information in this workspace. What would you like to know?"
+
         if result_holder is not None:
             result_holder["answer"] = msg
             result_holder["sources"] = []
         yield msg
         return
 
+    # 2) CAPABILITIES – dynamic from store
+    if intent == "CAPABILITIES":
+        summary = await store.summarize_capabilities(tenant_id)  # you implement on manager
+        msg = build_capabilities_message_from_store(summary)
+
+        if result_holder is not None:
+            result_holder["answer"] = msg
+            result_holder["sources"] = []
+        yield msg
+        return
+
+    # 3) Normal RAG path
     effective_question = rewritten or question
 
-    # Optional filter for follow-ups / implications / strategy
     query_filter = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
         query_filter = {"doc_id": last_doc_id}
@@ -291,11 +366,20 @@ async def llm_pipeline_stream(
     )
     hits = retrieval.get("results", [])
 
+    # 4) No hits: intent-aware fallback
     if not hits:
-        msg = (
-            "The information I have access to right now is not sufficient to answer this question. "
-            "Please consider checking with the appropriate internal team or rephrasing with more detail."
-        )
+        if intent == "NEW_QUESTION":
+            msg = (
+                "I could not find relevant information in the current knowledge base for this question. "
+                "I'm best at questions about the documents and data that have been ingested here. "
+                "Could you rephrase or specify the document, topic, or area you’re interested in?"
+            )
+        else:
+            msg = (
+                "The information I have access to right now is not sufficient to answer this question. "
+                "Please consider checking with the appropriate internal team or rephrasing with more detail."
+            )
+
         if result_holder is not None:
             result_holder["answer"] = msg
             result_holder["sources"] = []
@@ -320,7 +404,6 @@ async def llm_pipeline_stream(
         context_chunks.append(chunk_str)
         sources.append(title)
 
-    # Rerank and trim to top 3–5 chunks
     try:
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
         rerank_resp = suggestion_llm_client.invoke(rerank_messages)
@@ -339,10 +422,8 @@ async def llm_pipeline_stream(
 
     unique_sources = sorted(set(sources))
 
-    # Get last answer from history (if any) for follow-ups
     last_answer_text: Optional[str] = None
     if history:
-        # history is list of (user, assistant) tuples
         _, last_answer_text = history[-1]
 
     system_prompt, user_prompt = create_context(
@@ -350,7 +431,7 @@ async def llm_pipeline_stream(
         user_question=effective_question,
         intent=intent,
         domain=domain,
-        last_answer=last_answer_text,   # NEW: pass summary anchor into prompt builder
+        last_answer=last_answer_text,
     )
 
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
@@ -378,12 +459,10 @@ async def llm_pipeline_stream(
 
         full_answer = "".join(full_answer_parts)
 
-        # ---- CRITIQUE BLOCK ----
         context_text = "\n\n".join(context_chunks)
-
         critique_messages = create_critique_prompt(
             user_question=question,
-            assistant_answer=full_answer,          # use full_answer here
+            assistant_answer=full_answer,
             context_text=context_text[:2000],
         )
 
@@ -400,21 +479,19 @@ async def llm_pipeline_stream(
                 "Here is a more precise answer based strictly on the context:\n\n"
                 + full_answer
             )
-        # ---- END CRITIQUE BLOCK ----
 
         if result_holder is not None:
             result_holder["answer"] = full_answer
             result_holder["sources"] = unique_sources
 
     except Exception:
-        error_msg = (
-            "There was a temporary problem contacting the model, please try again."
-        )
+        error_msg = "There was a temporary problem contacting the model, please try again."
         if result_holder is not None:
             result_holder["answer"] = error_msg
             result_holder["sources"] = unique_sources
         yield error_msg
         return
+
 
 
 

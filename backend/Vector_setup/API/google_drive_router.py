@@ -373,7 +373,6 @@ SUPPORTED_MIME_TYPES = {
 }
 
 @router.post("/ingest")
-@router.post("/ingest")
 async def ingest_drive_file(
     req: DriveIngestRequest,
     db: Session = Depends(get_db),
@@ -467,14 +466,22 @@ async def ingest_drive_file(
 
     # 5) Index into vector store
     doc_id = str(uuid.uuid4())
+    # Look up collection info
+    collection_info = store.get_collection_info(tenant_id, req.collection_name) # to be implemented
+    collection_display_name = collection_info.get("display_name", req.collection_name)
+    high_level_topic = collection_info.get("topic") # e.g. "HR & Policies", "Engineering", etc.
+    
     metadata = {
         "filename": original_name,
         "title": req.title or original_name,
         "content_type": mime_type,
+        "size_bytes": len(raw_bytes),
         "source": "google_drive",
         "drive_file_id": req.file_id,
         "tenant_id": tenant_id,
         "collection": req.collection_name,
+        "collection_display_name": collection_display_name,
+        "high_level_topic": high_level_topic,
     }
 
     result = await store.add_document(
