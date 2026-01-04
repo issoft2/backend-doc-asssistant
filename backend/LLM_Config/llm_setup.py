@@ -33,7 +33,7 @@ suggestion_llm_client = ChatOpenAI(
 llm_client_streaming = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-4o",
+    model="gpt-4o-mini",
     temperature=0.2,
     max_tokens=1536,
     streaming=True,
@@ -43,7 +43,7 @@ llm_client_streaming = ChatOpenAI(
 formatter_llm_client = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-4o-mini",
+    model="gpt-4.1-mini",
     temperature=0.0,
     max_tokens=1024
 )
