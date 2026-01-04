@@ -3,7 +3,7 @@ import json
 import textwrap
 
 from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming, formatter_llm_client
-from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt, create_critique_prompt
+from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
@@ -335,29 +335,21 @@ def infer_intent_and_rewrite(
 
     return intent, rewritten, domain
 
-def create_formatter_prompt(raw_answer: str) -> list[dict]:
+def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
+    """
+    Wraps the raw LLM answer with the formatter system prompt
+    to produce a clean, human-readable Markdown output.
+    """
     return [
         {
             "role": "system",
-            "content": (
-                "You are a formatting assistant.\n\n"
-                "Your job is to rewrite the given answer into a clear, human-readable format.\n\n"
-                "Rules:\n"
-                "- Use clear section headings\n"
-                "- Use bullet points where appropriate\n"
-                "- Preserve ALL factual content\n"
-                "- Do NOT add new information\n"
-                "- Do NOT remove information\n"
-                "- Use Markdown formatting\n"
-                "- Prefer structured breakdowns over long paragraphs\n"
-            )
+            "content": FORMATTER_SYSTEM_PROMPT
         },
         {
             "role": "user",
             "content": raw_answer
         }
     ]
-
 
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
