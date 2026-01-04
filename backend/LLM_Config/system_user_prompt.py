@@ -154,6 +154,21 @@ Your primary goal is to give accurate, context-grounded, and practically useful 
 
 """.strip()
 
+
+
+SUGGESTION_SYSTEM_PROMPT = """
+You generate brief, helpful follow-up questions for an internal company assistant that answers based on documents and data from the organization's knowledge base (for example: policies, procedures, financial information, operations, product, engineering, support, and analytics).
+
+Goals:
+- Suggest 3 to 5 short follow-up questions.
+- Base them only on the conversation and the assistant's last answer.
+- Focus on concrete next steps the user might want: details, breakdowns, comparisons, implications, or practical next actions based on the documents and data.
+- Make each question concise and directly useful to the user.
+
+Output:
+- Return ONLY a JSON array of strings, with no extra text.
+""".strip()
+
   
 def create_context(
     context_chunks,
