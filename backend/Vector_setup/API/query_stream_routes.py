@@ -17,6 +17,10 @@ from Vector_setup.user.auth_jwt import (
 )
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn, get_last_doc_id
 from LLM_Config.llm_pipeline import llm_pipeline_stream
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 router = APIRouter()
 
@@ -103,8 +107,14 @@ async def query_knowledge_stream(
                 yield f"event: token\ndata: {safe_chunk}\n\n"
         except Exception as e:
             # Optional: send an error event (or just log and fall through)
-            error_msg = f"An error occurred while generating the answer: {e}"
-            yield send_status(error_msg)
+           logger.exception("Pipeline error in /api/query/stream")
+           # keep message generic to client
+           yield (
+                "event: status\n"
+                "data: An error occurred while generating the answer.\n\n"
+            )
+           yield "event: done\ndata: END\n\n"
+
 
         # Reconstruct final answer exactly as produced
         answer_str = "".join(full_answer)

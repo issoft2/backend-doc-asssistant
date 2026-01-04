@@ -5,6 +5,10 @@ import textwrap
 from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming
 from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt, create_critique_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def build_capabilities_message_from_store(store_summary: dict) -> str:
@@ -272,6 +276,7 @@ def infer_intent_and_rewrite(
         resp = suggestion_llm_client.invoke(messages)
         raw = getattr(resp, "content", None) or str(resp)
         raw = raw.strip()
+        logger.info("Intent raw output: $r", raw)
 
         data = None
 
