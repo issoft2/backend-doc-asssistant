@@ -335,6 +335,38 @@ def infer_intent_and_rewrite(
 
     return intent, rewritten, domain
 
+import re
+def clean_raw_answer_for_formatter(raw_answer: str) -> str:
+    text = raw_answer
+
+    # Remove Listen / Stop or streaming artifacts
+    text = re.sub(r"\b(Listen|Stop)\b", "", text, flags=re.IGNORECASE)
+
+    # Remove repeated headings (case-insensitive)
+    headings_to_remove = [
+        "Summary",
+        "Step-by-Step Correlation Analysis",
+        "Limits and Next Steps",
+        "Monthly Churn Rate Trend",
+        "Observations",
+        "Customer Satisfaction Scores",
+        "Correlation Analysis",
+    ]
+    for heading in headings_to_remove:
+        # Remove duplicate heading blocks while keeping the content
+        text = re.sub(
+            rf"(#{1,3}\s*{heading}\s*)",
+            "",
+            text,
+            flags=re.IGNORECASE
+        )
+
+    # Collapse multiple newlines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
+
+
 def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
     """
     Wraps the raw LLM answer with the formatter system prompt

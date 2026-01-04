@@ -337,6 +337,9 @@ Formatting rules (MUST FOLLOW):
 
 8. **Duplicates**
    - Merge repeated information; do not repeat the same metric, trend, or observation multiple times.
+   - Do not include duplicate sections; produce a single, concise structured answer.
+   - Convert all formulas to plain text. Do NOT use LaTeX, \( \), \[ \], or any math delimiters.
+   - Use the format: "r = (Σ((X - mean_X) * (Y - mean_Y))) / (sqrt(Σ(X - mean_X)^2) * sqrt(Σ(Y - mean_Y)^2))"
 
 9. **Markdown compliance**
    - All output must render properly as Markdown in a chat UI.
@@ -364,7 +367,6 @@ The churn rate shows significant monthly fluctuations. Customer satisfaction sco
 - Provide customer satisfaction score data (e.g., NPS or CSAT) to enable correlation analysis.
 - Monitor churn trends monthly to identify patterns.
 
-- Do not include duplicate sections; produce a single, concise structured answer.
 
 Your task: **Take the raw answer and produce a single, well-structured Markdown output that follows the above rules.**
 """.strip()
