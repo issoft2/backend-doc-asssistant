@@ -566,10 +566,11 @@ async def llm_pipeline_stream(
                 + raw_answer
             )
 
-        # =========================
-        # PASS 3: FORMATTER
-        # =========================
-        formatter_messages = create_formatter_prompt(raw_answer)
+        # 1. Clean raw answer
+        cleaned_answer = clean_raw_answer_for_formatter(raw_answer)
+
+        # 2. Build formatter messages
+        formatter_messages = create_formatter_prompt(cleaned_answer)
 
         try:
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
