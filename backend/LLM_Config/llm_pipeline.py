@@ -335,37 +335,6 @@ def infer_intent_and_rewrite(
 
     return intent, rewritten, domain
 
-import re
-def clean_raw_answer_for_formatter(raw_answer: str) -> str:
-    text = raw_answer
-
-    # Remove Listen / Stop or streaming artifacts
-    text = re.sub(r"\b(Listen|Stop)\b", "", text, flags=re.IGNORECASE)
-
-    # Remove repeated headings (case-insensitive)
-    headings_to_remove = [
-        "Summary",
-        "Step-by-Step Correlation Analysis",
-        "Limits and Next Steps",
-        "Monthly Churn Rate Trend",
-        "Observations",
-        "Customer Satisfaction Scores",
-        "Correlation Analysis",
-    ]
-    for heading in headings_to_remove:
-        # Remove duplicate heading blocks while keeping the content
-        text = re.sub(
-            rf"(#{1,3}\s*{heading}\s*)",
-            "",
-            text,
-            flags=re.IGNORECASE
-        )
-
-    # Collapse multiple newlines
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text.strip()
-
 
 def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
     """
@@ -409,7 +378,10 @@ async def llm_pipeline_stream(
                 "What would you like to explore?"
             )
         else:
-            msg = "I’m here to help with your questions about the documents and information in this workspace. What would you like to know?"
+            msg = (
+                "I’m here to help with your questions about the documents and information in this workspace. "
+                "What would you like to know?"
+            )
 
         if result_holder is not None:
             result_holder["answer"] = msg
@@ -419,7 +391,7 @@ async def llm_pipeline_stream(
 
     # 2) CAPABILITIES – dynamic from store
     if intent == "CAPABILITIES":
-        summary = await store.summarize_capabilities(tenant_id)  # you implement on manager
+        summary = await store.summarize_capabilities(tenant_id)
         msg = build_capabilities_message_from_store(summary)
 
         if result_holder is not None:
@@ -482,6 +454,7 @@ async def llm_pipeline_stream(
         context_chunks.append(chunk_str)
         sources.append(title)
 
+    # Rerank
     try:
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
         rerank_resp = suggestion_llm_client.invoke(rerank_messages)
@@ -492,11 +465,11 @@ async def llm_pipeline_stream(
             max_chunks = 5
             indices = indices[:max_chunks]
             context_chunks = [context_chunks[i] for i in indices]
-            sources       = [sources[i]       for i in indices]
+            sources = [sources[i] for i in indices]
     except Exception:
         max_chunks = 5
         context_chunks = context_chunks[:max_chunks]
-        sources       = sources[:max_chunks]
+        sources = sources[:max_chunks]
 
     unique_sources = sorted(set(sources))
 
@@ -530,14 +503,14 @@ async def llm_pipeline_stream(
         async for chunk in llm_client_streaming.astream(messages):
             text = getattr(chunk, "content", "") or ""
             if not text:
-                # fallback for older response formats
                 try:
-                    text = chunk.generations[0].text  # type: ignore
+                    text = chunk.generations[0].text  # type: ignore[attr-defined]
                 except Exception:
                     text = ""
             if text:
                 full_answer_parts.append(text)
-                yield text  # stream raw tokens to user
+                # stream raw tokens to user
+                yield text
 
         # Combine streamed chunks
         raw_answer = "".join(full_answer_parts)
@@ -558,7 +531,6 @@ async def llm_pipeline_stream(
         except Exception:
             critique = "OK"
 
-        # Prepend warning if answer is BAD
         if critique == "BAD":
             raw_answer = (
                 "⚠️ **Warning:** The previous attempt may not be fully consistent with the available documents. "
@@ -566,11 +538,9 @@ async def llm_pipeline_stream(
                 + raw_answer
             )
 
-        # 1. Clean raw answer
-        cleaned_answer = clean_raw_answer_for_formatter(raw_answer)
 
         # 2. Build formatter messages
-        formatter_messages = create_formatter_prompt(cleaned_answer)
+        formatter_messages = create_formatter_prompt(raw_answer)
 
         try:
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
@@ -579,14 +549,14 @@ async def llm_pipeline_stream(
             formatted_answer = raw_answer  # fallback to unformatted
 
         # =========================
-        # STORE & RETURN FINAL ANSWER
+        # STORE FINAL ANSWER ONLY
         # =========================
         if result_holder is not None:
             result_holder["answer"] = formatted_answer
             result_holder["sources"] = unique_sources
 
-        # Yield the fully formatted answer after streaming raw answer
-        yield formatted_answer
+        # IMPORTANT: do NOT yield formatted_answer again
+        return
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
