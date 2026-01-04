@@ -364,6 +364,8 @@ The churn rate shows significant monthly fluctuations. Customer satisfaction sco
 - Provide customer satisfaction score data (e.g., NPS or CSAT) to enable correlation analysis.
 - Monitor churn trends monthly to identify patterns.
 
+- Do not include duplicate sections; produce a single, concise structured answer.
+
 Your task: **Take the raw answer and produce a single, well-structured Markdown output that follows the above rules.**
 """.strip()
 
