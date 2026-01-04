@@ -24,18 +24,18 @@ llm_client = ChatOpenAI(
 suggestion_llm_client = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-4.1-nano",
-    temperature=0.7,
-    max_tokens=128
+    model="gpt-4.1-mini",
+    temperature=0.5,
+    max_tokens=256
 )
 
 # Streaming LLM client
 llm_client_streaming = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-4o-mini",
+    model="gpt-4.1-mini",
     temperature=0.2,
-    max_tokens=1536,
+    max_tokens=2048,
     streaming=True,
 )
 
