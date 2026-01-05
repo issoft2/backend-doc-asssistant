@@ -82,25 +82,3 @@ def seed_vendor_user():
         session.add(user)
         session.commit()
 
-
-
-@app.on_event("startup")
-def ensure_chat_messages_schema():
-    # uses the same global `engine` you already use for Session(engine)
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info(chat_messages);"))
-        cols = [row[1] for row in res.fetchall()]
-        if "doc_id" not in cols:
-            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN doc_id TEXT;"))
-            conn.commit()
-
-
-@app.on_event("startup")
-def add_to_user_schema():
-    # uses the same global `engine` you already use for Session(engine)
-    with engine.connect() as conn:
-        res = conn.execute(text("PRAGMA table_info(users);"))
-        cols = [row[1] for row in res.fetchall()]
-        if "is_first_login" not in cols:
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_first_login BOOLEAN;"))
-            conn.commit()

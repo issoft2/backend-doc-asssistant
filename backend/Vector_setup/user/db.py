@@ -66,7 +66,7 @@ class IngestedDriveFile(SQLModel, table=True):
     mime_type: str
     # Optional: has/versioning fields later
     # content_has: Optional[str] = None
-    # last_ingested_at: datetime = Field(default_factory=datetime.utcnow)        
+    last_ingested_at: datetime = Field(default_factory=datetime.utcnow)        
 
 class FirstLoginToken(SQLModel, table=True):
     __tablename__ = "first_login_tokens"
