@@ -3,7 +3,7 @@ import os
 from typing import Optional
 import mailtrap as mt
 
-MAILTRAP_API_TOKEN = os.getenv("MAILTRAPTOKEN")  # set this in your env
+MAILTRAP_API_TOKEN = os.getenv("MAILTRAPTOKEN", "14b3f16b03aa7223cfaa8de2cb6661ce")  # set this in your env
 
 client = mt.MailtrapClient(token=MAILTRAP_API_TOKEN, sandbox=False)
 
