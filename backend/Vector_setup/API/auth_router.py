@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta
+from datetime import, datetime, timedelta, timezone
 from sqlmodel import Session, select
 
 
@@ -10,6 +10,7 @@ from Vector_setup.user.auth_jwt import create_access_token, authenticate_user, A
 from Vector_setup.user.db import get_db, FirstLoginToken, engine, DBUser
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.services.email_service import send_first_login_email  # your email helper
+from Vector_setup.user.password import verify_password
 import os
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN", "https://lexiscope.duckdns.org")
@@ -149,34 +150,41 @@ class FirstLoginVerifyRequest(BaseModel):
 
 @router.post("/first-login/verify")
 def verify_first_login(payload: FirstLoginVerifyRequest):
-    token_value = payload.token
+    raw_token = payload.token
 
-    # 1. Find token record
     with Session(engine) as session:
-        stmt = select(FirstLoginToken).where(FirstLoginToken.token == token_value)
-        token_row = session.exec(stmt).first()
+        # 1) Find all not-yet-used tokens (should be 0 or 1) and verify hash
+        stmt = select(FirstLoginToken).where(FirstLoginToken.used_at.is_(None))
+        candidates = session.exec(stmt).all()
 
-        if not token_row:
+        matched = None
+        for t in candidates:
+            if verify_password((raw_token or "")[:64], t.token_hash):
+                matched = t
+                break
+
+        if not matched:
             raise HTTPException(status_code=400, detail="Invalid or expired")
 
-        # 2. Check expiry
+        # 2) Check expiry
         now = datetime.now(timezone.utc)
-        if token_row.expires_at.replace(tzinfo=timezone.utc) < now:
-            # optional: delete expired token
-            session.delete(token_row)
+        expires_at = matched.expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            matched.used_at = now  # optionally mark as used/invalid
+            session.add(matched)
             session.commit()
             raise HTTPException(status_code=400, detail="Invalid or expired")
 
-        # 3. Load user
-        user = session.get(DBUser, token_row.user_id)
+        # 3) Load user
+        user = session.get(DBUser, matched.user_id)
         if not user:
             raise HTTPException(status_code=400, detail="Invalid or expired")
 
-        # 4. Mark first login as complete
+        # 4) Mark first login complete and token as used
         user.is_first_login = False
+        matched.used_at = now
         session.add(user)
-        # optional: delete token so it can't be reused
-        session.delete(token_row)
+        session.add(matched)
         session.commit()
 
         return {"status": "ok"}
