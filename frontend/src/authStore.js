@@ -45,11 +45,11 @@ export async function login({ email, password }) {
 }
 
 export function firstLoginVerify(payload) {
-  return api.post('/first-login/verify', payload)
+  return api.post('/auth/first-login/verify', payload)
 }
 
 export function firstLoginSetPassword(payload) {
-  return api.post('/first-login/set-password', payload)
+  return api.post('/auth/first-login/set-password', payload)
 }
 
 export async function loginToTenant({ email, tenant_id }) {
