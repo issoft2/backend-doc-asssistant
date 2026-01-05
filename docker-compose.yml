@@ -9,13 +9,13 @@ services:
       DATABASE_URL: "sqlite:///./data/users.db"
       HF_HUB_ENABLE_HF_TRANSFER: "False"
       HF_HUB_DISABLE_XET: "1" 
-      APP_RESET_DATA: "false" 
+      APP_RESET_DATA: "true" 
       CHROMA_PATH: "/app/chromadb_multi_tenant" 
 
       SMTP_HOST: "smtp.gmail.com"
       SMTP_PORT: "465"
       SMTP_USER: "specisaac@gmail.com"
-      SMTP_PASSWORD: "yqnv_exoh_afif_wksv"
+      SMTP_PASSWORD: "yqnvexohafifwksv"
       SMTP_FROM_NAME: "issoft"
       SMTP_USE_SSL: "true"
     volumes:
