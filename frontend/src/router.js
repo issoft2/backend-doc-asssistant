@@ -10,6 +10,7 @@ import { authState } from './authStore'
 import HomePage from './views/HomePage.vue'   // ⬅ add this
 import CompanyUsersPage from './views/CompanyUsersPage.vue'
 import NotAllowedPage from './views/NotAllowedPage.vue'
+import FirstLogin from './views/FirstLoginPage.vue'
 
 
 
@@ -77,6 +78,12 @@ const routes = [
       // requiresAuth: false
     }
    },
+
+   {
+  path: '/first-login',
+  name: 'first-login',
+  component: () => import('./pages/FirstLoginPage.vue'),
+},
 
 ]
 

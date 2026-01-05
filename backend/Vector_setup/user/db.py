@@ -21,6 +21,7 @@ class DBUser(SQLModel, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    is_first_login: bool = Field(default=True)
     
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
@@ -66,6 +67,15 @@ class IngestedDriveFile(SQLModel, table=True):
     # Optional: has/versioning fields later
     # content_has: Optional[str] = None
     # last_ingested_at: datetime = Field(default_factory=datetime.utcnow)        
+
+class FirstLoginToken(SQLModel, table=True):
+    __tablename__ = "first_login_tokens"
+    id: str = Field(primary_key=True, index=True)
+    user_id: str = Field(index=True, foreign_key="users.id")
+    token_hash: str = Field(index=True)
+    expires_at: datetime
+    used_at: datetime | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 def init_db():
     SQLModel.metadata.create_all(engine)

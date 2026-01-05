@@ -44,6 +44,14 @@ export async function login({ email, password }) {
   return data
 }
 
+export function firstLoginVerify(payload) {
+  return api.post('/first-login/verify', payload)
+}
+
+export function firstLoginSetPassword(payload) {
+  return api.post('/first-login/set-password', payload)
+}
+
 export async function loginToTenant({ email, tenant_id }) {
   const { data } = await api.post('/auth/login/tenant', {
     email,

@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from sqlmodel import Session
 
 from Vector_setup.base.auth_models import UserCreate, UserOut, LoginRequestTenant
-from Vector_setup.user.auth_store import create_user, get_user_by_email, login_tenant_request
+from Vector_setup.user.auth_store import create_user, get_user_by_email, login_tenant_request, create_first_login_token
 from Vector_setup.user.auth_jwt import create_access_token, authenticate_user, ACCESS_TOKEN_EXPIRE_MINUTES
-from Vector_setup.user.db import get_db
+from Vector_setup.user.db import get_db, FirstLoginToken
 from Vector_setup.user.auth_jwt import get_current_user
+from Vector_setup.services.email_service import send_first_login_email  # your email helper
+import os
+
+FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,6 +24,7 @@ def signup(
     user_in: UserCreate,
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user),
+    background_tasks: BackgroundTasks = Depends(),
 ) -> UserOut:
      # 1) Block employees completely
     if current_user.role == "employee":
@@ -43,9 +48,29 @@ def signup(
             detail="Email already registered",
         )
 
+    # 4) Create user (ensure is_first_login default to True in create_user)
     user = create_user(user_in, db)
-    return UserOut(id=user.id, email=user.email, tenant_id=user.tenant_id, role=user.role)
-
+    
+    # 5) Generate first-time login token
+    raw_token = create_first_login_token(db, user)
+    
+    # 6) Queue email sending
+    login_link = f"{FRONTEND_BASE_URL}/first-login?token={raw_token}"
+    background_tasks.add_task(
+        send_first_login_email,
+        to_email=user.email,
+        first_name=user.first_name,
+        tenant_id=user.tenant_id,
+        login_link=login_link,
+    )
+    
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        tenant_id=user.tenant_id,
+        role=user.role,
+    )
+    
 
 @router.post("/login")
 def login(

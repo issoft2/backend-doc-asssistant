@@ -41,4 +41,6 @@ class UserInDB(UserOut):
     
 class LoginRequestTenant(BaseModel):
     email: str
-    tenant_id: str    
+    tenant_id: str 
+    
+       
