@@ -9,7 +9,7 @@ services:
       DATABASE_URL: "sqlite:///./data/users.db"
       HF_HUB_ENABLE_HF_TRANSFER: "False"
       HF_HUB_DISABLE_XET: "1" 
-      APP_RESET_DATA: "true" 
+      APP_RESET_DATA: "false" 
       CHROMA_PATH: "/app/chromadb_multi_tenant" 
     volumes:
       - chroma_data:/app/chromadb_multi_tenant
