@@ -49,6 +49,20 @@ class CollectionCreateRequest(BaseModel):
             raise ValueError("Collection name must be alphanumeric and may include '-' or '_'.")
         return v
 
+def _clean_metadata(meta: dict | None) -> dict:
+    """Drop None values and coerce non-primitive types to strings for Chroma."""
+    cleaned: dict = {}
+    if not meta:
+        return cleaned
+
+    for k, v in meta.items():
+        if v is None:
+            continue
+        if isinstance(v, (str, int, float, bool)):
+            cleaned[k] = v
+        else:
+            cleaned[k] = str(v)
+    return cleaned
 
 class MultiTenantChromaStoreManager:
     """
@@ -232,23 +246,9 @@ class MultiTenantChromaStoreManager:
         self._collection_meta_cache[key] = info
         return info
     
-    # Santize the metadata before ingestion
-    def _clean_metadata(meta: dict) -> dict:
-        cleaned = {}
-        for k, v in meta.items():
-            if v is None:
-                continue  # or set to "" if you need the key
-            # Optionally, coerce non-primitive types to strings:
-            if isinstance(v, (str, int, float, bool)):
-                cleaned[k] = v
-            else:
-                cleaned[k] = str(v)
-        return cleaned
-
     # -----------------------
     # Ingest / query
     # -----------------------
-
     async def add_document(
         self,
         tenant_id: str,
