@@ -231,6 +231,19 @@ class MultiTenantChromaStoreManager:
 
         self._collection_meta_cache[key] = info
         return info
+    
+    # Santize the metadata before ingestion
+    def _clean_metadata(meta: dict) -> dict:
+        cleaned = {}
+        for k, v in meta.items():
+            if v is None:
+                continue  # or set to "" if you need the key
+            # Optionally, coerce non-primitive types to strings:
+            if isinstance(v, (str, int, float, bool)):
+                cleaned[k] = v
+            else:
+                cleaned[k] = str(v)
+        return cleaned
 
     # -----------------------
     # Ingest / query
@@ -262,18 +275,21 @@ class MultiTenantChromaStoreManager:
         collection = self._client.get_or_create_collection(full_name)
 
         chunk_ids = [f"{doc_id}__chunk_{i}" for i in range(len(chunks))]
-        chunk_metadatas = [
-            {
-                **(metadata or {}),
+        
+        chunk_metadatas = []
+        for idx, _chunk_text in enumerate(chunks):
+            base_meta = metadata or {}
+            meta = {
+                **base_meta,          # doc-level metadata from router
                 "tenant_id": tenant_id,
                 "collection": collection_name,
                 "doc_id": doc_id,
-                "chunk_index": i,
+                "chunk_index": idx,
                 "chunk_count": len(chunks),
             }
-            for i in range(len(chunks))
-        ]
+            chunk_metadatas.append(_clean_metadata(meta))
 
+        
         collection.add(
             ids=chunk_ids,
             documents=chunks,
