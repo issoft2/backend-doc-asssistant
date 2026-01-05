@@ -5,6 +5,7 @@ from .db import DBUser, FirstLoginToken
 import uuid
 from datetime import datetime, timedelta
 import secrets, hashlib
+from Vector_setup.user.password import get_password_hash
 
 def create_user(data: UserCreate, db: Session) -> UserInDB:
     user_id = str(uuid.uuid4())
@@ -32,7 +33,7 @@ def create_first_login_token(db: Session, user: UserInDB ) -> str:
     """
     id = str(uuid.uuid4())
     raw_token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    token_hash = get_password_hash((raw_token or "")[:64]) 
     expires_at = datetime.utcnow() + timedelta(hours=24)
     first_token =  FirstLoginToken(
         id=id,
