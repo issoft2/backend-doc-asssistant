@@ -373,19 +373,6 @@ SUPPORTED_MIME_TYPES = {
 }
 
 
-# Clean ingest metadata
-def _clean_metadata(meta: dict) -> dict:
-    """Drop None values and coerce non-primitive types to strings for Chroma."""
-    cleaned = {}
-    for k, v in meta.items():
-        if v is None:
-            continue
-        if isinstance(v, (str, int, float, bool)):
-            cleaned[k] = v
-        else:
-            cleaned[k] = str(v)
-    return cleaned
-
 @router.post("/ingest")
 async def ingest_drive_file(
     req: DriveIngestRequest,
@@ -498,7 +485,6 @@ async def ingest_drive_file(
         "high_level_topic": high_level_topic,
     }
     
-    metadata = _clean_metadata(metadata)
 
     result = await store.add_document(
         tenant_id=tenant_id,
