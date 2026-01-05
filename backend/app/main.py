@@ -14,7 +14,7 @@ from Vector_setup.API.google_drive_router import router as google_drive_router
 
 from Vector_setup.user.db import init_db, DBUser, engine
 from Vector_setup.user.password import get_password_hash
-from Vector_setup.vector_store.store_manager import MultiTenantChromaStoreManager
+from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
 
 load_dotenv()
