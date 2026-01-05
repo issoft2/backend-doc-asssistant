@@ -82,7 +82,8 @@ const routes = [
    {
   path: '/first-login',
   name: 'first-login',
-  component: () => import('./pages/FirstLoginPage.vue'),
+  component: FirstLogin,
+  meta: {}
 },
 
 ]
