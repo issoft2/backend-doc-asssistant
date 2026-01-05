@@ -1,9 +1,14 @@
+
+from __future__ import annotations
+import os
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from pydantic import BaseModel, Field, validator
 import tiktoken
+import chromadb
 from chromadb import PersistentClient
+from chromadb.config import Settings
 from Vector_setup.embeddings.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
@@ -64,6 +69,7 @@ def _clean_metadata(meta: dict | None) -> dict:
             cleaned[k] = str(v)
     return cleaned
 
+
 class MultiTenantChromaStoreManager:
     """
     Production ChromaDB manager with in-process embedding service.
@@ -74,26 +80,57 @@ class MultiTenantChromaStoreManager:
 
     def __init__(
         self,
-        persist_dir: str = "./chromadb_multi_tenant",
+        persist_dir: str | None = None,
         embedding_model_name: str = "BAAI/bge-small-en-v1.5",
     ):
+        # Resolve persistent directory: env > arg > default
+        raw_dir = persist_dir or os.getenv(
+            "CHROMA_PATH",
+            "./chromadb_multi_tenant",
+        )
+        self.persist_dir = Path(raw_dir).resolve()
+        self.persist_dir.mkdir(parents=True, exist_ok=True)  # mkdir -p[web:394]
+
+        # Embeddings
         self._embedding_service = EmbeddingService(model_name=embedding_model_name)
 
-        self.persist_dir = Path(persist_dir).resolve()
-        self.persist_dir.mkdir(parents=True, exist_ok=True)
+        # Shared Chroma settings (used also by reset)
+        self._settings = Settings(
+            allow_reset=True,
+            anonymized_telemetry=False,  # keep stable and quiet[web:390][web:395]
+        )
 
-        self._client: PersistentClient = PersistentClient(path=str(self.persist_dir))
+        # Single persistent client instance
+        self._client: PersistentClient = chromadb.PersistentClient(
+            path=str(self.persist_dir),
+            settings=self._settings,
+        )
 
+        # Tokenizer for chunking/token counting
         self._encoding = tiktoken.get_encoding("o200k_base")
 
-        # cache for collection-level metadata (name -> info)
-        self._collection_meta_cache: Dict[tuple[str, str], dict] = {}
+        # Cache for collection-level metadata: (tenant_id, collection_name) -> info
+        self._collection_meta_cache: Dict[Tuple[str, str], dict] = {}
 
         logger.info(
             "MultiTenantChromaStoreManager initialized at %s (model: %s)",
             self.persist_dir,
             embedding_model_name,
         )
+
+    @property
+    def client(self) -> PersistentClient:
+        """Expose underlying Chroma client if needed."""
+        return self._client
+
+    def reset(self) -> None:
+        """
+        Wipe all Chroma collections for this persistent directory.
+
+        Safe to call from startup hooks, controlled by APP_RESET_DATA.
+        """
+        logger.warning("Resetting Chroma at %s", self.persist_dir)
+        self._client.reset()
 
     async def _get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """
