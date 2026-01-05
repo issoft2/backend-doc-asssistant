@@ -187,7 +187,6 @@ Formatting rules (MUST FOLLOW):
 
 5. **Sections**
    - Include meaningful sections where appropriate, e.g.:
-     - `## Summary`
      - `## Metrics`
      - `## Monthly Churn Rate Trend`
      - `### Observations`
@@ -216,7 +215,6 @@ Formatting rules (MUST FOLLOW):
 
 Example:
 
-## Summary
 The churn rate shows significant monthly fluctuations. Customer satisfaction scores are not available, so correlation cannot be determined.
 
 ## Monthly Churn Rate Trend
