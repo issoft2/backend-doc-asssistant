@@ -22,9 +22,9 @@ def read_me(current_user: UserOut = Depends(get_current_user)):
 @router.post("/signup", response_model=UserOut)
 def signup(
     user_in: UserCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user),
-    background_tasks: BackgroundTasks = Depends(),
 ) -> UserOut:
      # 1) Block employees completely
     if current_user.role == "employee":
