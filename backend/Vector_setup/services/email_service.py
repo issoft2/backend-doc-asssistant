@@ -5,7 +5,7 @@ import mailtrap as mt
 
 MAILTRAP_API_TOKEN = os.getenv("MAILTRAPTOKEN")  # set this in your env
 
-client = mt.MailtrapClient(token=MAILTRAP_API_TOKEN, sandbox=True)
+client = mt.MailtrapClient(token=MAILTRAP_API_TOKEN, sandbox=False)
 
 
 def send_first_login_email(
