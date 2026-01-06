@@ -131,11 +131,15 @@
                       </div>
 
                       <div class="flex-1 min-w-0">
-                            <MarkdownText
+                            <!-- <MarkdownText
                               v-if="msg.role === 'assistant'"
                               :content="msg.text"
                               class="prose prose-invert max-w-none text-slate-100 leading-relaxed prose-headings:text-slate-100 prose-strong:text-white"
-                            />
+                            /> -->
+
+                        <p v-if="msg.role === 'assistant'" class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">
+                          {{ msg.text }}
+                        </p>
 
                         <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
                       </div>
@@ -326,9 +330,6 @@ import { listConversations, getConversation, deleteConversation } from '../api'
 import { useQueryStream } from '../composables/useQueryStream'
 import MarkdownText from '../components/MarkdownText.vue'
 
-import { marked } from 'marked'
-
-const renderMarkdown = (text: string) => marked.parse(text || '')
 
 // ----- Streaming composable -----
 const {
