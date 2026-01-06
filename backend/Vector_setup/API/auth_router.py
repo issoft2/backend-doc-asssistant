@@ -10,7 +10,7 @@ from Vector_setup.user.auth_jwt import create_access_token, authenticate_user, A
 from Vector_setup.user.db import get_db, FirstLoginToken, engine, DBUser
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.services.email_service import send_first_login_email  # your email helper
-from Vector_setup.user.password import verify_password
+from Vector_setup.user.password import verify_password, get_password_hash
 import os
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN", "https://lexiscope.duckdns.org")
@@ -189,3 +189,55 @@ def verify_first_login(payload: FirstLoginVerifyRequest):
 
         return {"status": "ok"}
  
+ 
+class FirstLoginSetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+    
+
+@router.post("/first-login/set-password")
+def set_first_login_password(payload: FirstLoginSetPasswordRequest):
+    raw_token = payload.token
+    new_password = payload.new_password
+
+    if not new_password or len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password too short")
+
+    with Session(engine) as session:
+        # Find unused tokens and verify hash
+        stmt = select(FirstLoginToken).where(FirstLoginToken.used_at.is_(None))
+        candidates = session.exec(stmt).all()
+
+        matched = None
+        for t in candidates:
+            if verify_password((raw_token or "")[:64], t.token_hash):
+                matched = t
+                break
+
+        if not matched:
+            raise HTTPException(status_code=400, detail="Invalid or expired")
+
+        # Check expiry
+        now = datetime.now(timezone.utc)
+        expires_at = matched.expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < now:
+            matched.used_at = now
+            session.add(matched)
+            session.commit()
+            raise HTTPException(status_code=400, detail="Invalid or expired")
+
+        # Load user
+        user = session.get(DBUser, matched.user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="Invalid or expired")
+
+        # Set new password and mark first login complete
+        user.hashed_password = get_password_hash(new_password)
+        user.is_first_login = False
+        matched.used_at = now
+
+        session.add(user)
+        session.add(matched)
+        session.commit()
+
+        return {"status": "ok"}     
