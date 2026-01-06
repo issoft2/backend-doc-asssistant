@@ -7,8 +7,23 @@ from LLM_Config.system_user_prompt import create_context, create_critique_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 def build_capabilities_message_from_store(store_summary: dict) -> str:
