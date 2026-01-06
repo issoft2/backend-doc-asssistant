@@ -185,7 +185,7 @@ def verify_first_login(payload: FirstLoginVerifyRequest):
             raise HTTPException(status_code=400, detail="Invalid or expired")
 
         # 4) Mark first login complete and token as used
-        user.is_first_login = False
+        user.is_first_login = True
         matched.used_at = now
         session.add(user)
         session.add(matched)
