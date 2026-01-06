@@ -13,6 +13,8 @@ from Vector_setup.services.email_service import send_first_login_email  # your e
 from Vector_setup.user.password import verify_password, get_password_hash
 import os
 import logging
+from pydantic import BaseModel
+
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +149,6 @@ def login_tenant(
     )
     return {"access_token": access_token, "token_type": "bearer"}   
 
-from pydantic import BaseModel
 class FirstLoginVerifyRequest(BaseModel):
     token: str
 
@@ -204,6 +205,7 @@ def set_first_login_password(payload: FirstLoginSetPasswordRequest):
     new_password = payload.new_password
 
     logger.info("Set password payloads:::: %s", payload.dict())
+    print("Set passworf payload %s", payload.dict())
 
     if not new_password or len(new_password) < 8:
         logger.info("set-password error: password too short")
