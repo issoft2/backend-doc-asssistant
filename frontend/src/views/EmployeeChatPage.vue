@@ -316,13 +316,250 @@
   </div>
 </template>
 
-<script setup lang="ts">
-// keep your existing script as-is;
-// to be extra safe you can also default in the composable, e.g.:
-// const suggestions = ref<string[]>([])
-// const statusSteps = ref<string[]>([])
-</script>
 
+<script setup lang="ts">
+import { ref, onMounted, computed, watch } from 'vue'
+import { v4 as uuidv4 } from 'uuid'
+import { listConversations, getConversation, deleteConversation } from '../api'
+import { useQueryStream } from '../composables/useQueryStream'
+import MarkdownText from '../components/MarkdownText.vue'
+
+
+// ----- Streaming composable -----
+const {
+answer: streamedAnswer,
+status: streamStatus,
+statuses: statusSteps,
+isStreaming,
+suggestions,
+startStream,
+stopStream,
+} = useQueryStream()
+
+
+// ----- Form + UI state -----
+const question = ref('')
+const loading = ref(false)
+const error = ref('')
+
+
+// ----- Messages -----
+type ChatMessage = {
+role: 'user' | 'assistant'
+text: string
+sources?: string[]
+}
+const messages = ref<ChatMessage[]>([])
+
+
+// ----- Conversation/session state -----
+const conversationId = ref(uuidv4())
+const selectedConversationId = ref(conversationId.value)
+const conversations = ref<any[]>([])
+
+
+// ----- TTS -----
+const isSpeaking = ref(false)
+const voices = ref<SpeechSynthesisVoice[]>([])
+const selectedVoiceName = ref('')
+
+
+
+// ----- Voices -----
+function loadVoices() {
+if (!('speechSynthesis' in window)) return
+const list = window.speechSynthesis.getVoices()
+voices.value = list
+if (!selectedVoiceName.value && list.length) {
+const enVoice =
+list.find(v => v.lang?.toLowerCase().startsWith('en')) ?? list[0]
+selectedVoiceName.value = enVoice.name
+}
+}
+
+
+onMounted(() => {
+if ('speechSynthesis' in window) {
+loadVoices()
+window.speechSynthesis.onvoiceschanged = loadVoices
+}
+loadConversations()
+})
+
+
+// ----- TTS helpers -----
+function speak(text: string) {
+if (!('speechSynthesis' in window)) {
+alert('Text-to-speech is not supported in this browser.')
+return
+}
+if (!text) return
+
+
+window.speechSynthesis.cancel()
+const utterance = new SpeechSynthesisUtterance(text)
+
+
+const voice =
+voices.value.find(v => v.name === selectedVoiceName.value) ?? null
+if (voice) {
+utterance.voice = voice
+utterance.lang = voice.lang
+}
+
+
+utterance.onstart = () => {
+isSpeaking.value = true
+}
+utterance.onend = () => {
+isSpeaking.value = false
+}
+utterance.onerror = () => {
+isSpeaking.value = false
+}
+
+
+window.speechSynthesis.speak(utterance)
+}
+
+
+function stopSpeaking() {
+if ('speechSynthesis' in window) {
+window.speechSynthesis.cancel()
+isSpeaking.value = false
+}
+}
+
+
+// ----- Conversations -----
+function formatDate(v?: string) {
+if (!v) return ''
+return new Date(v).toLocaleString()
+}
+
+
+async function loadConversations() {
+try {
+const res = await listConversations()
+conversations.value = res.data || []
+} catch {
+// ignore for now
+}
+}
+
+
+async function openConversation(convId: string) {
+selectedConversationId.value = convId
+conversationId.value = convId
+error.value = ''
+loading.value = true
+try {
+const res = await getConversation(convId)
+const history = res.data.messages || []
+messages.value = history.map(([role, content]: [string, string]) => ({
+role: role as 'user' | 'assistant',
+text: content,
+sources: [],
+}))
+} catch (e: any) {
+error.value = e?.response?.data?.detail || 'Failed to load conversation.'
+} finally {
+loading.value = false
+}
+}
+
+
+async function startNewConversation() {
+conversationId.value = uuidv4()
+selectedConversationId.value = conversationId.value
+messages.value = []
+question.value = ''
+}
+
+
+// ----- Streaming integration -----
+watch(streamedAnswer, (val) => {
+const lastMsg = messages.value[messages.value.length - 1]
+if (lastMsg?.role === 'assistant') {
+lastMsg.text = val
+}
+})
+
+
+// ----- Main submit handler -----
+const onAsk = async () => {
+if (!question.value.trim() || loading.value || isStreaming.value) return
+
+
+// Add user message
+messages.value.push({
+role: 'user',
+text: question.value,
+sources: [],
+})
+
+
+// Add empty assistant message to stream into
+messages.value.push({
+role: 'assistant',
+text: '',
+sources: [],
+})
+
+
+error.value = ''
+const asked = question.value
+question.value = ''
+
+
+// Start streaming
+startStream({
+question: asked,
+conversation_id: conversationId.value,
+})
+}
+
+
+// Disable send while busy or empty
+const isSubmitDisabled = computed(() => {
+return loading.value || isStreaming.value || !question.value.trim()
+})
+
+
+// Suggestions reuse onAsk
+async function onSuggestionClick(s: string) {
+if (loading.value || isStreaming.value) return
+question.value = s
+await onAsk()
+}
+
+
+async function handleEnter() {
+if (loading.value || isStreaming.value) return
+await onAsk()
+}
+
+
+// Delete conversation
+async function onDeleteConversation(convId: string) {
+const ok = window.confirm('Delete this conversation and its messages?')
+if (!ok) return
+
+
+try {
+await deleteConversation(convId)
+conversations.value = conversations.value.filter(
+c => c.conversation_id !== convId,
+)
+if (selectedConversationId.value === convId) {
+startNewConversation()
+}
+} catch (e: any) {
+error.value =
+e?.response?.data?.detail || 'Failed to delete conversation.'
+}
+}
+</script>
 <style scoped>
 .scrollbar-thin {
   scrollbar-width: thin;
