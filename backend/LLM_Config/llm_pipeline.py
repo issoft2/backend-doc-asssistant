@@ -3,7 +3,7 @@ import json
 import textwrap
 
 from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming, formatter_llm_client
-from LLM_Config.system_user_prompt import create_context, create_markdown_context,SYSTEM_PROMPT, create_suggestion_prompt, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
+from LLM_Config.system_user_prompt import create_context, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
