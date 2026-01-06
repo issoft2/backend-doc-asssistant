@@ -509,6 +509,74 @@ Answer:
 
   
   
+def create_markdown_context(
+    context_chunks: list[str],
+    user_question: str,
+    intent: str = "GENERAL",
+    domain: str = "GENERAL",
+    last_answer: Optional[str] = None,
+) -> str:
+    """
+    Creates a system/user prompt that instructs the LLM to produce a clean,
+    fully Markdown-ready answer from the start.
+    """
+
+    # 1) Context header
+    context_lines = ["### Context Documents\n"]
+
+    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_answer:
+        context_lines.append(f"- **Previous answer summary:** {last_answer[:600]}\n")
+
+    for i, chunk in enumerate(context_chunks, 1):
+        context_lines.append(f"- **Document {i}:** {chunk[:800]}")  # limit chunk preview
+        context_lines.append("")
+
+    context_text = "\n".join(context_lines).strip()
+
+    # 2) Instructions for Markdown-ready output
+    instructions = [
+        "You are an AI assistant producing a Markdown report **directly**.",
+        "Follow these rules STRICTLY:",
+        "- Use headings (`##`, `###`) for each section.",
+        "- Use bullet points for all key items.",
+        "- Include placeholders for missing data (e.g., '- Revenue: data not provided').",
+        "- Keep paragraphs short (max 3 sentences each).",
+        "- Include numeric tables where appropriate, with one worked example and concise bullets for the rest.",
+        "- Use visual cues: 🟢 Low, 🟡 Medium, 🔴 High.",
+        "- Do NOT invent facts; base answers ONLY on the provided context.",
+        "- Summarize clearly even if data is missing.",
+        "- Avoid repeating the same sentence."
+    ]
+
+    if domain == "FINANCE" or intent == "NUMERIC_ANALYSIS":
+        instructions.append(
+            "- When numeric figures exist, calculate totals, percentages, or trends as bullets or tables. "
+            "- Always show formula once and one worked example if required."
+        )
+
+    if intent in {"PROCEDURE", "LOOKUP", "IMPLICATIONS", "STRATEGY", "FOLLOWUP_ELABORATE"}:
+        instructions.append(
+            f"- Tailor your output for intent '{intent}' using the relevant context."
+        )
+
+    instructions_text = "\n".join(instructions)
+
+    # 3) Full user prompt
+    user_prompt = f"""
+{instructions_text}
+
+--------------------- CONTEXT START -----------------
+{context_text}
+---------------------- CONTEXT END ------------------
+
+User question: {user_question}
+
+Answer in Markdown:
+""".strip()
+
+    return user_prompt
+
+  
   
 CRITIQUE_SYSTEM_PROMPT = """
 You are a validation and critique engine.

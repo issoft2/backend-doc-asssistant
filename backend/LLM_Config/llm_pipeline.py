@@ -3,7 +3,7 @@ import json
 import textwrap
 
 from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming, formatter_llm_client
-from LLM_Config.system_user_prompt import create_context, create_suggestion_prompt, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
+from LLM_Config.system_user_prompt import create_context, create_markdown_context,SYSTEM_PROMPT, create_suggestion_prompt, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
@@ -352,7 +352,7 @@ def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
         }
     ]
 
-async def llm_pipeline_stream(
+async def llm_pipeline_stream_bk(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
     question: str,
@@ -566,6 +566,63 @@ async def llm_pipeline_stream(
         yield error_msg
         return
 
+async def llm_pipeline_stream(
+    store: MultiTenantChromaStoreManager,
+    tenant_id: str,
+    question: str,
+    history: Optional[List[Tuple[str, str]]] = None,
+    top_k: int = 5,
+    last_doc_id: Optional[str] = None,
+) -> AsyncGenerator[str, None]:
+    # 1) Determine intent and domain
+    intent, rewritten, domain = infer_intent_and_rewrite(question, history)
+    effective_question = rewritten or question
+
+    # 2) Retrieve relevant context chunks
+    query_filter = {"doc_id": last_doc_id} if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id else None
+    retrieval = await store.query_policies(
+        tenant_id=tenant_id,
+        collection_name=None,
+        query=effective_question,
+        top_k=top_k,
+        where=query_filter,
+    )
+    hits = retrieval.get("results", [])
+
+    context_chunks = []
+    for hit in hits:
+        doc_text = hit.get("document", "")
+        meta = hit.get("metadata", {})
+        title = meta.get("title") or meta.get("filename") or "Unknown document"
+        section = meta.get("section")
+        header = f"**{title}**"
+        if section:
+            header += f" | Section: {section}"
+        context_chunks.append(f"{header}\n{doc_text}")
+
+    # 3) Include last answer if follow-up
+    last_answer_text = history[-1][1] if history else None
+
+    # 4) Build full prompt
+    user_prompt = create_markdown_context(
+        context_chunks=context_chunks,
+        user_question=effective_question,
+        intent=intent,
+        domain=domain,
+        last_answer=last_answer_text
+    )
+
+    # 5) LLM streaming
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}]
+    async for chunk in llm_client_streaming.astream(messages):
+        text = getattr(chunk, "content", "") or ""
+        if not text:
+            try:
+                text = chunk.generations[0].text  # fallback
+            except Exception:
+                text = ""
+        if text:
+            yield text
 
 
 async def llm_pipeline(
