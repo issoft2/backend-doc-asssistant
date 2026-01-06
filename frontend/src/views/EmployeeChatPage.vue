@@ -30,7 +30,10 @@
               </div>
               <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
                 {{ formatDate(conv.last_activity_at) }}
-                <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" v-if="conv.conversation_id === selectedConversationId"></div>
+                <div
+                  class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"
+                  v-if="conv.conversation_id === selectedConversationId"
+                ></div>
               </div>
             </div>
 
@@ -91,7 +94,10 @@
 
         <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
           <!-- Messages -->
-          <section v-if="messages.length" class="flex-1 overflow-y-auto p-6 space-y-6 pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+          <section
+            v-if="messages && messages.length"
+            class="flex-1 overflow-y-auto p-6 space-y-6 pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
+          >
             <div
               v-for="(msg, idx) in messages"
               :key="idx"
@@ -124,7 +130,11 @@
                         </svg>
                       </div>
                       <div class="flex-1 min-w-0">
-                        <MarkdownText v-if="msg.role === 'assistant'" :content="msg.text" class="prose prose-invert max-w-none text-slate-100 leading-relaxed prose-headings:text-slate-100 prose-strong:text-white" />
+                        <MarkdownText
+                          v-if="msg.role === 'assistant'"
+                          :content="msg.text"
+                          class="prose prose-invert max-w-none text-slate-100 leading-relaxed prose-headings:text-slate-100 prose-strong:text-white"
+                        />
                         <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
                       </div>
                     </div>
@@ -141,22 +151,33 @@
                         </svg>
                         <span>{{ isSpeaking ? 'Stop' : 'Listen' }}</span>
                       </button>
-                      <button v-if="isSpeaking" @click="stopSpeaking" class="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-all duration-200">
+                      <button
+                        v-if="isSpeaking"
+                        @click="stopSpeaking"
+                        class="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-all duration-200"
+                      >
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                          <path
+                            fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clip-rule="evenodd"
+                          />
                         </svg>
                       </button>
                     </div>
 
                     <!-- Sources -->
-                    <div v-if="msg.sources?.length" class="mt-6 pt-6 border-t border-slate-800/50 pl-10">
+                    <div
+                      v-if="msg.sources && msg.sources.length"
+                      class="mt-6 pt-6 border-t border-slate-800/50 pl-10"
+                    >
                       <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
                         Sources
                         <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                       </h4>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <a
-                          v-for="(source, i) in msg.sources"
+                          v-for="(source, i) in (msg.sources || [])"
                           :key="i"
                           :href="source"
                           target="_blank"
@@ -172,11 +193,14 @@
                     </div>
 
                     <!-- Suggestions -->
-                    <div v-if="idx === messages.length - 1 && suggestions.length && !isStreaming" class="mt-8 pt-6 border-t border-slate-800/50 pl-10">
+                    <div
+                      v-if="idx === messages.length - 1 && suggestions && suggestions.length && !isStreaming"
+                      class="mt-8 pt-6 border-t border-slate-800/50 pl-10"
+                    >
                       <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Try asking</h4>
                       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button
-                          v-for="(suggestion, i) in suggestions.slice(0, 4)"
+                          v-for="(suggestion, i) in (suggestions || []).slice(0, 4)"
                           :key="i"
                           class="text-left p-3 rounded-xl border border-slate-700/50 bg-slate-800/30 hover:bg-gradient-to-r hover:from-indigo-500/10 hover:to-purple-500/10 hover:border-indigo-500/40 hover:text-white transition-all duration-200 text-sm"
                           @click="onSuggestionClick(suggestion)"
@@ -221,13 +245,23 @@
           <!-- Input form -->
           <form @submit.prevent="onAsk" class="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
             <!-- Status indicators -->
-            <div v-if="isStreaming" class="mb-6 p-4 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-2xl">
+            <div
+              v-if="isStreaming"
+              class="mb-6 p-4 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/30 rounded-2xl"
+            >
               <div class="flex items-center gap-3">
                 <div class="w-4 h-4 border-2 border-violet-300 border-t-violet-500 rounded-full animate-spin"></div>
                 <div>
-                  <p class="text-sm font-semibold text-violet-200">{{ streamStatus || 'Processing your question…' }}</p>
-                  <ul v-if="statusSteps.length" class="mt-2 text-xs text-violet-300 space-y-1 list-disc list-inside pl-4 max-h-20 overflow-y-auto">
-                    <li v-for="step in statusSteps" :key="step" class="leading-tight">{{ step }}</li>
+                  <p class="text-sm font-semibold text-violet-200">
+                    {{ streamStatus || 'Processing your question…' }}
+                  </p>
+                  <ul
+                    v-if="statusSteps && statusSteps.length"
+                    class="mt-2 text-xs text-violet-300 space-y-1 list-disc list-inside pl-4 max-h-20 overflow-y-auto"
+                  >
+                    <li v-for="step in statusSteps" :key="step" class="leading-tight">
+                      {{ step }}
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -249,7 +283,7 @@
                   class="w-full min-h-[44px] max-h-32 resize-none rounded-2xl border-2 border-slate-700/70 bg-slate-800/50 backdrop-blur-sm px-5 py-4 text-sm text-slate-100 placeholder:text-slate-500
                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/80 shadow-xl hover:border-slate-600/70 transition-all duration-200
                          placeholder:font-medium"
-                  :placeholder="messages.length ? 'Ask a follow-up question...' : 'Ask about your policies, procedures, or reports...'"
+                  :placeholder="messages && messages.length ? 'Ask a follow-up question...' : 'Ask about your policies, procedures, or reports...'"
                   :disabled="isStreaming || loading"
                   @keydown.enter.exact.prevent="handleEnter"
                 ></textarea>
@@ -266,7 +300,10 @@
               </button>
             </div>
 
-            <p v-if="error" class="mt-3 text-sm text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/30 flex items-center gap-2">
+            <p
+              v-if="error"
+              class="mt-3 text-sm text-red-400 bg-red-500/10 p-3 rounded-xl border border-red-500/30 flex items-center gap-2"
+            >
               <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
@@ -279,10 +316,11 @@
   </div>
 </template>
 
-<!-- Script section remains largely the same but with minor improvements -->
 <script setup lang="ts">
-// ... (keep your existing script setup exactly as is)
-// The improvements are purely visual and structural
+// keep your existing script as-is;
+// to be extra safe you can also default in the composable, e.g.:
+// const suggestions = ref<string[]>([])
+// const statusSteps = ref<string[]>([])
 </script>
 
 <style scoped>
@@ -296,10 +334,10 @@
   background: transparent;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: theme('colors.slate.700');
+  background: #334155;
   border-radius: 3px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: theme('colors.slate.600');
+  background: #475569;
 }
 </style>
