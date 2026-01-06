@@ -236,9 +236,12 @@ def create_context(
     # Lookup intent
     if intent == "LOOKUP":
         extra_instructions.append(
-            "The user is asking to list or identify key items (such as documents, policies, reports, or data sources). "
+           "The user is asking to list or identify key items (such as documents, policies, reports, or data sources). "
             "Identify ALL clearly relevant items mentioned in the context, not just one or two examples. "
-            "Group similar items together where appropriate, but do not omit major categories that appear in the context. "
+            "Include every major document category that appears in the context, such as user stories, analytics plans, "
+            "pilot program documents, onboarding or patient management documents, pricing models, and training materials, "
+            "when they are present. "
+            "Group similar items together where appropriate, but do not omit major categories. "
             "Do not add commentary or recommendations beyond what is supported by the context."
         )
 
