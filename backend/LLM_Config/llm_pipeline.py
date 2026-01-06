@@ -572,14 +572,63 @@ async def llm_pipeline_stream(
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
     top_k: int = 5,
+    result_holder: Optional[dict] = None,
     last_doc_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
-    # 1) Determine intent and domain
-    intent, rewritten, domain = infer_intent_and_rewrite(question, history)
+
+    intent, rewritten, domain = infer_intent_and_rewrite(
+        user_message=question,
+        history_turns=history,
+    )
+
+    text_lower = (question or "").lower()
+
+    def _store(answer: str, sources: list[str]) -> None:
+        if result_holder is not None:
+            result_holder["answer"] = answer
+            result_holder["sources"] = sources
+
+    # =========================
+    # 1) CHITCHAT
+    # =========================
+    if intent == "CHITCHAT":
+        if any(p in text_lower for p in ["thank you", "thanks", "thx", "appreciate it"]):
+            msg = "You’re welcome. If you have more questions, feel free to ask."
+        elif any(p in text_lower for p in ["hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening"]):
+            msg = (
+                "Hello! I can help you with questions about the documents and data in this workspace. "
+                "What would you like to explore?"
+            )
+        else:
+            msg = (
+                "I’m here to help with your questions about the documents and information in this workspace. "
+                "What would you like to know?"
+            )
+
+        _store(msg, [])
+        yield msg
+        return
+
+    # =========================
+    # 2) CAPABILITIES
+    # =========================
+    if intent == "CAPABILITIES":
+        summary = await store.summarize_capabilities(tenant_id)
+        msg = build_capabilities_message_from_store(summary)
+
+        _store(msg, [])
+        yield msg
+        return
+
+    # =========================
+    # 3) RETRIEVAL
+    # =========================
     effective_question = rewritten or question
 
-    # 2) Retrieve relevant context chunks
-    query_filter = {"doc_id": last_doc_id} if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id else None
+    query_filter = None
+    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
+        query_filter = {"doc_id": last_doc_id}
+
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
@@ -587,42 +636,147 @@ async def llm_pipeline_stream(
         top_k=top_k,
         where=query_filter,
     )
+
     hits = retrieval.get("results", [])
 
-    context_chunks = []
+    if not hits:
+        if intent == "NEW_QUESTION":
+            msg = (
+                "I could not find relevant information in the current knowledge base for this question. "
+                "I'm best at questions about the documents and data that have been ingested here. "
+                "Could you rephrase or specify the document, topic, or area you’re interested in?"
+            )
+        else:
+            msg = (
+                "The information I have access to right now is not sufficient to answer this question. "
+                "Please consider checking with the appropriate internal team or rephrasing with more detail."
+            )
+
+        _store(msg, [])
+        yield msg
+        return
+
+    # =========================
+    # 4) BUILD CONTEXT
+    # =========================
+    context_chunks: list[str] = []
+    sources: list[str] = []
+
     for hit in hits:
-        doc_text = hit.get("document", "")
-        meta = hit.get("metadata", {})
+        doc_text = (hit.get("document") or "").strip()
+        meta = hit.get("metadata", {}) or {}
+
         title = meta.get("title") or meta.get("filename") or "Unknown document"
         section = meta.get("section")
-        header = f"**{title}**"
+
+        header = f"Title: {title}"
         if section:
             header += f" | Section: {section}"
-        context_chunks.append(f"{header}\n{doc_text}")
 
-    # 3) Include last answer if follow-up
+        context_chunks.append(f"{header}\n\n{doc_text}")
+        sources.append(title)
+
+    # =========================
+    # 5) RERANK (best-effort)
+    # =========================
+    try:
+        rerank_messages = build_rerank_messages(effective_question, context_chunks)
+        rerank_resp = suggestion_llm_client.invoke(rerank_messages)
+        indices = json.loads(getattr(rerank_resp, "content", "") or "[]")
+
+        indices = [i for i in indices if isinstance(i, int) and 0 <= i < len(context_chunks)]
+        if indices:
+            indices = indices[:5]
+            context_chunks = [context_chunks[i] for i in indices]
+            sources = [sources[i] for i in indices]
+    except Exception:
+        context_chunks = context_chunks[:5]
+        sources = sources[:5]
+
+    unique_sources = sorted(set(sources))
+
+    # =========================
+    # 6) PROMPT BUILDING
+    # =========================
     last_answer_text = history[-1][1] if history else None
 
-    # 4) Build full prompt
-    user_prompt = create_markdown_context(
+    system_prompt, user_prompt = create_context(
         context_chunks=context_chunks,
         user_question=effective_question,
         intent=intent,
         domain=domain,
-        last_answer=last_answer_text
+        last_answer=last_answer_text,
     )
 
-    # 5) LLM streaming
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}]
-    async for chunk in llm_client_streaming.astream(messages):
-        text = getattr(chunk, "content", "") or ""
-        if not text:
-            try:
-                text = chunk.generations[0].text  # fallback
-            except Exception:
-                text = ""
-        if text:
-            yield text
+    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+
+    if history:
+        for u, a in history:
+            messages.append({"role": "user", "content": u})
+            messages.append({"role": "assistant", "content": a})
+
+    messages.append({"role": "user", "content": user_prompt})
+
+    # =========================
+    # 7) STREAM GENERATION
+    # =========================
+    try:
+        full_answer_parts: list[str] = []
+
+        async for chunk in llm_client_streaming.astream(messages):
+            text = (getattr(chunk, "content", "") or "").strip()
+            if not text:
+                try:
+                    text = (chunk.generations[0].text or "").strip()
+                except Exception:
+                    text = ""
+
+            if text:
+                full_answer_parts.append(text)
+                yield text + " "
+
+        raw_answer = " ".join(full_answer_parts).strip()
+
+        # =========================
+        # 8) CRITIQUE
+        # =========================
+        critique_messages = create_critique_prompt(
+            user_question=question,
+            assistant_answer=raw_answer,
+            context_text="\n\n".join(context_chunks)[:2000],
+        )
+
+        try:
+            critique_resp = suggestion_llm_client.invoke(critique_messages)
+            critique = (getattr(critique_resp, "content", "") or "").strip().upper()
+        except Exception:
+            critique = "OK"
+
+        if critique == "BAD":
+            raw_answer = (
+                "⚠️ Warning: The previous response may not fully align with the available documents.\n\n"
+                + raw_answer
+            )
+
+        # =========================
+        # 9) FORMAT
+        # =========================
+        try:
+            formatter_messages = create_formatter_prompt(raw_answer)
+            formatted_resp = formatter_llm_client.invoke(formatter_messages)
+            formatted_answer = getattr(formatted_resp, "content", raw_answer).strip()
+        except Exception:
+            formatted_answer = raw_answer
+
+        yield "\n\n---\n\n"
+        yield formatted_answer
+
+        _store(formatted_answer, unique_sources)
+
+    except Exception as e:
+        error_msg = f"There was a temporary problem generating the answer: {str(e)}"
+        _store(error_msg, unique_sources)
+        yield error_msg
 
 
 async def llm_pipeline(
