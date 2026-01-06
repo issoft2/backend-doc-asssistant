@@ -351,221 +351,6 @@ def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
             "content": raw_answer
         }
     ]
-
-async def llm_pipeline_stream_bk(
-    store: MultiTenantChromaStoreManager,
-    tenant_id: str,
-    question: str,
-    history: Optional[List[Tuple[str, str]]] = None,
-    top_k: int = 5,
-    result_holder: Optional[dict] = None,
-    last_doc_id: Optional[str] = None,
-) -> AsyncGenerator[str, None]:
-    intent, rewritten, domain = infer_intent_and_rewrite(
-        user_message=question,
-        history_turns=history,
-    )
-
-    text_lower = (question or "").lower()
-
-    # 1) CHITCHAT
-    if intent == "CHITCHAT":
-        if any(p in text_lower for p in ["thank you", "thanks", "thx", "appreciate it"]):
-            msg = "You’re welcome. If you have more questions, feel free to ask."
-        elif any(p in text_lower for p in ["hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening"]):
-            msg = (
-                "Hello! I can help you with questions about the documents and data in this workspace. "
-                "What would you like to explore?"
-            )
-        else:
-            msg = (
-                "I’m here to help with your questions about the documents and information in this workspace. "
-                "What would you like to know?"
-            )
-
-        if result_holder is not None:
-            result_holder["answer"] = msg
-            result_holder["sources"] = []
-        yield msg
-        return
-
-    # 2) CAPABILITIES – dynamic from store
-    if intent == "CAPABILITIES":
-        summary = await store.summarize_capabilities(tenant_id)
-        msg = build_capabilities_message_from_store(summary)
-
-        if result_holder is not None:
-            result_holder["answer"] = msg
-            result_holder["sources"] = []
-        yield msg
-        return
-
-    # 3) Normal RAG path
-    effective_question = rewritten or question
-
-    query_filter = None
-    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
-        query_filter = {"doc_id": last_doc_id}
-
-    retrieval = await store.query_policies(
-        tenant_id=tenant_id,
-        collection_name=None,
-        query=effective_question,
-        top_k=top_k,
-        where=query_filter,
-    )
-    hits = retrieval.get("results", [])
-
-    # 4) No hits: intent-aware fallback
-    if not hits:
-        if intent == "NEW_QUESTION":
-            msg = (
-                "I could not find relevant information in the current knowledge base for this question. "
-                "I'm best at questions about the documents and data that have been ingested here. "
-                "Could you rephrase or specify the document, topic, or area you’re interested in?"
-            )
-        else:
-            msg = (
-                "The information I have access to right now is not sufficient to answer this question. "
-                "Please consider checking with the appropriate internal team or rephrasing with more detail."
-            )
-
-        if result_holder is not None:
-            result_holder["answer"] = msg
-            result_holder["sources"] = []
-        yield msg
-        return
-
-    context_chunks: List[str] = []
-    sources: List[str] = []
-
-    for hit in hits:
-        doc_text = hit["document"]
-        meta = hit.get("metadata", {}) or {}
-        title = meta.get("title") or meta.get("filename") or "Unknown document"
-        section = meta.get("section")
-
-        header_parts = [f"Title: {title}"]
-        if section:
-            header_parts.append(f"Section: {section}")
-        header = " | ".join(header_parts)
-
-        chunk_str = f"{header}\n\n{doc_text}"
-        context_chunks.append(chunk_str)
-        sources.append(title)
-
-    # Rerank
-    try:
-        rerank_messages = build_rerank_messages(effective_question, context_chunks)
-        rerank_resp = suggestion_llm_client.invoke(rerank_messages)
-        rerank_raw = getattr(rerank_resp, "content", None) or str(rerank_resp)
-        indices = json.loads(rerank_raw)
-        indices = [i for i in indices if isinstance(i, int) and 0 <= i < len(context_chunks)]
-        if indices:
-            max_chunks = 5
-            indices = indices[:max_chunks]
-            context_chunks = [context_chunks[i] for i in indices]
-            sources = [sources[i] for i in indices]
-    except Exception:
-        max_chunks = 5
-        context_chunks = context_chunks[:max_chunks]
-        sources = sources[:max_chunks]
-
-    unique_sources = sorted(set(sources))
-
-    last_answer_text: Optional[str] = None
-    if history:
-        _, last_answer_text = history[-1]
-
-    system_prompt, user_prompt = create_context(
-        context_chunks=context_chunks,
-        user_question=effective_question,
-        intent=intent,
-        domain=domain,
-        last_answer=last_answer_text,
-    )
-
-    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-
-    if history:
-        for user_msg, assistant_msg in history:
-            messages.append({"role": "user", "content": user_msg})
-            messages.append({"role": "assistant", "content": assistant_msg})
-
-    messages.append({"role": "user", "content": user_prompt})
-
-    try:
-        # =========================
-        # PASS 1: STREAMED ANSWER
-        # =========================
-        full_answer_parts: List[str] = []
-
-        async for chunk in llm_client_streaming.astream(messages):
-            text = getattr(chunk, "content", "") or ""
-            if not text:
-                try:
-                    text = chunk.generations[0].text  # type: ignore[attr-defined]
-                except Exception:
-                    text = ""
-            if text:
-                full_answer_parts.append(text)
-                # stream raw tokens to user
-                yield text
-
-        # Combine streamed chunks
-        raw_answer = "".join(full_answer_parts).strip()
-
-        # =========================
-        # PASS 2: CRITIQUE
-        # =========================
-        context_text = "\n\n".join(context_chunks)
-        critique_messages = create_critique_prompt(
-            user_question=question,
-            assistant_answer=raw_answer,
-            context_text=context_text[:2000],
-        )
-
-        try:
-            critique_resp = suggestion_llm_client.invoke(critique_messages)
-            critique = (getattr(critique_resp, "content", "") or "").strip().upper()
-        except Exception:
-            critique = "OK"
-
-        if critique == "BAD":
-            raw_answer = (
-                "⚠️ **Warning:** The previous attempt may not be fully consistent with the available documents. "
-                "Here is a corrected response strictly based on the context:\n\n"
-                + raw_answer
-            )
-
-
-        # 2. Build formatter messages
-        formatter_messages = create_formatter_prompt(raw_answer)
-
-        try:
-            formatted_resp = formatter_llm_client.invoke(formatter_messages)
-            formatted_answer = getattr(formatted_resp, "content", raw_answer)
-        except Exception:
-            formatted_answer = raw_answer  # fallback to unformatted
-
-        yield "\n\n---\n\n"
-        yield formatted_answer
-        # =========================
-        # STORE FINAL ANSWER ONLY
-        # =========================
-        if result_holder is not None:
-            result_holder["answer"] = formatted_answer
-            result_holder["sources"] = unique_sources
-
-
-    except Exception as e:
-        error_msg = f"There was a temporary problem generating the answer: {str(e)}"
-        if result_holder is not None:
-            result_holder["answer"] = error_msg
-            result_holder["sources"] = unique_sources
-        yield error_msg
-        return
-
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
@@ -575,7 +360,6 @@ async def llm_pipeline_stream(
     result_holder: Optional[dict] = None,
     last_doc_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
-
     intent, rewritten, domain = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
@@ -588,9 +372,7 @@ async def llm_pipeline_stream(
             result_holder["answer"] = answer
             result_holder["sources"] = sources
 
-    # =========================
     # 1) CHITCHAT
-    # =========================
     if intent == "CHITCHAT":
         if any(p in text_lower for p in ["thank you", "thanks", "thx", "appreciate it"]):
             msg = "You’re welcome. If you have more questions, feel free to ask."
@@ -609,9 +391,7 @@ async def llm_pipeline_stream(
         yield msg
         return
 
-    # =========================
     # 2) CAPABILITIES
-    # =========================
     if intent == "CAPABILITIES":
         summary = await store.summarize_capabilities(tenant_id)
         msg = build_capabilities_message_from_store(summary)
@@ -620,9 +400,7 @@ async def llm_pipeline_stream(
         yield msg
         return
 
-    # =========================
     # 3) RETRIEVAL
-    # =========================
     effective_question = rewritten or question
 
     query_filter = None
@@ -636,7 +414,6 @@ async def llm_pipeline_stream(
         top_k=top_k,
         where=query_filter,
     )
-
     hits = retrieval.get("results", [])
 
     if not hits:
@@ -656,9 +433,7 @@ async def llm_pipeline_stream(
         yield msg
         return
 
-    # =========================
     # 4) BUILD CONTEXT
-    # =========================
     context_chunks: list[str] = []
     sources: list[str] = []
 
@@ -676,9 +451,7 @@ async def llm_pipeline_stream(
         context_chunks.append(f"{header}\n\n{doc_text}")
         sources.append(title)
 
-    # =========================
     # 5) RERANK (best-effort)
-    # =========================
     try:
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
         rerank_resp = suggestion_llm_client.invoke(rerank_messages)
@@ -695,9 +468,7 @@ async def llm_pipeline_stream(
 
     unique_sources = sorted(set(sources))
 
-    # =========================
     # 6) PROMPT BUILDING
-    # =========================
     last_answer_text = history[-1][1] if history else None
 
     system_prompt, user_prompt = create_context(
@@ -717,29 +488,25 @@ async def llm_pipeline_stream(
 
     messages.append({"role": "user", "content": user_prompt})
 
-    # =========================
-    # 7) STREAM GENERATION
-    # =========================
+    # 7) GENERATE (NO LIVE TOKEN STREAM)
     try:
         full_answer_parts: list[str] = []
 
         async for chunk in llm_client_streaming.astream(messages):
-            text = (getattr(chunk, "content", "") or "").strip()
+            # DO NOT strip internal spaces; only normalize None/empty
+            text = getattr(chunk, "content", "") or ""
             if not text:
                 try:
-                    text = (chunk.generations[0].text or "").strip()
+                    text = chunk.generations[0].text or ""
                 except Exception:
                     text = ""
-
             if text:
                 full_answer_parts.append(text)
-                yield text + " "
 
-        raw_answer = " ".join(full_answer_parts).strip()
+        # Join exactly as emitted
+        raw_answer = "".join(full_answer_parts).strip()
 
-        # =========================
         # 8) CRITIQUE
-        # =========================
         critique_messages = create_critique_prompt(
             user_question=question,
             assistant_answer=raw_answer,
@@ -758,9 +525,7 @@ async def llm_pipeline_stream(
                 + raw_answer
             )
 
-        # =========================
-        # 9) FORMAT
-        # =========================
+        # 9) FORMAT ONCE
         try:
             formatter_messages = create_formatter_prompt(raw_answer)
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
@@ -768,16 +533,14 @@ async def llm_pipeline_stream(
         except Exception:
             formatted_answer = raw_answer
 
-        yield "\n\n---\n\n"
-        yield formatted_answer
-
+        # Single, final output
         _store(formatted_answer, unique_sources)
+        yield formatted_answer
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
         _store(error_msg, unique_sources)
         yield error_msg
-
 
 async def llm_pipeline(
     store: MultiTenantChromaStoreManager,
