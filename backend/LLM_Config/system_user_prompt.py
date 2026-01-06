@@ -113,8 +113,9 @@ STRICT RULES (DO NOT BREAK THESE)
 
 You MAY:
 - Reorder sentences slightly when needed for clarity.
-- Convert inline lists into bullet lists.
-- Promote implicit sections into explicit headings.
+- Convert inline or implicit lists into bullet lists.
+- Promote implicit sections or labels into explicit headings.
+- Split long paragraphs into shorter ones for readability.
 
 ========================================
 CORE FORMATTING BEHAVIOR
@@ -124,51 +125,56 @@ CORE FORMATTING BEHAVIOR
 - Do not add meta-comments or apologies.
 
 1) Headings
-- Use Markdown headings (`##`, `###`) to reflect the structure of the content.
-- If the input starts with a clear introductory sentence or paragraph that summarizes the answer, convert it into a `## Summary` section.
-- Create short, meaningful section titles from the existing content, e.g.:
-  - `## Monthly churn rate`
-  - `## Key documents`
-  - `## Why correlation cannot be analyzed`
-- Do NOT invent new conceptual sections that are not implied by the text.
+- Always convert the first introductory paragraph of the answer into a `## Summary` section.
+  - If the input clearly begins with a sentence or short paragraph that directly answers the question, treat that as the Summary content.
+- If the input contains labels or lines that clearly introduce a topic (for example, "Key Documents in Product Development", "Monthly churn rate", "Why correlation with customer satisfaction cannot be analyzed"), convert them into proper Markdown headings:
+  - Use `##` for main sections (e.g., "## Key documents in product development").
+  - Use `###` for sub-sections (e.g., "### User stories", "### Initial event tracking plan").
+- You may shorten long section titles. For example, change "Key Documents and Their Roles" to "## Key documents" and keep the extra explanation in the first paragraph under that heading.
+- Do NOT invent entirely new conceptual sections that are not implied by the text.
 
 2) Paragraphs
 - Keep paragraphs short and readable (1–3 sentences).
-- Insert blank lines between sections and paragraphs.
-- Preserve the original order of ideas, unless a small reordering clearly improves readability.
+- Insert a blank line after every heading.
+- Insert blank lines between paragraphs and between major sections.
+- Preserve the logical order of ideas, unless a small reordering clearly improves readability.
 
 3) Bullet lists
-- When the input contains multiple items separated by commas, “and”, or numbered phrases, convert them into bullet points.
-  - Example: “Key documents include X, Y, and Z” → bullets for X, Y, Z.
+- When the input describes multiple attributes, examples, or uses of the same item in separate sentences, convert them into a bullet list under that item's heading.
+  - Example: sentences after "User Stories" that describe what they do, why they matter, and an example should become bullets.
+- When the input contains multiple items separated by commas or "and" (e.g., a list of documents, features, or metrics), convert them into bullet points.
 - Each bullet should represent one clear item or idea.
 - Do NOT split a single coherent idea into multiple bullets.
+- Do NOT leave obvious lists as plain paragraphs; always turn them into bullets.
 
 4) Tables (optional)
 - Only create a table when:
   - There are multiple rows of similar numeric or categorical data, AND
   - A table clearly improves readability over bullets.
-- Never present the same data both as a list and as a table; choose one.
+- Never present the same data both as a list and as a table; choose one representation.
 
 5) Numeric and visual formatting
 - Preserve all numeric values exactly.
 - If percentages are already present or clearly implied, keep them in `%` form.
 - Do NOT calculate new values or infer trends.
-- You may use emphasis (e.g. `**14.74%**`) sparingly to highlight key figures.
+- You may use emphasis (for example, `**14.74%**`) sparingly to highlight key figures when it improves readability.
 
 6) Duplicates and clean-up
 - If the same sentence or idea appears twice, keep the clearest version and remove the duplicate.
-- Remove filler artifacts like “Listen” or similar verbal tics at the start.
-- Fix obvious spacing issues (e.g. `Thecontextdoesnotprovide` → `The context does not provide`), but do not change the wording.
+- Remove filler artifacts like "Listen" or similar verbal tics at the start of the answer.
+- Fix obvious spacing issues (for example, `Thecontextdoesnotprovide` → `The context does not provide`), but do not change the wording.
+- Do not introduce or keep any lines that talk about formatting decisions.
 
 ========================================
 OUTPUT
 ========================================
 - Return a single, well-structured Markdown answer.
 - Include:
-  - A `## Summary` section when there is a clear summary in the input.
-  - Additional sections (with headings and bullets) that organize the remaining content.
-- Do NOT wrap the output in backticks.
-- Do NOT add any commentary about formatting.
+  - A `## Summary` section at the top.
+  - Additional sections using `##` and `###` headings that organize the remaining content.
+  - Bullet lists where they make the content easier to scan.
+- Do NOT wrap the entire output in backticks.
+- Do NOT add any commentary about formatting or your actions.
 
 """.strip()
 
@@ -186,6 +192,8 @@ Goals:
 Output:
 - Return ONLY a JSON array of strings, with no extra text.
 """.strip()
+
+
 def create_context(
     context_chunks,
     user_question: str,
@@ -297,7 +305,7 @@ Use the context below to answer the user's question.
 User question: {user_question}
 
 Answer:
-""".strip()
+"""
 
     return SYSTEM_PROMPT, user_prompt
 
