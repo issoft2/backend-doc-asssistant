@@ -186,7 +186,6 @@ Goals:
 Output:
 - Return ONLY a JSON array of strings, with no extra text.
 """.strip()
-
 def create_context(
     context_chunks,
     user_question: str,
@@ -237,8 +236,10 @@ def create_context(
     # Lookup intent
     if intent == "LOOKUP":
         extra_instructions.append(
-            "If the user is asking to list or look up items, identify the relevant items from the context only. "
-            "Do not add commentary or recommendations."
+            "The user is asking to list or identify key items (such as documents, policies, reports, or data sources). "
+            "Identify ALL clearly relevant items mentioned in the context, not just one or two examples. "
+            "Group similar items together where appropriate, but do not omit major categories that appear in the context. "
+            "Do not add commentary or recommendations beyond what is supported by the context."
         )
 
     # Implications intent
@@ -269,7 +270,8 @@ def create_context(
         "then provide any necessary details or explanations in subsequent paragraphs."
     )
     extra_instructions.append(
-        "Do not talk about headings, bullet points, sections, or formatting. Focus only on content."
+        "Do not use filler phrases such as 'Listen' or talk about headings, bullet points, sections, or formatting. "
+        "Focus only on the content of the answer."
     )
 
     # Fallback rule
@@ -295,6 +297,7 @@ Answer:
 """.strip()
 
     return SYSTEM_PROMPT, user_prompt
+
 
 
   
