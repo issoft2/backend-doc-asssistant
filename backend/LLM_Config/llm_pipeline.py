@@ -513,7 +513,7 @@ async def llm_pipeline_stream(
                 yield text
 
         # Combine streamed chunks
-        raw_answer = "".join(full_answer_parts)
+        raw_answer = "".join(full_answer_parts).strip()
 
         # =========================
         # PASS 2: CRITIQUE
@@ -548,6 +548,8 @@ async def llm_pipeline_stream(
         except Exception:
             formatted_answer = raw_answer  # fallback to unformatted
 
+        yield "\n\n---\n\n"
+        yield formatted_answer
         # =========================
         # STORE FINAL ANSWER ONLY
         # =========================
@@ -555,8 +557,6 @@ async def llm_pipeline_stream(
             result_holder["answer"] = formatted_answer
             result_holder["sources"] = unique_sources
 
-        # IMPORTANT: do NOT yield formatted_answer again
-        return
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
