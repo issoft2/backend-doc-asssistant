@@ -513,13 +513,11 @@ async def llm_pipeline_stream(
             context_text="\n\n".join(context_chunks)[:2000],
         )
 
-        try:
-            critique_resp = suggestion_llm_client.invoke(critique_messages)
-            critique = (getattr(critique_resp, "content", "") or "").strip().upper()
-        except Exception:
-            critique = "OK"
-
-        if critique == "BAD":
+        critique_resp = suggestion_llm_client.invoke(critique_messages)
+        
+        critique = (getattr(critique_resp, "content", "") or "").strip().upper()
+        
+        if critique != "Ok":
             raw_answer = (
                 "⚠️ Warning: The previous response may not fully align with the available documents.\n\n"
                 + raw_answer

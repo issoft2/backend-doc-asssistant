@@ -297,6 +297,59 @@ Answer:
     return SYSTEM_PROMPT, user_prompt
 
 
+  
+  
+CRITIQUE_SYSTEM_PROMPT = """
+You are a validation and critique engine.
+
+Your job is to REVIEW an assistant's answer against the provided context
+and identify any major problems.
+
+Checks:
+1. Factual accuracy
+2. Numeric correctness
+3. Grounding in the context
+4. Completeness (ignoring clearly relevant context)
+5. Directness (did it answer the question)
+
+If the answer is generally correct and grounded in the context, respond with exactly:
+OK
+
+If the answer contains any serious issue in these dimensions, respond with exactly:
+BAD
+
+Do NOT explain your reasoning.
+Do NOT list issues.
+Do NOT quote the answer or context.
+Do NOT add any other text.
+""".strip()
+
+
+
+def create_critique_prompt(
+    user_question: str,
+    assistant_answer: str,
+    context_text: str,
+) -> list[dict]:
+    user_content = f"""
+    User question:
+    {user_question}
+
+    Document context (truncated if long):
+    {context_text}
+
+    Assistant answer:
+    {assistant_answer}
+
+    Evaluate whether the answer is consistent with the question and the context.
+    If there are no issues, respond with exactly: OK
+    If there are issues, respond with a numbered list of issues as described in the system prompt.
+    """.strip()
+
+    system_message = {"role": "system", "content": CRITIQUE_SYSTEM_PROMPT}
+    user_message = {"role": "user", "content": user_content}
+    return [system_message, user_message]
+
 
 def create_suggestion_prompt(user_question: str, assistant_answer: str) -> list[dict]:
     """
