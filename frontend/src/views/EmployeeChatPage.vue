@@ -158,6 +158,8 @@
                     :content="normalizeMarkdown(msg.text)"
                     class="mt-1 text-sm text-slate-100 prose prose-invert max-w-none"
                   />
+
+
                   <p
                     v-else
                     class="mt-1 text-sm text-slate-100 whitespace-pre-line"
