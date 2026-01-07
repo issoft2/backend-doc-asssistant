@@ -544,6 +544,42 @@ def build_retrieval_query(
     )
 
 
+def create_refinement_prompt(
+    user_question: str,
+    assistant_answer: str,
+    context_text: str,
+) -> list[dict]:
+    user_content = f"""
+    User question:
+    {user_question}
+
+    Document context (truncated if long):
+    {context_text}
+
+    Previous assistant answer (judged problematic):
+    {assistant_answer}
+
+    Task:
+    Rewrite the answer so that:
+    - Every factual and numeric statement is directly supported by the context.
+    - You clearly indicate when data is missing or not visible instead of inventing it.
+    - You directly answer the user's question as far as the context allows.
+
+    Return only the improved answer, with no explanation of your changes.
+    """.strip()
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a careful assistant that fixes and improves previous answers "
+                "based only on the given context."
+            ),
+        },
+        {"role": "user", "content": user_content},
+    ]
+
+
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
@@ -725,23 +761,27 @@ async def llm_pipeline_stream(
 
         # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
         # Commenting out temporary
-        # critique_messages = create_critique_prompt(
-        #     user_question=question,
-        #     assistant_answer=raw_answer,
-        #     context_text="\n\n".join(context_chunks)[:2000],
-        # )
-        # critique_resp = suggestion_llm_client.invoke(critique_messages)
-        # critique = (getattr(critique_resp, "content", "") or "").strip().upper()
+        critique_messages = create_critique_prompt(
+            user_question=question,
+            assistant_answer=raw_answer,
+            context_text="\n\n".join(context_chunks)[:2000],
+        )
+        critique_resp = suggestion_llm_client.invoke(critique_messages)
+        critique = (getattr(critique_resp, "content", "") or "").strip().upper()
+        
+        if critique == "BAD":
+            # One refinement pass
+            refinement_messages = create_refinement_prompt(
+                user_question=question,
+                assistant_answer=raw_answer,
+                context_text="\n\n".join(context_chunks)[:2000],
+            )
+            refine_resp = llm_client.invoke(refinement_messages)
+            refined = (getattr(refine_resp, "content", "") or "").strip()
 
-        # if critique == "BAD":
-        #     # Option A: soften the answer
-        #     raw_answer = (
-        #         "My current knowledge do not fully support a confident answer to this question. "
-        #         "The previous answer may include assumptions or information not clearly present in the context. "
-        #         "Please provide more specific details or point me to the relevant context, period, or dataset."
-        #     )
-
-
+            # Use refined answer if non-empty, otherwise fall back to original
+            if refined:
+                raw_answer = refined
 
         # 9) FORMAT ONCE
         try:
