@@ -1,12 +1,20 @@
 from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
 import textwrap
-
-from LLM_Config.llm_setup import llm_client, suggestion_llm_client, llm_client_streaming, formatter_llm_client
-from LLM_Config.system_user_prompt import create_context, create_critique_prompt, FORMATTER_SYSTEM_PROMPT
-from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
+from LLM_Config.llm_setup import (
+    llm_client,
+    suggestion_llm_client,
+    llm_client_streaming,
+    formatter_llm_client,
+)
+from LLM_Config.system_user_prompt import (
+    create_context,
+    create_critique_prompt,
+    FORMATTER_SYSTEM_PROMPT,
+)
+from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +42,9 @@ def build_capabilities_message_from_store(store_summary: dict) -> str:
             "Once documents are ingested, you can ask questions directly about their content."
         )
 
-    lines = ["I can help you with questions about documents in this workspace, including:"]
+    lines = [
+        "I can help you with questions about documents in this workspace, including:"
+    ]
     example_qs: list[str] = []
 
     for c in collections:
@@ -71,7 +81,10 @@ Instructions:
 
 def build_rerank_messages(question: str, snippets: list[str]) -> list[dict]:
     numbered = "\n\n".join(
-        [f"[{i}] {textwrap.shorten(s, width=800, placeholder='...')}" for i, s in enumerate(snippets)]
+        [
+            f"[{i}] {textwrap.shorten(s, width=800, placeholder='...')}"
+            for i, s in enumerate(snippets)
+        ]
     )
     user_content = f"""
 User question:
@@ -97,9 +110,8 @@ IntentType = Literal[
     "UNSURE",
 ]
 
-
 INTENT_PROMPT_TEMPLATE = """
-You are classifying a user's latest message in a policy/HR/finance assistant chat.
+You are classifying a user's latest message in a policy/HR/finance/technology/general assistant chat.
 
 Conversation (most recent last):
 {history_block}
@@ -117,7 +129,7 @@ Decide the intent of the latest message:
   "Can you break this down?", "I still need details", "following the information you have"),
   label it FOLLOWUP_ELABORATE and rewrite it into a more explicit question ABOUT THE ASSISTANT'S LAST ANSWER
   or the SAME DOCUMENT. The rewritten question should:
-  - Mention the main topic of the last answer (for example, retention rates, a specific policy, or a calculation),
+  - Mention the main topic of the last answer,
   - If the last answer included a formula or numeric result, ask to explain the calculation step by step,
   - Otherwise, ask to provide more detail, examples, implications, or a clearer breakdown of that answer.
 
@@ -135,45 +147,111 @@ Decide the intent of the latest message:
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
-{{
+{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE>",
   "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
-}}
+}
 """.strip()
 
 
-
 FINANCE_KEYWORDS = [
-    "budget", "expense", "cost", "financial", "invoice", "payment",
-    "revenue", "profit", "loss", "fiscal", "audit",
-    "forecast", "projection", "balance sheet", "cash flow",
-    "tax", "cashflow", "expenses", "earnings", "cash balance",
-    "financial statement", "net income", "operating income",
+    "budget",
+    "expense",
+    "cost",
+    "financial",
+    "invoice",
+    "payment",
+    "revenue",
+    "profit",
+    "loss",
+    "fiscal",
+    "audit",
+    "forecast",
+    "projection",
+    "balance sheet",
+    "cash flow",
+    "tax",
+    "cashflow",
+    "expenses",
+    "earnings",
+    "cash balance",
+    "financial statement",
+    "net income",
+    "operating income",
 ]
 
 HR_KEYWORDS = [
-    "leave", "vacation", "benefits", "payroll", "hiring",
-    "onboarding", "offboarding", "performance review", "promotion",
-    "disciplinary action", "work from home", "remote work",
-    "employee relations", "training", "development", "compensation",
-    "overtime", "time off", "sick leave", "maternity leave",
+    "leave",
+    "vacation",
+    "benefits",
+    "payroll",
+    "hiring",
+    "onboarding",
+    "offboarding",
+    "performance review",
+    "promotion",
+    "disciplinary action",
+    "work from home",
+    "remote work",
+    "employee relations",
+    "training",
+    "development",
+    "compensation",
+    "overtime",
+    "time off",
+    "sick leave",
+    "maternity leave",
 ]
 
 TECH_KEYWORDS = [
-    "deployment", "server", "database", "api", "bug",
-    "feature", "release", "version control", "ci/cd",
-    "infrastructure", "scalability", "performance", "latency",
-    "uptime", "monitoring", "logging", "cloud", "on-premise",
-    "virtualization", "containerization", "microservices",
-    "docker", "kubernetes", "load balancing", "networking",
-    "ssh", "password", "network", "backup",
+    "deployment",
+    "server",
+    "database",
+    "api",
+    "bug",
+    "feature",
+    "release",
+    "version control",
+    "ci/cd",
+    "infrastructure",
+    "scalability",
+    "performance",
+    "latency",
+    "uptime",
+    "monitoring",
+    "logging",
+    "cloud",
+    "on-premise",
+    "virtualization",
+    "containerization",
+    "microservices",
+    "docker",
+    "kubernetes",
+    "load balancing",
+    "networking",
+    "ssh",
+    "password",
+    "network",
+    "backup",
 ]
 
 POLICY_KEYWORDS = [
-    "policy", "procedure", "guideline", "compliance",
-    "regulation", "standard", "protocol", "rule",
-    "governance", "audit", "risk management", "code of conduct",
-    "ethics", "confidentiality", "data protection", "security",
+    "policy",
+    "procedure",
+    "guideline",
+    "compliance",
+    "regulation",
+    "standard",
+    "protocol",
+    "rule",
+    "governance",
+    "audit",
+    "risk management",
+    "code of conduct",
+    "ethics",
+    "confidentiality",
+    "data protection",
+    "security",
 ]
 
 
@@ -189,39 +267,57 @@ def _format_history_for_intent(
         lines.append(f"Assistant: {assistant_msg}")
     return "\n".join(lines)
 
+
 def infer_intent_and_rewrite(
     user_message: str,
     history_turns: Optional[List[Tuple[str, str]]] = None,
 ) -> Tuple[str, Optional[str], str]:
     """
     Returns:
-      - intent: e.g. "CHITCHAT", "CAPABILITIES", "LOOKUP", "NUMERIC_ANALYSIS",
-                "NEW_QUESTION", "IMPLICATIONS", "STRATEGY", "FOLLOWUP_ELABORATE", ...
+      - intent: one of "CHITCHAT", "CAPABILITIES", "FOLLOWUP_ELABORATE", "NEW_QUESTION", "UNSURE" or a rule-based type
       - rewritten: optional rewritten question (or None)
       - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
     """
     text = (user_message or "").lower().strip()
 
     # 1) Cheap chitchat short-circuit (greetings & pure appreciation)
-    if any(x in text for x in [
-        "thank you", "thanks", "thx", "got it", "great", "good job",
-        "well done", "appreciate it",
-        "hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening",
-    ]):
+    if any(
+        x in text
+        for x in [
+            "thank you",
+            "thanks",
+            "thx",
+            "got it",
+            "great",
+            "good job",
+            "well done",
+            "appreciate it",
+            "hello",
+            "hi ",
+            "hi,",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+        ]
+    ):
         return "CHITCHAT", None, "GENERAL"
 
     # 2) Cheap CAPABILITIES detection
-    if any(x in text for x in [
-        "what can you do",
-        "what information can you help me with",
-        "what information can you currently have",
-        "what information do you have",
-        "what topics should i ask you",
-        "what do you know",
-        "what is your knowledge base",
-        "what can you assist me with",
-        "what information can you provide for me now",
-    ]):
+    if any(
+        x in text
+        for x in [
+            "what can you do",
+            "what information can you help me with",
+            "what information can you currently have",
+            "what information do you have",
+            "what topics should i ask you",
+            "what do you know",
+            "what is your knowledge base",
+            "what can you assist me with",
+            "what information can you provide for me now",
+        ]
+    ):
         return "CAPABILITIES", None, "GENERAL"
 
     # 3) Domain guess
@@ -236,32 +332,61 @@ def infer_intent_and_rewrite(
         domain = "POLICY"
 
     # 4) Cheap intent guess (rule-based hybrid layer)
-    if any(x in text for x in [
-        "how did you arrive at your answer",
-        "how did you arrive at that answer",
-        "how did you get this answer",
-        "explain how you arrived at your answer",
-        "explain how you arrived at that",
-        "how did you come up with this answer",
-    ]):
+    if any(
+        x in text
+        for x in [
+            "how did you arrive at your answer",
+            "how did you arrive at that answer",
+            "how did you get this answer",
+            "explain how you arrived at your answer",
+            "explain how you arrived at that",
+            "how did you come up with this answer",
+        ]
+    ):
         cheap_intent = "FOLLOWUP_ELABORATE"
-    elif any(x in text for x in [
-        "implication", "implications", "what does this mean",
-        "so what", "how does this affect", "what does this imply",
-        "for our employee engagement", "for our retention strategy",
-    ]):
+    elif any(
+        x in text
+        for x in [
+            "implication",
+            "implications",
+            "what does this mean",
+            "so what",
+            "how does this affect",
+            "what does this imply",
+        ]
+    ):
         cheap_intent = "IMPLICATIONS"
-    elif any(x in text for x in [
-        "how can we improve", "how can we increase", "suggest ways",
-        "what can we do", "which other areas", "what else can we do",
-        "how do we increase", "how do we reduce churn",
-    ]):
+    elif any(
+        x in text
+        for x in [
+            "how can we improve",
+            "how can we increase",
+            "suggest ways",
+            "what can we do",
+            "which other areas",
+            "what else can we do",
+            "how do we increase",
+            "how do we reduce",
+        ]
+    ):
         cheap_intent = "STRATEGY"
-    elif any(x in text for x in [
-        "sum", "total", "calculate", "projection", "compare",
-        "increase", "decrease", "analyze", "average",
-        "how much", "what is the amount", "amount of",
-    ]):
+    elif any(
+        x in text
+        for x in [
+            "sum",
+            "total",
+            "calculate",
+            "projection",
+            "compare",
+            "increase",
+            "decrease",
+            "analyze",
+            "average",
+            "how much",
+            "what is the amount",
+            "amount of",
+        ]
+    ):
         cheap_intent = "NUMERIC_ANALYSIS"
     elif any(x in text for x in ["how do i", "steps", "procedure", "process"]):
         cheap_intent = "PROCEDURE"
@@ -295,11 +420,9 @@ def infer_intent_and_rewrite(
 
         data = None
 
-        # Fast path: pure JSON
         try:
             data = json.loads(raw)
         except Exception:
-            # Try to extract JSON object from within surrounding text
             start = raw.find("{")
             end = raw.rfind("}")
             if start != -1 and end != -1 and end > start:
@@ -321,7 +444,6 @@ def infer_intent_and_rewrite(
         llm_intent = "UNSURE"
         rewritten = None
 
-    # 7) Sanitize LLM intent
     allowed_intents = {
         "FOLLOWUP_ELABORATE",
         "NEW_QUESTION",
@@ -332,18 +454,15 @@ def infer_intent_and_rewrite(
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
-    # 8) Combine rule-based and LLM intents
     if llm_intent in {"FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "CAPABILITIES"}:
         intent = llm_intent
     else:
         intent = cheap_intent
 
-    # FOLLOWUP_ELABORATE fallback if no rewrite was produced
     if intent == "FOLLOWUP_ELABORATE" and not rewritten:
         if not history_turns:
             intent = cheap_intent or "GENERAL"
 
-    # CHITCHAT and CAPABILITIES should always be GENERAL
     if intent in {"CHITCHAT", "CAPABILITIES"}:
         domain = "GENERAL"
 
@@ -351,20 +470,35 @@ def infer_intent_and_rewrite(
 
 
 def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
-    """
-    Wraps the raw LLM answer with the formatter system prompt
-    to produce a clean, human-readable Markdown output.
-    """
     return [
         {
             "role": "system",
-            "content": FORMATTER_SYSTEM_PROMPT
+            "content": FORMATTER_SYSTEM_PROMPT,
         },
         {
             "role": "user",
-            "content": raw_answer
-        }
+            "content": raw_answer,
+        },
     ]
+
+
+def normalize_query(q: str) -> str:
+    q = (q or "").strip()
+    lower = q.lower()
+    prefixes = [
+        "can you please",
+        "could you please",
+        "please",
+        "i was wondering",
+        "i would like to know",
+    ]
+    for p in prefixes:
+        if lower.startswith(p):
+            q = q[len(p) :].lstrip(" ,.")
+            break
+    return q
+
+
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
@@ -388,9 +522,15 @@ async def llm_pipeline_stream(
 
     # 1) CHITCHAT
     if intent == "CHITCHAT":
-        if any(p in text_lower for p in ["thank you", "thanks", "thx", "appreciate it"]):
+        if any(
+            p in text_lower
+            for p in ["thank you", "thanks", "thx", "appreciate it"]
+        ):
             msg = "You’re welcome. If you have more questions, feel free to ask."
-        elif any(p in text_lower for p in ["hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening"]):
+        elif any(
+            p in text_lower
+            for p in ["hello", "hi ", "hi,", "hey", "good morning", "good afternoon", "good evening"]
+        ):
             msg = (
                 "Hello! I can help you with questions about the documents and data in this workspace. "
                 "What would you like to explore?"
@@ -409,15 +549,14 @@ async def llm_pipeline_stream(
     if intent == "CAPABILITIES":
         summary = await store.summarize_capabilities(tenant_id)
         msg = build_capabilities_message_from_store(summary)
-
         _store(msg, [])
         yield msg
         return
 
     # 3) RETRIEVAL
-    effective_question = rewritten or question
+    effective_question = normalize_query(rewritten or question)
 
-    query_filter = None
+    query_filter: Optional[dict] = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
         query_filter = {"doc_id": last_doc_id}
 
@@ -430,53 +569,72 @@ async def llm_pipeline_stream(
     )
     hits = retrieval.get("results", [])
 
+    logger.debug(
+        {
+            "event": "retrieval_result",
+            "tenant_id": tenant_id,
+            "question": effective_question,
+            "intent": intent,
+            "domain": domain,
+            "num_hits": len(hits),
+            "sample_hits": [
+                {
+                    "metadata": h.get("metadata", {}),
+                    "preview": (h.get("document") or "")[:200],
+                }
+                for h in hits[:3]
+            ],
+        }
+    )
+
     if not hits:
         if intent == "NEW_QUESTION":
             msg = (
                 "I could not find relevant information in the current knowledge base for this question. "
-                "I'm best at questions about the documents and data that have been ingested here. "
+                "I am best at questions about the documents and data that have been ingested here. "
                 "Could you rephrase or specify the document, topic, or area you’re interested in?"
             )
         else:
             msg = (
-                "The information I have access to right now is not sufficient to answer this question. "
-                "Please consider checking with the appropriate internal team or rephrasing with more detail."
+                "The information visible in the current context is not sufficient to answer this question. "
+                "You may want to rephrase with more detail or specify a particular document or topic."
             )
 
         _store(msg, [])
         yield msg
         return
 
-    # 4) BUILD CONTEXT
+    # 4) BUILD CONTEXT (no titles injected into content)
     context_chunks: list[str] = []
     sources: list[str] = []
 
     for hit in hits:
         doc_text = (hit.get("document") or "").strip()
         meta = hit.get("metadata", {}) or {}
-
-        title = meta.get("title") or meta.get("filename") or "Unknown document"
-        section = meta.get("section")
-
-        header = f"Title: {title}"
-        if section:
-            header += f" | Section: {section}"
-
-        context_chunks.append(f"{header}\n\n{doc_text}")
+        title = meta.get("display_name") or meta.get("title") or meta.get("filename") or "Unknown document"
+        context_chunks.append(doc_text)
         sources.append(title)
 
-    # 5) RERANK (best-effort)
+    # 5) RERANK (best-effort, robust)
     try:
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
         rerank_resp = suggestion_llm_client.invoke(rerank_messages)
-        indices = json.loads(getattr(rerank_resp, "content", "") or "[]")
+        raw = getattr(rerank_resp, "content", "") or "[]"
+        indices = json.loads(raw)
+        if not isinstance(indices, list):
+            raise ValueError
+        indices = [
+            i for i in indices if isinstance(i, int) and 0 <= i < len(context_chunks)
+        ]
+    except Exception as e:
+        logger.warning(f"Rerank failed, falling back to original order: {e}")
+        indices = list(range(len(context_chunks)))
 
-        indices = [i for i in indices if isinstance(i, int) and 0 <= i < len(context_chunks)]
-        if indices:
-            indices = indices[:5]
-            context_chunks = [context_chunks[i] for i in indices]
-            sources = [sources[i] for i in indices]
-    except Exception:
+    if indices:
+        indices = indices[:5]
+        context_chunks = [context_chunks[i] for i in indices]
+        sources = [sources[i] for i in indices]
+    else:
         context_chunks = context_chunks[:5]
         sources = sources[:5]
 
@@ -496,7 +654,7 @@ async def llm_pipeline_stream(
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
     if history:
-        for u, a in history:
+        for u, a in history[-2:]:
             messages.append({"role": "user", "content": u})
             messages.append({"role": "assistant", "content": a})
 
@@ -507,7 +665,6 @@ async def llm_pipeline_stream(
         full_answer_parts: list[str] = []
 
         async for chunk in llm_client_streaming.astream(messages):
-            # DO NOT strip internal spaces; only normalize None/empty
             text = getattr(chunk, "content", "") or ""
             if not text:
                 try:
@@ -517,40 +674,32 @@ async def llm_pipeline_stream(
             if text:
                 full_answer_parts.append(text)
 
-        # Join exactly as emitted
         raw_answer = "".join(full_answer_parts).strip()
-
         logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
-        # 8) CRITIQUE
+        # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
         critique_messages = create_critique_prompt(
             user_question=question,
             assistant_answer=raw_answer,
             context_text="\n\n".join(context_chunks)[:2000],
         )
-
         critique_resp = suggestion_llm_client.invoke(critique_messages)
-        
-        critique = (getattr(critique_resp, "content", "") or "")
-        
-        if critique != "ok":
-            raw_answer = (
-                "⚠️ Warning: The previous response may not fully align with the available documents.\n\n"
-                + raw_answer
-            )
+        critique = (getattr(critique_resp, "content", "") or "").strip()
+
+        if critique:
+            # Design create_critique_prompt so that it returns a grounded, corrected answer
+            raw_answer = critique
 
         # 9) FORMAT ONCE
         try:
             formatter_messages = create_formatter_prompt(raw_answer)
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
             formatted_answer = getattr(formatted_resp, "content", raw_answer)
-            
             logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
-
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Formatter failed, returning raw answer: {e}")
             formatted_answer = raw_answer
 
-        # Single, final output
         _store(formatted_answer, unique_sources)
         yield formatted_answer
 
@@ -558,6 +707,7 @@ async def llm_pipeline_stream(
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
         _store(error_msg, unique_sources)
         yield error_msg
+
 
 async def llm_pipeline(
     store: MultiTenantChromaStoreManager,
