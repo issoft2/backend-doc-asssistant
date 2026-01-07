@@ -147,7 +147,7 @@ Decide the intent of the latest message:
 - If you really cannot tell, label it UNSURE.
 
 Respond as pure JSON:
-{{}
+{{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE>",
   "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
 }}
