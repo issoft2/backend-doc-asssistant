@@ -16,6 +16,7 @@ from LLM_Config.system_user_prompt import (
 )
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -110,6 +111,7 @@ IntentType = Literal[
     "UNSURE",
 ]
 
+
 INTENT_PROMPT_TEMPLATE = """
 You are classifying a user's latest message in a policy/HR/finance/technology/general assistant chat.
 
@@ -161,7 +163,6 @@ Respond as pure JSON:
   "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
 }}
 """.strip()
-
 
 
 FINANCE_KEYWORDS = [
@@ -509,6 +510,28 @@ def normalize_query(q: str) -> str:
     return q
 
 
+def build_retrieval_query(
+    question: str,
+    history: Optional[List[Tuple[str, str]]] = None,
+) -> str:
+    q = normalize_query(question)
+    if not history:
+        return q
+
+    # Take last assistant answer for topic hint
+    last_user, last_assistant = history[-1]
+    hint = (last_assistant or "")[:300].strip()
+    if not hint:
+        return q
+
+    return (
+        "Follow-up based on the previous answer:\n"
+        f"{hint}\n\n"
+        "New question:\n"
+        f"{q}"
+    )
+
+
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
@@ -528,7 +551,7 @@ async def llm_pipeline_stream(
     def _store(answer: str, sources: list[str]) -> None:
         if result_holder is not None:
             result_holder["answer"] = answer
-            result_holder["sources"] = sources
+            result_holder["sources"] = sources]
 
     # 1) CHITCHAT
     if intent == "CHITCHAT":
@@ -564,7 +587,8 @@ async def llm_pipeline_stream(
         return
 
     # 3) RETRIEVAL
-    effective_question = normalize_query(rewritten or question)
+    raw_question = rewritten or question
+    effective_question = build_retrieval_query(raw_question, history)
 
     query_filter: Optional[dict] = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
@@ -655,7 +679,7 @@ async def llm_pipeline_stream(
 
     system_prompt, user_prompt = create_context(
         context_chunks=context_chunks,
-        user_question=effective_question,
+        user_question=raw_question,
         intent=intent,
         domain=domain,
         last_answer=last_answer_text,
@@ -697,7 +721,7 @@ async def llm_pipeline_stream(
         critique = (getattr(critique_resp, "content", "") or "").strip()
 
         if critique:
-            # Design create_critique_prompt so that it returns a grounded, corrected answer
+            # Ensure create_critique_prompt is designed to return a grounded, corrected answer or "ok"
             raw_answer = critique
 
         # 9) FORMAT ONCE
@@ -718,13 +742,3 @@ async def llm_pipeline_stream(
         _store(error_msg, unique_sources)
         yield error_msg
 
-
-async def llm_pipeline(
-    store: MultiTenantChromaStoreManager,
-    tenant_id: str,
-    question: str,
-    history: Optional[List[Tuple[str, str]]] = None,
-    top_k: int = 5,
-) -> Dict[str, Any]:
-    pass
-   # no longer in use for now but could still be called some where in the code.

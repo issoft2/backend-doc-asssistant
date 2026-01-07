@@ -47,13 +47,7 @@ async def query_policies_api(
     
         
     # 3) Call LLM pipeline with history    
-    response_text = await llm_pipeline(
-        store=store,
-        tenant_id=current_user.tenant_id,
-        question=req.question,
-        history=history_turns,
-        top_k=req.top_k,
-    )
+    response_text = ""
     
     # 4) Save this new turn
     if not req.conversation_id:
