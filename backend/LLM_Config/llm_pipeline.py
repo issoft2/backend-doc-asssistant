@@ -7,7 +7,6 @@ from LLM_Config.system_user_prompt import create_context, create_critique_prompt
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 import logging
 
-import logging
 
 logging.basicConfig(
     level=logging.INFO,
@@ -292,7 +291,7 @@ def infer_intent_and_rewrite(
         resp = suggestion_llm_client.invoke(messages)
         raw = getattr(resp, "content", None) or str(resp)
         raw = raw.strip()
-        logger.info("Intent raw output: $r", raw)
+        logger.info(f"Intent raw output: {raw}")
 
         data = None
 
@@ -318,7 +317,7 @@ def infer_intent_and_rewrite(
             raise ValueError("Intent classifier did not return a JSON object")
 
     except Exception as e:
-        logger.warning("Intent parsing failed: %r", e)
+        logger.warning(f"Intent parsing failed: {e}")
         llm_intent = "UNSURE"
         rewritten = None
 
@@ -521,7 +520,7 @@ async def llm_pipeline_stream(
         # Join exactly as emitted
         raw_answer = "".join(full_answer_parts).strip()
 
-        logger.info("RAW_ANSWER:\n%s", raw_answer)
+        logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
         # 8) CRITIQUE
         critique_messages = create_critique_prompt(
@@ -546,7 +545,7 @@ async def llm_pipeline_stream(
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
             formatted_answer = getattr(formatted_resp, "content", raw_answer)
             
-            logger.info("FORMATTED_ANSWER:\n%s", formatted_answer)
+            logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
 
         except Exception:
             formatted_answer = raw_answer

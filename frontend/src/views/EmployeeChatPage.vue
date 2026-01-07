@@ -132,10 +132,11 @@
 
                       <div class="flex-1 min-w-0">
                        <MarkdownText
-                          v-if="msg.role === 'assistant'"
-                          :content="msg.text"
-                          class="prose prose-invert max-w-none text-slate-100 leading-relaxed prose-headings:text-slate-100 prose-strong:text-white"
-                        />
+                        v-if="msg.role === 'assistant'"
+                        :content="msg.text"
+                        class="prose prose-invert max-w-none text-slate-100 leading-relaxed"
+                      />
+
 
         
                         <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>

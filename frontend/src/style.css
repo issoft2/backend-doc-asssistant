@@ -15,17 +15,24 @@ body {
   min-height: 100vh;
 }
 
-/* Remove the Vite starter constraints */
+/* App should fill viewport; chat handles its own padding/layout */
 #app {
   width: 100%;
   min-height: 100vh;
 }
 
-/* Optional: keep link styles if you like */
+/* Links (use Tailwind text color utilities in components if needed) */
 a {
   text-decoration: inherit;
 }
 
+/* --- Markdown / prose tuning for chat answers --- */
+
+.prose {
+  max-width: 65ch;          /* comfortable reading width */
+}
+
+/* Block spacing */
 .prose h1,
 .prose h2,
 .prose h3,
@@ -38,6 +45,7 @@ a {
   margin-bottom: 0.5rem;
 }
 
+/* Headings hierarchy */
 .prose h1 {
   font-size: 1.5rem;
   font-weight: 700;
@@ -53,6 +61,12 @@ a {
   font-weight: 600;
 }
 
+.prose h4 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Lists */
 .prose ul,
 .prose ol {
   padding-left: 1.25rem;
@@ -65,3 +79,24 @@ a {
 .prose ol {
   list-style: decimal;
 }
+
+/* List item text a bit tighter vertically than paragraphs */
+.prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Bold text inside answers */
+.prose strong {
+  font-weight: 600;
+}
+
+/* Optional: make headings not all-caps if Typography plugin adds it later */
+/*
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  text-transform: none;
+}
+*/
