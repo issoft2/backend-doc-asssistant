@@ -1,23 +1,17 @@
 <!-- src/components/MarkdownText.vue -->
 <template>
-  <div :class="wrapperClass" v-html="compiled"></div>
+  <div :class="$attrs.class" v-html="rendered"></div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 
-const props = defineProps<{
-  content: string
-  class?: string
-}>()
+defineOptions({ inheritAttrs: false })
 
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  breaks: true,
-})
+const props = defineProps<{ content: string }>()
 
-const compiled = computed(() => md.render(props.content || ''))
-const wrapperClass = computed(() => props.class)
+const md = new MarkdownIt({ breaks: true })
+
+const rendered = computed(() => md.render(props.content || ''))
 </script>
