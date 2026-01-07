@@ -432,23 +432,25 @@ def create_critique_prompt(
     context_text: str,
 ) -> list[dict]:
     user_content = f"""
-    User question:
-    {user_question}
+User question:
+{user_question}
 
-    Document context (truncated if long):
-    {context_text}
+Document context (truncated if long):
+{context_text}
 
-    Assistant answer:
-    {assistant_answer}
+Assistant answer:
+{assistant_answer}
 
-    Evaluate whether the answer is consistent with the question and the context.
-    If there are no issues, respond with exactly: OK
-    If there are issues, respond with a numbered list of issues as described in the system prompt.
-    """.strip()
+Evaluate whether the answer is consistent with the question and the context.
+If there are no issues, respond with exactly: OK
+If there are issues, respond with exactly: BAD
+""".strip()
 
-    system_message = {"role": "system", "content": CRITIQUE_SYSTEM_PROMPT}
-    user_message = {"role": "user", "content": user_content}
-    return [system_message, user_message]
+    return [
+        {"role": "system", "content": CRITIQUE_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
 
 
 def create_suggestion_prompt(user_question: str, assistant_answer: str) -> list[dict]:
