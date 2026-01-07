@@ -712,6 +712,7 @@ async def llm_pipeline_stream(
         logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
         # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
+        # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
         critique_messages = create_critique_prompt(
             user_question=question,
             assistant_answer=raw_answer,
@@ -720,9 +721,10 @@ async def llm_pipeline_stream(
         critique_resp = suggestion_llm_client.invoke(critique_messages)
         critique = (getattr(critique_resp, "content", "") or "").strip()
 
-        if critique:
-            # Ensure create_critique_prompt is designed to return a grounded, corrected answer or "ok"
+        # Only override when it looks like a real rewrite, not a short label
+        if critique and critique.lower() not in {"ok", "okay", "bad", "good"}:
             raw_answer = critique
+
 
         # 9) FORMAT ONCE
         try:
