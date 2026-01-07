@@ -551,7 +551,7 @@ async def llm_pipeline_stream(
     def _store(answer: str, sources: list[str]) -> None:
         if result_holder is not None:
             result_holder["answer"] = answer
-            result_holder["sources"] = sources]
+            result_holder["sources"] = sources
 
     # 1) CHITCHAT
     if intent == "CHITCHAT":
