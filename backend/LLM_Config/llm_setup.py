@@ -35,7 +35,7 @@ llm_client_streaming = ChatOpenAI(
     base_url=OPENAI_API_BASE,
     model="gpt-4.1-mini",
     temperature=0.3,
-    max_tokens=2048,
+    max_tokens=8192,
     streaming=True,
 )
 
