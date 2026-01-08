@@ -676,7 +676,7 @@ async def llm_pipeline_stream(
         
     # year-aware filter for finance questions
     year_filter = extract_year_filter(question, domain)
-    if year_filter:
+    if year_filter and intent not in {"EXPORT_TABLE"}:
         query_filter = year_filter
         
     # 3b) Dynamic top_k for year/numeric finance queries
@@ -723,6 +723,12 @@ async def llm_pipeline_stream(
                 "I could not find relevant information in the current knowledge base for this question. "
                 "I am best at questions about the documents and data that have been ingested here. "
                 "Could you rephrase or specify the document, topic, or area you’re interested in?"
+            )
+            
+        elif intent == "EXPORT_TABLE":
+            msg = (
+                "I could not find any visible data rows to export as a table for this question. "
+                "This may mean that data for the requested year or period is not present in the current workspace."
             )
         else:
             msg = (
