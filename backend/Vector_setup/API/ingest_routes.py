@@ -1,11 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
-import fitz  # PyMuPDF
-from io import BytesIO
-from docx import Document
 import uuid
-import pandas as pd
 
 import logging
 
@@ -18,6 +14,7 @@ from Vector_setup.base.db_setup_management import (
 )
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.base.auth_models import UserOut
+from Vector_setup.services.extraction_documents_service import extract_text_from_upload
 
 router = APIRouter()
 
@@ -59,8 +56,7 @@ def require_vendor(current_user: UserOut = Depends(get_current_user)) -> UserOut
     return current_user
 
 
-ALLOWED_COLLECTION_CREATORS = {"hr", "executive"}
-
+ALLOWED_COLLECTION_CREATORS = {"hr", "executive", "admin"}
 
 def require_collection_creator(
     current_user: UserOut = Depends(get_current_user),
@@ -80,7 +76,7 @@ def require_collection_creator(
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Only HR or Executive can create collections.",
+        detail="Only HR or Executive  or Admin. Role can create collections.",
     )
 
 
@@ -293,169 +289,4 @@ async def upload_document(
     return result
 
 
-# ---------- Pdf Text extraction helpers ----------
 
-def _extract_pdf_with_pymupdf(raw_bytes: bytes) -> str:
-    parts: List[str] = []
-
-    with fitz.open(stream=raw_bytes, filetype="pdf") as doc:  # type: ignore[arg-type]
-        for page_idx, page  in  enumerate(doc, start=1):
-            text = page.get_text("text") or ""
-            if text.strip():
-                parts.append(text.strip())
-
-            try:
-                tables = page.find_tables()
-            except Exception:
-                tables = None
-
-            if tables:
-                for table_idx, table in enumerate(tables.tables, start=1):
-                    try:
-                        md = table.to_markdown()
-                    except Exception:
-                        rows = []
-                        for row in table.extract():
-                            rows.append(" | ".join(cell or "" for cell in row))
-                        md = "\n".join(rows)
-
-                    if md.strip():
-                        header = (
-                            f"Table on page {page_idx}, index {table_idx}. "
-                            "This is tabular data that can be used for lookups, comparisons, or aggregations."
-                        )
-                        parts.append(header)
-                        parts.append(md.strip())
-
-    return "\n\n".join(parts)
-
-
-
-# ---------- Excel Text extraction helpers ----------
-
-def _describe_excel_sheet_shape(df: pd.DataFrame) -> str:
-    """
-     Simple, format-agnostic heuristic that returns a one-line description
-     of the sheet contents based on column types. 
-    """
-    if df.empty:
-        return "This sheet is empty."
-    
-    num_cols = 0
-    text_cols = 0
-    for col in df.columns:
-        series = df[col]
-        # Check a sample to infer numeric-ness
-        non_na = series.dropna()
-        if non_na.empty:
-            continue
-        
-        # Heuristic: if majority of non-NA values are numeric -> numeric col
-        numeric_fraction = pd.to_numeric(non_na, errors="coerce").notna().mean()
-        if numeric_fraction > 0.7:
-            num_cols += 1
-        else:
-            text_cols += 1
-            
-    if num_cols >= 2 and text_cols >= 1:
-        return (
-            "This sheet contains tabular data with at least one label column and multiple numeric columns. "
-            "Which can be used for aggregations, comparisons, and time-series style analysis."
-        )
-    
-    if num_cols >= 1 and text_cols == 0:
-        return "This sheet contains mainly numeric tabular data."
-    if text_cols >= 1 and num_cols == 0:
-        return "This sheet contains mainly text data"
-    return "This sheet contains a mix of text and numeric data."        
-            
-
-def _extract_excel_with_pandas(raw_bytes: bytes, filename: str) -> str:
-    """
-    Extracts human‑readable text from an Excel file.
-
-    - Reads all sheets using pandas.
-    - Skips empty sheets.
-    - For each sheet, add a one-line summary based on column types.
-    - For each non-NAN cell, emits `Column: value` grouped by row.
-    - Separates sheets with a blank line.
-    """
-    buffer = BytesIO(raw_bytes)
-
-    # sheet_name=None -> dict[str, DataFrame] for all sheets.[web:251][web:316]
-    sheets = pd.read_excel(buffer, sheet_name=None, engine="openpyxl")
-
-    sheet_chunks: List[str] = []
-
-    for sheet_name, df in sheets.items():
-        if df.empty:
-            continue
-        
-        # Normalize column names
-        df = df.copy()
-        df.columns = [str(c).strip() for c in df.columns]
-        
-        # Heuristic one-line description
-        shape_line = _describe_excel_sheet_shape(df)
-
-        row_lines: List[str] = []
-
-        # iterrows is fine here; Excel sheets are usually modest in size.
-        for _, row in df.iterrows():
-            parts: List[str] = []
-            for col, val in row.items():
-                if pd.isna(val):
-                    continue
-
-                parts.append(f"{col}: {val}")
-
-            if parts:
-                row_lines.append("  |  ".join(parts))
-
-        if not row_lines:
-            continue
-
-        sheet_text = (
-            f"Sheet: {sheet_name}\n"
-            f"{shape_line}\n"
-            + "\n".join(row_lines)
-        )
-        sheet_chunks.append(sheet_text)
-
-    # Join all sheets into a single string so downstream code always gets str.
-    return "\n\n".join(sheet_chunks)
-
-# ---------- Main text extraction function ----------
-def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
-    name = filename.lower()
-
-    if name.endswith(".md") or name.endswith(".txt"):
-        return raw_bytes.decode("utf-8", errors="ignore")
-
-    if name.endswith(".pdf"):
-        return _extract_pdf_with_pymupdf(raw_bytes)
-    
-    if name.endswith((".xlsx", ".xlsm", ".xls")):
-        return _extract_excel_with_pandas(raw_bytes, name)
-
-    if name.endswith(".docx"):
-        doc = Document(BytesIO(raw_bytes))
-        parts: List[str] = []
-
-        for p in doc.paragraphs:
-            if p.text:
-                parts.append(p.text)
-
-        for table in doc.tables:
-            for row in table.rows:
-                cells = []
-                for cell in row.cells:
-                    cell_texts = [p.text for p in cell.paragraphs if p.text]
-                    cells.append(" ".join(cell_texts))
-                if any(cells):
-                    parts.append(" | ".join(cells))
-
-        return "\n".join(parts)
-    
-    logger.warning("Unsupported file type for text extraction: %s", filename)
-    return ""
