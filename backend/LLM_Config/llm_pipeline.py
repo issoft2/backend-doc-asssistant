@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
 import textwrap
 import logging
+import re
 
 from LLM_Config.llm_setup import (
     llm_client,
@@ -78,6 +79,49 @@ Instructions:
 - Respond with ONLY a JSON array of indices (0-based) in descending order of relevance.
   For example: [2, 0, 1]
 """.strip()
+
+
+YEAR_REGEX = re.compile(r"\b(20[0-4][0-9])\b")  # 2000–2049
+
+
+def extract_year_filter(user_message: str, domain: str) -> Optional[dict]:
+    """
+    Extract a simple year metadata filter for finance questions.
+
+    Expects your Chroma metadata to have something like: {"year": "2025"}
+    for each row/chunk built from the Date column.
+    """
+    if domain != "FINANCE":
+        return None
+
+    text = (user_message or "").lower()
+    match = YEAR_REGEX.search(text)
+    if not match:
+        return None
+
+    year = match.group(1)
+    return {"year": year}
+
+
+def is_year_level_question(question: str) -> bool:
+    """
+    Heuristic: user is asking about a whole year or long range.
+    """
+    q = (question or "").lower()
+    if YEAR_REGEX.search(q) and any(
+        kw in q
+        for kw in [
+            "whole year",
+            "year ",
+            "for the year",
+            "jan to dec",
+            "january to december",
+            "entire year",
+            "full year",
+        ]
+    ):
+        return True
+    return False
 
 
 def build_rerank_messages(question: str, snippets: list[str]) -> list[dict]:
@@ -641,12 +685,28 @@ async def llm_pipeline_stream(
     query_filter: Optional[dict] = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
         query_filter = {"doc_id": last_doc_id}
+        
+    # year-aware filter for finance questions
+    year_filter = extract_year_filter(question, domain)
+    if year_filter:
+        query_filter = year_filter
+        
+    # 3b) Dynamic top_k for year/numeric finance queries
+    year_level = is_year_level_question(question)
+    is_numeric_finance = (domain == "FINANCE") and (
+        intent in {"NUMERIC_ANALYSIS", "LOOKUP"}
+    )
+    if year_level or is_numeric_finance:
+        effective_top_k = max(top_k, 200)
+    else:
+        effective_top_k = top_k
+                    
 
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
         collection_name=None,
         query=effective_question,
-        top_k=top_k,
+        top_k=effective_top_k,
         where=query_filter,
     )
     hits = retrieval.get("results", [])
