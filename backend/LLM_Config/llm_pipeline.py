@@ -698,6 +698,17 @@ async def llm_pipeline_stream(
         where=query_filter,
     )
     hits = retrieval.get("results", [])
+    
+    if not hits and year_filter is not None:
+        # fallback: try again without year filter
+        retrieval = await store.query_policies(
+        tenant_id=tenant_id,
+        collection_name=None,
+        query=effective_question,
+        top_k=effective_top_k,
+        where=None,
+    )
+    hits = retrieval.get("results", [])
 
     logger.debug(
         {

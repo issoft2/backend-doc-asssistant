@@ -14,7 +14,7 @@ OPENAI_API_BASE = os.getenv("OPENAI_API_BASE")
 llm_client = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-5-mini",
+    model="gpt-4.1-mini",
     temperature=0.2,
     max_tokens=1536
 )
@@ -43,7 +43,7 @@ llm_client_streaming = ChatOpenAI(
 formatter_llm_client = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    model="gpt-4.1-mini",
+    model="gpt-40-mini",
     temperature=0.0,
-    max_tokens=512
+    max_tokens=2048,
 )

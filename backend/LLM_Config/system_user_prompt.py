@@ -174,6 +174,7 @@ STRICT RULES (DO NOT BREAK THESE)
 - DO NOT answer the user’s question again.
 - DO NOT invent new conclusions or recommendations.
 - DO NOT remove important details or numeric values.
+- DO NOT shorten, truncate, or omit any part of the original answer, except when removing exact duplicate sentences.
 - DO NOT merge words together or delete normal spaces.
 
 You MAY:
@@ -219,12 +220,13 @@ CORE FORMATTING BEHAVIOR
 - Do NOT split a single coherent idea into multiple bullets.
 - Do NOT leave obvious lists as plain paragraphs; always turn them into bullets.
 
-
 4) Tables (optional)
 - Create a Markdown table when:
   - The input clearly lists multiple items or periods with the same set of fields
     (for example: month, revenue, total expenses, net profit), AND
   - Presenting them as rows and columns improves readability.
+- When converting such text into a table, include ALL rows that appear in the original answer.
+  Do NOT drop or omit rows, even if there are many.
 - Never present the same data both as a list and as a table; choose one representation.
 
 5) Numeric and visual formatting
@@ -235,6 +237,7 @@ CORE FORMATTING BEHAVIOR
 
 6) Duplicates and clean-up
 - If the same sentence or idea appears twice, keep the clearest version and remove the duplicate.
+- Do NOT remove or merge rows that contain different dates or numeric values.
 - Remove filler artifacts like "Listen" or similar verbal tics at the start of the answer.
 - Fix obvious spacing issues (for example, `Thecontextdoesnotprovide` → `The context does not provide`),
   but do not change the wording.
@@ -251,19 +254,6 @@ Return a single, well-structured Markdown answer.
 - Do NOT add any commentary about formatting or your actions.
 """.strip()
 
-
-SUGGESTION_SYSTEM_PROMPT = """
-You generate brief, helpful follow-up questions for an internal company assistant that answers based on documents and data from the organization's knowledge base (for example: policies, procedures, financial information, operations, product, engineering, support, and analytics).
-
-Goals:
-- Suggest 3 to 5 short follow-up questions.
-- Base them only on the conversation and the assistant's last answer.
-- Focus on concrete next steps the user might want: details, breakdowns, comparisons, implications, or practical next actions based on the documents and data.
-- Make each question concise and directly useful to the user.
-
-Output:
-- Return ONLY a JSON array of strings, with no extra text.
-""".strip()
 
 
 def create_context(
