@@ -219,10 +219,12 @@ CORE FORMATTING BEHAVIOR
 - Do NOT split a single coherent idea into multiple bullets.
 - Do NOT leave obvious lists as plain paragraphs; always turn them into bullets.
 
+
 4) Tables (optional)
-- Only create a table when:
-  - There are multiple rows of similar numeric or categorical data, AND
-  - A table clearly improves readability over bullets.
+- Create a Markdown table when:
+  - The input clearly lists multiple items or periods with the same set of fields
+    (for example: month, revenue, total expenses, net profit), AND
+  - Presenting them as rows and columns improves readability.
 - Never present the same data both as a list and as a table; choose one representation.
 
 5) Numeric and visual formatting
@@ -357,11 +359,13 @@ def create_context(
     if intent == "EXPORT_TABLE":
         extra_instructions.append(
             "The user wants a structured table of the relevant data. "
-            "Identify all clearly relevant rows and columns from the context and describe the table in plain text, "
-            "including column names and one row per item or period. "
+            "For each relevant item or period, output one row with the same fields in the same order "
+            "(for example: Month, Revenue, Total Expenses, Net Profit). "
+            "Clearly label each field and keep the wording consistent from row to row. "
             "Do not invent rows or columns that do not appear in the context. "
             "If some requested fields or periods are missing, state that they do not appear in the visible context."
-        )
+         )
+         
 
     # --- NEW: Analysis intent ---
     if intent == "ANALYSIS":
