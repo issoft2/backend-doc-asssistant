@@ -16,7 +16,7 @@ from googleapiclient.http import MediaIoBaseDownload
 from io import BytesIO
 import uuid
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
-from Vector_setup.API.ingest_routes import extract_text_from_upload
+from Vector_setup.services.extraction_documents_service import extract_text_from_upload
 from googleapiclient.errors import HttpError
 import requests
 
