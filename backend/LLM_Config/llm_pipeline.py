@@ -654,7 +654,21 @@ async def llm_pipeline_stream(
 
     # 3) RETRIEVAL
     raw_question = rewritten or question
-    effective_question = build_retrieval_query(raw_question, history)
+    # NEW: strip export phrasing for retrieval
+    if intent == "EXPORT_TABLE":
+        retrieval_question = normalize_query(
+            raw_question
+                .replace("export", "")
+                .replace("as a table", "")
+                .replace("as table", "")
+                .replace("table", "")
+                .replace("downloadable", "")
+                .strip()
+        )
+    else:
+        retrieval_question = raw_question
+        
+    effective_question = build_retrieval_query(retrieval_question, history)
 
     query_filter: Optional[dict] = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
