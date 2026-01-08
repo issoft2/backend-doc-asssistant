@@ -581,4 +581,20 @@ e?.response?.data?.detail || 'Failed to delete conversation.'
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #d4d4d4;
+  padding: 4px 8px;
+}
+
+th {
+  background-color: #f5f5f5;
+  text-align: left;
+}
+
 </style>
