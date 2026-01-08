@@ -348,7 +348,7 @@ class MultiTenantChromaStoreManager:
         tenant_id: str,
         collection_name: Optional[str],
         query: str,
-        top_k: int = 5,
+        top_k: int = 100,
         where: Optional[dict] = None,
     ) -> dict:
         """

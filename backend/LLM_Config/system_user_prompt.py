@@ -314,10 +314,14 @@ def create_context(
     # Numeric reasoning
     if domain == "FINANCE" or intent == "NUMERIC_ANALYSIS":
         extra_instructions.append(
-            "If the context contains numeric or structured data, use it to answer the question accurately. "
+             "If the context contains numeric or structured data, use it to answer the question accurately. "
             "When a calculation is needed, state the formula once in words and show at most one fully worked example. "
             "For other periods or segments, give only the inputs and final results in concise sentences, "
-            "without repeating detailed calculation steps."
+            "without repeating detailed calculation steps. "
+            "If the user asks about a full year or a long time range, first list exactly which months or periods "
+            "you can see in the context, and clearly say if any requested months or periods are missing or not visible. "
+            "Never assume or invent values for missing months or periods, and never claim you are using 'the full year' "
+            "if the context only includes some months."
         )
 
     # Procedural intent

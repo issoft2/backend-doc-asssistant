@@ -585,7 +585,7 @@ async def llm_pipeline_stream(
     tenant_id: str,
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
-    top_k: int = 5,
+    top_k: int = 100,
     result_holder: Optional[dict] = None,
     last_doc_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
