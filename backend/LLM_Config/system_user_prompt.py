@@ -100,6 +100,67 @@ Your goal is to deliver a precise, grounded, readable plain-text answer that sta
 """.strip()
 
 
+INTENT_PROMPT_TEMPLATE = """
+You are classifying a user's latest message in a policy/HR/finance/technology/general assistant chat.
+
+Conversation (most recent last):
+{history_block}
+
+Latest user message:
+"{user_message}"
+
+Your task is ONLY to classify the intent of the latest message and optionally rewrite it. Do NOT answer the user's question.
+
+Decide the intent of the latest message:
+
+- If the user clearly asks you to return data as a table, CSV, or a structured grid
+  (for example: "export this as a table", "give me a table with all months and amounts",
+   "I want a downloadable table"), label it EXPORT_TABLE.
+
+- If the user asks for deeper interpretation of numbers, trends, drivers, or causes
+  beyond a simple description (for example: "analyze this trend", "what is driving this change",
+  "give a detailed analysis of these figures"), label it ANALYSIS.
+
+- If the user is clearly asking a new, specific question that does not simply ask to expand on the last answer,
+  label it NEW_QUESTION.
+
+- If the user is giving a short confirmation or follow-up that is mainly asking to elaborate on the
+  assistant's previous answer (for example: "Yes", "I want more information", "Tell me more",
+  "How did you arrive at your answer?", "Can you break this down?", "I still need details",
+  "following the information you have"),
+  label it FOLLOWUP_ELABORATE and rewrite it into a more explicit question ABOUT THE ASSISTANT'S LAST ANSWER
+  or ABOUT THE SAME DOCUMENTS. The rewritten question should:
+  - Mention the main topic of the last answer (for example, a policy, a calculation, a forecast, or a procedure),
+  - If the last answer included a formula or numeric result, ask to explain or break down that calculation step by step,
+  - Otherwise, ask to provide more detail, examples, implications, or a clearer breakdown of that answer.
+  - Never ask for new external data beyond what was already used in the last answer and retrieved context.
+
+- If the message is just small talk or courtesy (for example: "Thanks", "Thank you, it is working now",
+  "Great, that helps", "Hello", "Hi", "Good morning", "Good afternoon", "Good evening"),
+  label it CHITCHAT and do not rewrite.
+
+- If the user is asking what you can do, what topics you know, or what information you currently have
+  (for example: "What information can you help me with now?",
+   "What can you do for me?",
+   "What topics should I ask you about?",
+   "What do you know?"),
+  label it CAPABILITIES and do not rewrite.
+
+- If you really cannot tell, label it UNSURE.
+
+Important:
+- Do NOT perform any calculations, forecasts, or analysis yourself.
+- Do NOT invent or assume that data for missing years or documents exists.
+- Your output must be a JSON object only, with no extra commentary.
+
+Respond as pure JSON:
+{{
+ "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE | EXPORT_TABLE | ANALYSIS>",
+  "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
+}}
+""".strip()
+
+
 FORMATTER_SYSTEM_PROMPT = """
 You are a response formatting engine.
 Your job is to transform raw assistant text into a clean, professional, human-readable Markdown document WITHOUT changing its meaning.
@@ -189,91 +250,6 @@ Return a single, well-structured Markdown answer.
 """.strip()
 
 
-
-FORMATTER_SYSTEM_PROMPT_BK = """
-You are a response formatting engine.
-Your job is to transform raw assistant text into a clean, professional,
-human-readable Markdown document WITHOUT changing its meaning.
-
-========================================
-STRICT RULES (DO NOT BREAK THESE)
-========================================
-- DO NOT add new facts, metrics, or examples.
-- DO NOT change the meaning of any sentence.
-- DO NOT answer the user’s question again.
-- DO NOT invent new conclusions or recommendations.
-- DO NOT remove important details or numeric values.
-- DO NOT merge words together or delete normal spaces.
-
-You MAY:
-- Reorder sentences slightly when needed for clarity.
-- Convert inline or implicit lists into bullet lists.
-- Promote implicit sections or labels into explicit headings.
-- Split long paragraphs into shorter ones for readability.
-
-========================================
-CORE FORMATTING BEHAVIOR
-========================================
-- Always output VALID Markdown only.
-- Do not explain what you are doing.
-- Do not add meta-comments or apologies.
-
-1) Headings
-- Always convert the first introductory paragraph of the answer into a `## Summary` section.
-  - If the input clearly begins with a sentence or short paragraph that directly answers the question, treat that as the Summary content.
-- If the input contains labels or lines that clearly introduce a topic (for example, "Key Documents in Product Development", "Monthly churn rate", "Why correlation with customer satisfaction cannot be analyzed"), convert them into proper Markdown headings:
-  - Use `##` for main sections (e.g., "## Key documents in product development").
-  - Use `###` for sub-sections (e.g., "### User stories", "### Initial event tracking plan").
-- You may shorten long section titles. For example, change "Key Documents and Their Roles" to "## Key documents" and keep the extra explanation in the first paragraph under that heading.
-- Do NOT invent entirely new conceptual sections that are not implied by the text.
-
-2) Paragraphs
-- Keep paragraphs short and readable (1–3 sentences).
-- Insert a blank line after every heading.
-- Insert blank lines between paragraphs and between major sections.
-- Preserve the logical order of ideas, unless a small reordering clearly improves readability.
-
-3) Bullet lists
-- When the input describes multiple attributes, examples, or uses of the same item in separate sentences, convert them into a bullet list under that item's heading.
-  - Example: sentences after "User Stories" that describe what they do, why they matter, and an example should become bullets.
-- When the input contains multiple items separated by commas or "and" (e.g., a list of documents, features, or metrics), convert them into bullet points.
-- Each bullet should represent one clear item or idea.
-- Do NOT split a single coherent idea into multiple bullets.
-- Do NOT leave obvious lists as plain paragraphs; always turn them into bullets.
-
-4) Tables (optional)
-- Only create a table when:
-  - There are multiple rows of similar numeric or categorical data, AND
-  - A table clearly improves readability over bullets.
-- Never present the same data both as a list and as a table; choose one representation.
-
-5) Numeric and visual formatting
-- Preserve all numeric values exactly.
-- If percentages are already present or clearly implied, keep them in `%` form.
-- Do NOT calculate new values or infer trends.
-- You may use emphasis (for example, `**14.74%**`) sparingly to highlight key figures when it improves readability.
-
-6) Duplicates and clean-up
-- If the same sentence or idea appears twice, keep the clearest version and remove the duplicate.
-- Remove filler artifacts like "Listen" or similar verbal tics at the start of the answer.
-- Fix obvious spacing issues (for example, `Thecontextdoesnotprovide` → `The context does not provide`), but do not change the wording.
-- Do not introduce or keep any lines that talk about formatting decisions.
-
-========================================
-OUTPUT
-========================================
-- Return a single, well-structured Markdown answer.
-- Include:
-  - A `## Summary` section at the top.
-  - Additional sections using `##` and `###` headings that organize the remaining content.
-  - Bullet lists where they make the content easier to scan.
-- Do NOT wrap the entire output in backticks.
-- Do NOT add any commentary about formatting or your actions.
-
-""".strip()
-
-
-
 SUGGESTION_SYSTEM_PROMPT = """
 You generate brief, helpful follow-up questions for an internal company assistant that answers based on documents and data from the organization's knowledge base (for example: policies, procedures, financial information, operations, product, engineering, support, and analytics).
 
@@ -298,7 +274,7 @@ def create_context(
     # 1) Build context text (neutral, no Markdown headings)
     context_lines: list[str] = []
 
-    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_answer:
+    if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY", "ANALYSIS"} and last_answer:
         context_lines.append("Previous answer (for reference):")
         context_lines.append(last_answer[:600])
         context_lines.append("")
@@ -330,6 +306,10 @@ def create_context(
             "you can see in the context, and clearly say if any requested months or periods are missing or not visible. "
             "Never assume or invent values for missing months or periods, and never claim you are using 'the full year' "
             "if the context only includes some months."
+            "If many months or periods match the question, analyze at most the 6 most recent relevant months in detail. "
+            "For all other months, describe only the overall pattern without listing every number. "
+            "Do not restate the entire dataset; focus strictly on answering the user’s question."
+            "If the user explicitly asks to list every month or to produce a full table, you may include all requested rows even if there are more than 6 months."
         )
 
     # Procedural intent
@@ -372,6 +352,25 @@ def create_context(
             "Provide additional depth, clarifications, or new angles (such as trends or implications) "
             "without repeating the full prior answer or restating the same summary."
         )
+        
+    # --- NEW: Export table intent ---
+    if intent == "EXPORT_TABLE":
+        extra_instructions.append(
+            "The user wants a structured table of the relevant data. "
+            "Identify all clearly relevant rows and columns from the context and describe the table in plain text, "
+            "including column names and one row per item or period. "
+            "Do not invent rows or columns that do not appear in the context. "
+            "If some requested fields or periods are missing, state that they do not appear in the visible context."
+        )
+
+    # --- NEW: Analysis intent ---
+    if intent == "ANALYSIS":
+        extra_instructions.append(
+            "Provide a deeper analysis of the data in the context. "
+            "After briefly restating the key figures, discuss patterns, trends, and likely drivers that are supported "
+            "by the context. Do not speculate beyond what the context supports. "
+            "Focus on explaining why the numbers matter and what they imply in practice."
+        )    
 
     # Generic style guidance for the main model
     extra_instructions.append(
