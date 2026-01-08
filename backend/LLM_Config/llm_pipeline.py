@@ -14,6 +14,7 @@ from LLM_Config.system_user_prompt import (
     create_context,
     create_critique_prompt,
     FORMATTER_SYSTEM_PROMPT,
+    INTENT_PROMPT_TEMPLATE,
 )
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
@@ -146,67 +147,26 @@ Return a JSON array of indices from most relevant to least relevant.
         {"role": "user", "content": user_content},
     ]
 
-
+# --- typing ---
 IntentType = Literal[
     "FOLLOWUP_ELABORATE",
     "NEW_QUESTION",
     "CHITCHAT",
     "CAPABILITIES",
     "UNSURE",
+    "EXPORT_TABLE",
+    "ANALYSIS",
+    # rule-based extras (still typed if you like)
+    "IMPLICATIONS",
+    "STRATEGY",
+    "NUMERIC_ANALYSIS",
+    "PROCEDURE",
+    "LOOKUP",
+    "GENERAL",
 ]
 
 
-INTENT_PROMPT_TEMPLATE = """
-You are classifying a user's latest message in a policy/HR/finance/technology/general assistant chat.
 
-Conversation (most recent last):
-{history_block}
-
-Latest user message:
-"{user_message}"
-
-Your task is ONLY to classify the intent of the latest message and optionally rewrite it. Do NOT answer the user's question.
-
-Decide the intent of the latest message:
-
-- If the user is clearly asking a new, specific question that does not simply ask to expand on the last answer,
-  label it NEW_QUESTION.
-
-- If the user is giving a short confirmation or follow-up that is mainly asking to elaborate on the
-  assistant's previous answer (for example: "Yes", "I want more information", "Tell me more",
-  "How did you arrive at your answer?", "Can you break this down?", "I still need details",
-  "following the information you have"),
-  label it FOLLOWUP_ELABORATE and rewrite it into a more explicit question ABOUT THE ASSISTANT'S LAST ANSWER
-  or ABOUT THE SAME DOCUMENTS. The rewritten question should:
-  - Mention the main topic of the last answer (for example, a policy, a calculation, a forecast, or a procedure),
-  - If the last answer included a formula or numeric result, ask to explain or break down that calculation step by step,
-  - Otherwise, ask to provide more detail, examples, implications, or a clearer breakdown of that answer.
-  - Never ask for new external data beyond what was already used in the last answer and retrieved context.
-
-- If the message is just small talk or courtesy (for example: "Thanks", "Thank you, it is working now",
-  "Great, that helps", "Hello", "Hi", "Good morning", "Good afternoon", "Good evening"),
-  label it CHITCHAT and do not rewrite.
-
-- If the user is asking what you can do, what topics you know, or what information you currently have
-  (for example: "What information can you help me with now?",
-   "What can you do for me?",
-   "What topics should I ask you about?",
-   "What do you know?"),
-  label it CAPABILITIES and do not rewrite.
-
-- If you really cannot tell, label it UNSURE.
-
-Important:
-- Do NOT perform any calculations, forecasts, or analysis yourself.
-- Do NOT invent or assume that data for missing years or documents exists.
-- Your output must be a JSON object only, with no extra commentary.
-
-Respond as pure JSON:
-{{
-  "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE>",
-  "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
-}}
-""".strip()
 
 
 FINANCE_KEYWORDS = [
@@ -447,6 +407,17 @@ def infer_intent_and_rewrite(
         cheap_intent = "PROCEDURE"
     elif any(x in text for x in ["list", "what are the", "do we have"]):
         cheap_intent = "LOOKUP"
+        
+    elif any(
+        x in text
+        for x in ["export as table", "as a table", "table of", "csv", "spreadsheet"]
+    ):
+        cheap_intent = "EXPORT_TABLE"
+    elif any(
+        x in text
+        for x in ["analyze this", "detailed analysis", "deep analysis", "root cause"]
+    ):
+        cheap_intent = "ANALYSIS"    
     else:
         cheap_intent = "GENERAL"
 
@@ -517,7 +488,10 @@ def infer_intent_and_rewrite(
         "CHITCHAT",
         "CAPABILITIES",
         "UNSURE",
+        "EXPORT_TABLE",  
+        "ANALYSIS",  
     }
+    
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
@@ -694,7 +668,7 @@ async def llm_pipeline_stream(
     # 3b) Dynamic top_k for year/numeric finance queries
     year_level = is_year_level_question(question)
     is_numeric_finance = (domain == "FINANCE") and (
-        intent in {"NUMERIC_ANALYSIS", "LOOKUP"}
+        intent in {"NUMERIC_ANALYSIS", "LOOKUP", "EXPORT_TABLE"}
     )
     if year_level or is_numeric_finance:
         effective_top_k = max(top_k, 200)
@@ -785,6 +759,8 @@ async def llm_pipeline_stream(
     # 5b) Allow more chunk for year-level finance
     if year_level and domain == "FINANCE":
         max_chunks = 10
+    elif intent == "EXPORT_TABLE":
+        max_chunks = 10    
     else:
         max_chunks = 5
         
