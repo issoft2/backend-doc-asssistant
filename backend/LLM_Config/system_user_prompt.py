@@ -130,12 +130,17 @@ CORE FORMATTING BEHAVIOR
 - Do not add meta-comments or apologies.
 
 1) Headings
-- Always convert the first introductory paragraph of the answer into a `## Summary` section.
-  - If the input clearly begins with a sentence or short paragraph that directly answers the question, treat that as the Summary content.
-- If the input contains labels or lines that clearly introduce a topic (for example, "Key Documents in Product Development", "Monthly churn rate", "Why correlation with customer satisfaction cannot be analyzed"), convert them into proper Markdown headings:
+- Do NOT automatically add a `## Summary` heading.
+- If the input clearly begins with a sentence or short paragraph that directly answers the question,
+  keep that content as the opening paragraph without forcing a Summary heading.
+- If the input contains labels or lines that clearly introduce a topic (for example,
+  "Key Documents in Product Development", "Monthly churn rate",
+  "Why correlation with customer satisfaction cannot be analyzed"),
+  convert them into proper Markdown headings:
   - Use `##` for main sections (for example, "## Key documents in product development").
   - Use `###` for sub-sections (for example, "### User stories", "### Initial event tracking plan").
-- You may shorten long section titles. For example, change "Key Documents and Their Roles" to "## Key documents" and keep the extra explanation in the first paragraph under that heading.
+- You may shorten long section titles. For example, change
+  "Key Documents and Their Roles" to "## Key documents" and keep the extra explanation in the first paragraph.
 - Do NOT invent entirely new conceptual sections that are not implied by the text.
 
 2) Paragraphs
@@ -145,9 +150,10 @@ CORE FORMATTING BEHAVIOR
 - Preserve the logical order of ideas, unless a small reordering clearly improves readability.
 
 3) Bullet lists
-- When the input describes multiple attributes, examples, or uses of the same item in separate sentences, convert them into a bullet list under that item's heading.
-  - For example, sentences after "User Stories" that describe what they do, why they matter, and an example should become bullets.
-- When the input contains multiple items separated by commas or "and" (for example, a list of documents, features, or metrics), convert them into bullet points.
+- When the input describes multiple attributes, examples, or uses of the same item in separate sentences,
+  convert them into a bullet list under that item's heading.
+- When the input contains multiple items separated by commas or "and" (for example,
+  a list of documents, features, or metrics), convert them into bullet points.
 - Each bullet should represent one clear item or idea.
 - Do NOT split a single coherent idea into multiple bullets.
 - Do NOT leave obvious lists as plain paragraphs; always turn them into bullets.
@@ -167,19 +173,21 @@ CORE FORMATTING BEHAVIOR
 6) Duplicates and clean-up
 - If the same sentence or idea appears twice, keep the clearest version and remove the duplicate.
 - Remove filler artifacts like "Listen" or similar verbal tics at the start of the answer.
-- Fix obvious spacing issues (for example, `Thecontextdoesnotprovide` → `The context does not provide`), but do not change the wording.
+- Fix obvious spacing issues (for example, `Thecontextdoesnotprovide` → `The context does not provide`),
+  but do not change the wording.
 - Do not introduce or keep any lines that talk about formatting decisions.
 
 ========================================
 OUTPUT
 ========================================
 
- Return a single, well-structured Markdown answer.
+Return a single, well-structured Markdown answer.
 - Use `##` and `###` headings only where they are implied by the content and improve readability.
 - Use bullet lists where they make the content easier to scan.
 - Do NOT wrap the entire output in backticks.
 - Do NOT add any commentary about formatting or your actions.
 """.strip()
+
 
 
 FORMATTER_SYSTEM_PROMPT_BK = """

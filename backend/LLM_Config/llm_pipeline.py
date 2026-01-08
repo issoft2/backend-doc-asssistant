@@ -762,7 +762,17 @@ async def llm_pipeline_stream(
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
         rerank_resp = suggestion_llm_client.invoke(rerank_messages)
         raw = getattr(rerank_resp, "content", "") or "[]"
-        indices = json.loads(raw)
+        raw = raw.strip()
+        try:
+            indices = json.loads(raw)
+        except Exception:
+            start = raw.find("[")
+            end = raw.rfind("]")
+            if start != -1 and end != -1 and end > start:
+                indices = json.loads(raw[start : end + 1])
+            else:
+                raise 
+            
         if not isinstance(indices, list):
             raise ValueError
         indices = [
@@ -772,13 +782,19 @@ async def llm_pipeline_stream(
         logger.warning(f"Rerank failed, falling back to original order: {e}")
         indices = list(range(len(context_chunks)))
 
+    # 5b) Allow more chunk for year-level finance
+    if year_level and domain == "FINANCE":
+        max_chunks = 10
+    else:
+        max_chunks = 5
+        
     if indices:
-        indices = indices[:5]
+        indices = indices[:max_chunks]
         context_chunks = [context_chunks[i] for i in indices]
         sources = [sources[i] for i in indices]
     else:
-        context_chunks = context_chunks[:5]
-        sources = sources[:5]
+        context_chunks = context_chunks[:max_chunks]
+        sources = sources[:max_chunks]
 
     unique_sources = sorted(set(sources))
 
@@ -820,7 +836,6 @@ async def llm_pipeline_stream(
         logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
         # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
-        # Commenting out temporary
         critique_messages = create_critique_prompt(
             user_question=question,
             assistant_answer=raw_answer,
