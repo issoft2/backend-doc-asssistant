@@ -1,14 +1,32 @@
 import { ref } from 'vue'
-import { authState, logout } from '../authStore'
+import { logout } from '../authStore'
+
+const TYPE_SPEED_MS = 12
 
 export function useQueryStream() {
   const answer = ref('')
   const statuses = ref<string[]>([])
   const status = ref('')
   const suggestions = ref<string[]>([])
-
   const isStreaming = ref(false)
   const abortController = ref<AbortController | null>(null)
+
+  // simple typewriter over a final string
+  const startTyping = (text: string, speed = TYPE_SPEED_MS) => {
+    answer.value = ''
+    if (!text) return
+
+    let i = 0
+
+    const tick = () => {
+      if (i >= text.length) return
+      answer.value += text[i]
+      i += 1
+      setTimeout(tick, speed)
+    }
+
+    tick()
+  }
 
   const startStream = async (payload: {
     question: string
@@ -54,7 +72,6 @@ export function useQueryStream() {
       })
 
       if (response.status === 401 || response.status === 403) {
-        // Token expired / unauthorized: logout and stop
         logout()
         isStreaming.value = false
         return
@@ -70,10 +87,13 @@ export function useQueryStream() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder('utf-8')
       let buffer = ''
+      let fullAnswer = '' // accumulate all tokens here
 
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
+        if (!value) continue
+
         buffer += decoder.decode(value, { stream: true })
 
         // SSE chunks separated by blank lines
@@ -81,9 +101,6 @@ export function useQueryStream() {
         buffer = parts.pop() || ''
 
         for (const part of parts) {
-          // Each part looks like:
-          // event: status
-          // data: ...
           const lines = part.split('\n')
           let eventType = 'message'
           let data = ''
@@ -92,6 +109,7 @@ export function useQueryStream() {
             if (line.startsWith('event:')) {
               eventType = line.slice('event:'.length).trim()
             } else if (line.startsWith('data:')) {
+              // allow multi-line data; keep appending
               data += line.slice('data:'.length).trim()
             }
           }
@@ -102,7 +120,7 @@ export function useQueryStream() {
             if (msg) statuses.value.push(msg)
           } else if (eventType === 'token') {
             const delta = (data || '').replace(/<\|n\|>/g, '\n')
-            answer.value += delta
+            fullAnswer += delta
           } else if (eventType === 'suggestions') {
             try {
               const parsed = JSON.parse(data || '[]')
@@ -114,8 +132,12 @@ export function useQueryStream() {
             status.value = 'Completed'
             statuses.value.push('Completed')
             isStreaming.value = false
+            // stop low-level stream and start fake typing
             controller.abort()
             abortController.value = null
+
+            // kick off typewriter into `answer`
+            startTyping(fullAnswer)
             return
           }
         }
@@ -124,6 +146,11 @@ export function useQueryStream() {
       // Stream ended without explicit "done"
       isStreaming.value = false
       abortController.value = null
+
+      // Fallback: if we got a fullAnswer but no done event, still type it out
+      if (fullAnswer) {
+        startTyping(fullAnswer)
+      }
     } catch (err) {
       if (controller.signal.aborted) {
         status.value = 'Stopped'
