@@ -45,5 +45,5 @@ formatter_llm_client = ChatOpenAI(
     base_url=OPENAI_API_BASE,
     model="gpt-4o-mini",
     temperature=0.0,
-    max_tokens=2048,
+    max_tokens=4096,
 )
