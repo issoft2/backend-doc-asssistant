@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 router = APIRouter()
-@router.post("/query/stream")
+@router.get("/query/stream")
 async def query_knowledge(
     request: Request,
     question: str,
