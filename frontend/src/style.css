@@ -8,23 +8,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Let Tailwind handle layout and colors */
-/* body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-/* App should fill viewport; chat handles its own padding/layout */
-/* #app {
-  width: 100%;
-  min-height: 100vh;
-} */
-
-/* Links (use Tailwind text color utilities in components if needed) */
-/* a {
-  text-decoration: inherit;
-}  */
 
 /* --- Markdown / prose tuning for chat answers --- */
 
@@ -156,9 +139,3 @@ td:nth-child(n+2) {
   text-align: right;
 }
 
-/* Optional: subtle shadow around the whole table wrapper */
-.table-wrapper {
-  border-radius: 10px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-}
