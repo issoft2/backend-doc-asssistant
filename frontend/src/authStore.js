@@ -85,5 +85,5 @@ export function logout() {
   authState.user = null
   setAuthToken(null)
   localStorage.removeItem('user')
-  router.push('/login')
+  router.push('/')
 }
