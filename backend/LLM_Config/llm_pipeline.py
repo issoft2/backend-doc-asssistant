@@ -871,7 +871,7 @@ async def llm_pipeline_stream(
                     # stream formatted Markdown to the client
                     yield text
 
-            formatted_answer = "".join(formatted_parts)
+            formatted_answer = "".join(formatted_parts).strip()
             logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
 
         except Exception as e:
