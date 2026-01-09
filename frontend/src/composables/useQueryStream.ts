@@ -83,7 +83,8 @@ export function useQueryStream() {
 
     try {
       const base = import.meta.env.VITE_API_BASE_URL || '/api'
-      const url = `${base}/query?${params.toString()}` // non-streaming endpoint
+      const url = `${base}/query/stream?${params.toString()}`
+
 
       const response = await fetch(url, {
         method: 'GET',
