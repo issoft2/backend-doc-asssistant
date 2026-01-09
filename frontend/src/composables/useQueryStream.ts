@@ -182,5 +182,6 @@ export function useQueryStream() {
     suggestions,
     startStream,
     stopStream,
+    logout,
   }
 }
