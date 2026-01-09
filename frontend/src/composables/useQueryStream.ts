@@ -6,6 +6,7 @@ export function useQueryStream() {
   const statuses = ref<string[]>([])
   const status = ref('')
   const suggestions = ref<string[]>([])
+
   const isStreaming = ref(false)
   const abortController = ref<AbortController | null>(null)
 
@@ -53,6 +54,7 @@ export function useQueryStream() {
       })
 
       if (response.status === 401 || response.status === 403) {
+        // Token expired / unauthorized: logout and stop
         logout()
         isStreaming.value = false
         return
@@ -72,18 +74,15 @@ export function useQueryStream() {
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
-
         buffer += decoder.decode(value, { stream: true })
 
-        // SSE events separated by blank lines
+        // SSE chunks separated by blank lines
         const parts = buffer.split('\n\n')
         buffer = parts.pop() || ''
 
         for (const part of parts) {
-          if (!part.trim()) continue
-
-          // Each part looks like one SSE event block:
-          // event: token
+          // Each part looks like:
+          // event: status
           // data: ...
           const lines = part.split('\n')
           let eventType = 'message'
@@ -91,18 +90,10 @@ export function useQueryStream() {
 
           for (const line of lines) {
             if (line.startsWith('event:')) {
-              // event type can be safely trimmed
               eventType = line.slice('event:'.length).trim()
             } else if (line.startsWith('data:')) {
-              // Preserve data exactly after "data:" (no trim),
-              // and keep newlines between multiple data lines
-              data += line.slice('data:'.length)
-              data += '\n'
+              data += line.slice('data:'.length).trim()
             }
-          }
-
-          if (data.endsWith('\n')) {
-            data = data.slice(0, -1) // remove trailing newline added above
           }
 
           if (eventType === 'status') {
@@ -110,7 +101,6 @@ export function useQueryStream() {
             status.value = msg
             if (msg) statuses.value.push(msg)
           } else if (eventType === 'token') {
-            // Backend uses <|n|> as newline placeholder; restore here.
             const delta = (data || '').replace(/<\|n\|>/g, '\n')
             answer.value += delta
           } else if (eventType === 'suggestions') {
@@ -135,7 +125,7 @@ export function useQueryStream() {
       isStreaming.value = false
       abortController.value = null
     } catch (err) {
-      if (abortController.value && abortController.value.signal.aborted) {
+      if (controller.signal.aborted) {
         status.value = 'Stopped'
         statuses.value.push('Stopped')
       } else {
