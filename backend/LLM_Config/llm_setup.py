@@ -40,7 +40,7 @@ llm_client_main = ChatOpenAI(
 )
 
 # Formatting 
-formatter_llm_streaming = ChatOpenAI(
+formatter_llm_client = ChatOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
     model="gpt-4o-mini",
