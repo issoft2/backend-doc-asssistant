@@ -7,7 +7,7 @@ import re
 from LLM_Config.llm_setup import (
     llm_client,
     suggestion_llm_client,
-    llm_client_main,
+    llm_client_streaming,
     formatter_llm_client,
 )
 from LLM_Config.system_user_prompt import (
@@ -825,10 +825,21 @@ async def llm_pipeline_stream(
 
     messages.append({"role": "user", "content": user_prompt})
 
+    # 7) GENERATE (NO LIVE TOKEN STREAM)
     try:
-         # 7) GENERATE (non-streaming main model)
-        resp = llm_client_main.invoke(messages)
-        raw_answer = (getattr(resp, "content", "") or "").strip()
+        full_answer_parts: list[str] = []
+
+        async for chunk in llm_client_streaming.astream(messages):
+            text = getattr(chunk, "content", "") or ""
+            if not text:
+                try:
+                    text = chunk.generations[0].text or ""
+                except Exception:
+                    text = ""
+            if text:
+                full_answer_parts.append(text)
+
+        raw_answer = "".join(full_answer_parts).strip()
         logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
         # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
@@ -854,26 +865,18 @@ async def llm_pipeline_stream(
             if refined:
                 raw_answer = refined
 
-                # 9) FORMAT ONCE (non-streaming)
+        # 9) FORMAT ONCE
         try:
             formatter_messages = create_formatter_prompt(raw_answer)
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
-            formatted_answer = (getattr(formatted_resp, "content", "") or raw_answer).strip()
+            formatted_answer = getattr(formatted_resp, "content", raw_answer)
             logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
         except Exception as e:
             logger.warning(f"Formatter failed, returning raw answer: {e}")
             formatted_answer = raw_answer
 
-
-        except Exception as e:
-            logger.warning(f"Formatter failed, returning raw answer: {e}")
-            formatted_answer = raw_answer
-            # fallback: send full raw answer once
-            yield f"event: token\ndata: {formatted_answer}\n\n"
-
         _store(formatted_answer, unique_sources)
-
-
+        yield formatted_answer
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
