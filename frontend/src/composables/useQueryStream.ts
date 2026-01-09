@@ -1,45 +1,14 @@
 import { ref } from 'vue'
-import { logout } from '../authStore'
+import { authState, logout } from '../authStore'
 
 export function useQueryStream() {
   const answer = ref('')
-  const fullAnswer = ref('')          // holds the complete text from backend
   const statuses = ref<string[]>([])
   const status = ref('')
   const suggestions = ref<string[]>([])
+
   const isStreaming = ref(false)
-
-  const typingTimer = ref<number | null>(null)
-
   const abortController = ref<AbortController | null>(null)
-
-  const startTyping = (text: string, speed = 15) => {
-    // Clear any previous animation
-    if (typingTimer.value !== null) {
-      window.clearInterval(typingTimer.value)
-      typingTimer.value = null
-    }
-
-    fullAnswer.value = text
-    answer.value = ''
-
-    let index = 0
-    isStreaming.value = true
-
-    typingTimer.value = window.setInterval(() => {
-      if (index >= fullAnswer.value.length) {
-        if (typingTimer.value !== null) {
-          window.clearInterval(typingTimer.value)
-          typingTimer.value = null
-        }
-        isStreaming.value = false
-        return
-      }
-
-      answer.value += fullAnswer.value[index]
-      index += 1
-    }, speed) // smaller = faster typing
-  }
 
   const startStream = async (payload: {
     question: string
@@ -47,21 +16,14 @@ export function useQueryStream() {
     top_k?: number
     collection_name?: string | null
   }) => {
-    // Reset per run
+    // Reset per-run state
     answer.value = ''
-    fullAnswer.value = ''
     suggestions.value = []
     statuses.value = []
     status.value = ''
-    isStreaming.value = false
+    isStreaming.value = true
 
-    // Stop any previous typing animation
-    if (typingTimer.value !== null) {
-      window.clearInterval(typingTimer.value)
-      typingTimer.value = null
-    }
-
-    // Build query params or switch to POST body as needed
+    // Build query params
     const params = new URLSearchParams({
       question: payload.question,
       conversation_id: payload.conversation_id,
@@ -69,12 +31,13 @@ export function useQueryStream() {
       collection_name: payload.collection_name ?? '',
     })
 
+    // Attach token as query param (to match your backend)
     const token = localStorage.getItem('access_token')
     if (token) {
       params.set('token', token)
     }
 
-    // Cancel any previous request
+    // Cancel any previous stream
     if (abortController.value) {
       abortController.value.abort()
     }
@@ -85,44 +48,91 @@ export function useQueryStream() {
       const base = import.meta.env.VITE_API_BASE_URL || '/api'
       const url = `${base}/query/stream?${params.toString()}`
 
-
       const response = await fetch(url, {
         method: 'GET',
         signal: controller.signal,
       })
 
       if (response.status === 401 || response.status === 403) {
+        // Token expired / unauthorized: logout and stop
         logout()
+        isStreaming.value = false
         return
       }
 
-      if (!response.ok) {
-        status.value = `Error: request failed with status ${response.status}`
+      if (!response.ok || !response.body) {
+        status.value = `Error: stream failed with status ${response.status}`
         statuses.value.push(status.value)
+        isStreaming.value = false
         return
       }
 
-      const json = await response.json()
-      // Expect backend to return { answer: string, suggestions?: string[] }
-      const finalAnswer = (json.answer || '').toString()
-      const sugg = json.suggestions
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let buffer = ''
 
-      if (Array.isArray(sugg)) {
-        suggestions.value = sugg
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // SSE chunks separated by blank lines
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() || ''
+
+        for (const part of parts) {
+          // Each part looks like:
+          // event: status
+          // data: ...
+          const lines = part.split('\n')
+          let eventType = 'message'
+          let data = ''
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventType = line.slice('event:'.length).trim()
+            } else if (line.startsWith('data:')) {
+              data += line.slice('data:'.length).trim()
+            }
+          }
+
+          if (eventType === 'status') {
+            const msg = data || ''
+            status.value = msg
+            if (msg) statuses.value.push(msg)
+          } else if (eventType === 'token') {
+            const delta = (data || '').replace(/<\|n\|>/g, '\n')
+            answer.value += delta
+          } else if (eventType === 'suggestions') {
+            try {
+              const parsed = JSON.parse(data || '[]')
+              suggestions.value = Array.isArray(parsed) ? parsed : []
+            } catch {
+              suggestions.value = []
+            }
+          } else if (eventType === 'done') {
+            status.value = 'Completed'
+            statuses.value.push('Completed')
+            isStreaming.value = false
+            controller.abort()
+            abortController.value = null
+            return
+          }
+        }
       }
 
-      // Start the typing effect with the full formatted Markdown
-      startTyping(finalAnswer, 12) // tune speed as you like
-
+      // Stream ended without explicit "done"
+      isStreaming.value = false
+      abortController.value = null
     } catch (err) {
       if (controller.signal.aborted) {
         status.value = 'Stopped'
         statuses.value.push('Stopped')
       } else {
-        status.value = 'Error occurred during request.'
-        statuses.value.push('Error occurred during request.')
+        status.value = 'Error occurred during streaming.'
+        statuses.value.push('Error occurred during streaming.')
       }
-    } finally {
+      isStreaming.value = false
       abortController.value = null
     }
   }
@@ -132,17 +142,13 @@ export function useQueryStream() {
       abortController.value.abort()
       abortController.value = null
     }
-    if (typingTimer.value !== null) {
-      window.clearInterval(typingTimer.value)
-      typingTimer.value = null
-    }
     status.value = 'Stopped'
     statuses.value.push('Stopped')
     isStreaming.value = false
   }
 
   return {
-    answer,          // progressively revealed text
+    answer,
     status,
     statuses,
     isStreaming,
