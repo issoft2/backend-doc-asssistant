@@ -111,7 +111,9 @@
                   <template v-if="editingMessageId === msg.id">
                     <textarea
                       v-model="editBuffer"
-                      class="w-full text-sm rounded-md bg-slate-900/80 border border-slate-700 px-2 py-1 text-white"
+                       class="w-full min-h-[44px] max-h-32 resize-none rounded-2xl border-2 border-slate-700/70 bg-slate-800/50 backdrop-blur-sm px-5 py-4 text-sm text-slate-100 placeholder:text-slate-500
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/80 shadow-xl hover:border-slate-600/70 transition-all duration-200
+                         placeholder:font-medium"
                       rows="3"
                     ></textarea>
 
