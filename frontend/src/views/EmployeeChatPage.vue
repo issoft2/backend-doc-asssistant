@@ -197,7 +197,7 @@
                         />
                       </div>
 
-                        <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
+                        <!-- <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p> -->
                       </div>
                     </div>
 

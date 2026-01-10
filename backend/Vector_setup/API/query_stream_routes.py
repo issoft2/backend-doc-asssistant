@@ -160,11 +160,15 @@ async def query_knowledge_stream(
                 yield f"event: suggestions\ndata: {payload}\n\n"
                 
             # ... Chart spec event ---
-            chart_spec = result_holder.get("chart_spec")
+            chart_spec = result_holder.get("chart_specs")
             if chart_spec:
                 try:
                     chart_payload = json.dumps({"charts": result_holder["chart_specs"]})
+                    
+                    logger.info("CHART_DEBUG emitting chart SSE: %s", chart_payload)
+
                     yield f"event: chart\ndata: {chart_payload}\n\n"
+                    
                 except Exception:
                     logger.warning("Failed to serialize chart_spec for SSE")    
 
