@@ -220,6 +220,39 @@
               </div>
             </div>
           </div>
+          <div
+            class="absolute -inset-6 bg-indigo-500/10 blur-3xl rounded-3xl pointer-events-none"
+          ></div>
+          <div
+            class="relative rounded-2xl border border-slate-800 bg-slate-950/80 shadow-xl shadow-slate-950/60 overflow-hidden"
+          >
+            <div
+              class="border-b border-slate-800 px-4 py-2.5 flex items-center justify-between"
+            >
+              <span class="text-xs font-medium text-slate-200">Employee policy chat</span>
+              <span class="text-[11px] text-slate-500">Answers from your company only</span>
+            </div>
+            <div class="p-4 space-y-3 text-[11px] text-slate-200">
+              <div class="space-y-1.5">
+                <p class="font-medium text-slate-100">
+                  “What’s our remote work allowance?”
+                </p>
+                <p class="text-slate-400">
+                  “According to <span class='font-medium'>Trio‑Corp Remote Work Policy</span>,
+                  full‑time employees can work remotely up to 3 days per week, subject to manager
+                  approval and role eligibility…”
+                </p>
+              </div>
+              <div
+                class="rounded-lg border border-dashed border-slate-800 bg-slate-900/60 px-3 py-2 flex items-center justify-between"
+              >
+                <span class="text-slate-400">
+                  HR and policy owners update documents from the admin panel — answers stay in sync
+                  without any retraining.
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
