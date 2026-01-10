@@ -97,8 +97,8 @@
               <div>
                 <p class="font-semibold text-slate-100">Data & financial analysis</p>
                 <p class="text-slate-400">
-                  Managers ask for quarterly revenue, expenses, and net‑profit tables and see them
-                  as clear charts built directly from your reports.
+                  Managers can ask for quarterly revenue, expenses, and net‑profit tables and see
+                  them as clear charts built from your own reports.
                 </p>
               </div>
             </div>
@@ -129,7 +129,7 @@
           </div>
         </div>
 
-        <!-- Right: preview card with advert-style finance sample -->
+        <!-- Right: preview card with chart sample + vivid images -->
         <div class="relative">
           <div
             class="absolute -inset-6 bg-indigo-500/10 blur-3xl rounded-3xl pointer-events-none"
@@ -149,6 +149,7 @@
             </div>
 
             <div class="p-4 space-y-3 text-[11px] text-slate-200">
+              <!-- Textual chart sample (restored) -->
               <div class="space-y-1.5">
                 <p class="font-medium text-slate-100">
                   “Generate financial performance tables and charts for Q1 2023 and 2024.”
@@ -160,44 +161,51 @@
                 </p>
               </div>
 
-              <!-- Screenshot-style advert thumbnails -->
+              <!-- Image samples, made vivid -->
               <div class="space-y-2">
                 <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
-                  Sample visual output
+                  See what managers get
                 </p>
-                <div class="space-y-2">
-                  <!-- bar chart sample -->
+
+                <div class="grid grid-cols-1 gap-3">
+                  <!-- Top bar chart sample -->
                   <div
-                    class="relative rounded-lg border border-slate-800 bg-slate-900/70 overflow-hidden"
+                    class="relative rounded-lg border border-indigo-500/40 bg-slate-900 overflow-hidden shadow-lg"
                   >
                     <img
-                      src="/assets/bar.png"
+                      src="public/assets/bar.png"
                       alt="Revenue and expenses comparison charts Q1 2023 vs Q1 2024"
-                      class="w-full h-28 object-cover opacity-95"
+                      class="w-full h-32 md:h-36 object-cover"
                     />
                     <div
-                      class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-2 pb-1 pt-4 text-[10px]"
+                      class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 to-transparent px-3 pb-2 pt-6 text-[10px]"
                     >
-                      <p class="text-slate-200 font-medium">
-                        Revenue & expenses comparison Q1 2023 vs Q1 2024
+                      <p class="text-slate-100 font-semibold">
+                        Revenue & expenses comparison · Q1 2023 vs Q1 2024
+                      </p>
+                      <p class="text-slate-400">
+                        Side‑by‑side bars highlight quarter‑over‑quarter changes.
                       </p>
                     </div>
                   </div>
 
-                  <!-- line chart sample -->
+                  <!-- Bottom line chart sample -->
                   <div
-                    class="relative rounded-lg border border-slate-800 bg-slate-900/70 overflow-hidden"
+                    class="relative rounded-lg border border-indigo-500/40 bg-slate-900 overflow-hidden shadow-lg"
                   >
                     <img
-                      src="/assets/line.png"
+                      src="public/assets/line.png"
                       alt="Financial performance line chart Q1 2023 vs Q1 2024"
-                      class="w-full h-28 object-cover opacity-95"
+                      class="w-full h-32 md:h-36 object-cover"
                     />
                     <div
-                      class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-2 pb-1 pt-4 text-[10px]"
+                      class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 to-transparent px-3 pb-2 pt-6 text-[10px]"
                     >
-                      <p class="text-slate-200 font-medium">
-                        Financial performance chart built from your data
+                      <p class="text-slate-100 font-semibold">
+                        Financial performance line chart
+                      </p>
+                      <p class="text-slate-400">
+                        Track revenue, total expenses, and net profit across months.
                       </p>
                     </div>
                   </div>
