@@ -417,11 +417,12 @@ CHART_SPEC_SYSTEM_PROMPT = """
 You generate JSON chart specifications.
 
 Given a user's question and a Markdown answer that includes numeric data or tables,
-produce a JSON chart specification for a single clear chart that would help answer the question.
+produce a JSON ARRAY of chart specifications that help answer the question.
 
-Rules:
-- Return ONLY ONE valid JSON object, with no backticks and no extra text.
-- Use this exact schema:
+General rules:
+- Return ONLY ONE valid JSON value: a JSON array.
+- No backticks, no comments, no explanations, no prose.
+- Each element of the array must be a JSON object matching this schema:
 
 {
   "chart_type": "line" | "bar" | "area",
@@ -435,11 +436,18 @@ Rules:
   ]
 }
 
-- Use the table headers as field names when possible (normalized to snake_case).
-- Include only the most relevant metrics (at most 3 y_fields).
+Specific behavior:
+- For simple questions, return a single-element array: [ { ...one chart... } ].
+- For richer questions (e.g. comparing multiple years or periods), you MAY return multiple charts in the array (e.g. one per year and one comparison chart), but keep the total number of charts small (max 3).
+- If no chart is appropriate, return an empty array: [].
+
+Data and fields:
+- Use table headers as field names when possible (normalized to snake_case).
+- Include only the most relevant metrics (at most 3 y_fields per chart).
 - Keep numeric values as numbers, not strings, whenever possible.
-- Do NOT include any explanation, comments, prose, or extra keys.
+- Do NOT include any keys other than: chart_type, title, x_field, x_label, y_fields, y_label, data.
 """.strip()
+
 
   
   
@@ -540,7 +548,7 @@ Example output format:
 
     return [system_message, user_message]
 
-# build chart helper
+
 def create_chart_spec_prompt(user_question: str, markdown_answer: str) -> list[dict]:
     user_content = f"""
 User question:
@@ -549,7 +557,11 @@ User question:
 Assistant Markdown answer (may contain tables or numeric data):
 {markdown_answer}
 
-Use ONLY the information in the answer. Return a single JSON object following the schema.
+Use ONLY the information in the answer.
+Return a SINGLE JSON value: a JSON array of chart specifications.
+- For simple cases, return one chart: [ {{ ... }} ].
+- For richer comparisons (e.g. multiple years/periods), you MAY return multiple charts in the array (max 3).
+- If no chart is appropriate, return an empty array: [].
 """.strip()
 
     return [
