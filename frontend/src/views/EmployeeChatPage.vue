@@ -136,9 +136,12 @@
                         :content="msg.text"
                         class="prose prose-invert max-w-none text-slate-100 leading-relaxed"
                       />
+                      <ChartRenderer
+                       v-if="msg.chart_spec"
+                       :spec="msg.chart_spec"
+                       class="mt-4"
+                       />
 
-
-        
                         <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
                       </div>
                     </div>
@@ -327,6 +330,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { listConversations, getConversation, deleteConversation } from '../api'
 import { useQueryStream, type ChartSpec } from '../composables/useQueryStream'
 import MarkdownText from '../components/MarkdownText.vue'
+import ChartRenderer from '../components/ChartRenderer.vue'
 
 
 // ----- Streaming composable -----
