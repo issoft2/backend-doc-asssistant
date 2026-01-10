@@ -143,8 +143,9 @@ export function useQueryStream() {
            
           } else if (eventType === 'chart') {
              try{
-               const parsed = JSON.parse(data || '{}')
-               chartSpec.value = parsed as ChartSpec
+               const parsed = JSON.parse(data) as { charts: ChartSpec[]} 
+
+               chartSpec.value = parsed.charts ?? []
              }catch {
               chartSpec.value = null
              }

@@ -899,50 +899,79 @@ async def llm_pipeline_stream(
                 raw_chart = getattr(chart_resp, "content", None) or str(chart_resp)
                 raw_chart = raw_chart.strip()
                 logger.info(f"RAW_CHART_SPEC {raw_chart}")
-
-                chart_spec = None
-                try:
-                    chart_spec = json.loads(raw_chart)
-                except Exception as e:
-                    logger.warning(f"CHART_DEBUG JSON parse failed: {e}")
-                    # try to salvage JSON from noisy output
-                    start = raw_chart.find("{")
-                    end = raw_chart.rfind("}")
-                    if start != -1 and end != -1 and end > start:
-                        candidate = raw_chart[start : end + 1]
-                        try:
-                            chart_spec = json.loads(candidate)
-                        except Exception as e2:
-                            logger.warning(f"CHART_DEBUG salvage parse failed: {e2}")
-                            chart_spec = None
-
-                # normalize keys and validate
-                if isinstance(chart_spec, dict):
+                
+                # --- parse + salvage ---
+                def parse_raw_chart(raw: str) -> Any:
+                    try:
+                        return json.loads(raw)
+                    except Exception as e:
+                        logger.warning("CHART_DEBUG JSON parse failed: %s", e)
+                        start = raw.find("{")
+                        end = raw.rfind("}")
+                        
+                        if start != -1 and end != -1 and end > start:
+                            candidate = raw[start : end + 1]
+                            try:
+                                return json.loads(candidate)
+                            except Exception as e2:
+                                logger.warning("CHART_DEBUG salvage parse failed: %s", e2)
+                                
+                        return None
+                
+                chart_obj = parse_raw_chart(raw_chart)
+                
+                required_keys = {
+                    "chart_type",
+                    "title",
+                    "x_field",
+                    "x_label",
+                    "y_fields",
+                    "y_label",
+                    "data",
+                }
+                
+                def normalize_one(spec: dict) -> dict | None:
                     # fix x-label -> x_label
-                    if "x-label" in chart_spec and "x_field" in chart_spec:
-                        chart_spec["x_label"] = chart_spec.pop("x-label")
-
-                    required_keys = {
-                        "chart_type",
-                        "title",
-                        "x_field",
-                        "x_label",
-                        "y_fields",
-                        "y_label",
-                        "data",
-                    }
-                    if required_keys.issubset(chart_spec.keys()):
-                        if result_holder is not None:
-                            result_holder["chart_spec"] = chart_spec
-                            logger.info(
-                                f"CHART_DEBUG set chart_spec on result_holder: {chart_spec}"
-                            )
-                    else:
+                    if "x-label" in spec and "x_field" in spec:
+                        spec["x_label"] = spec.pop("x-label")
+                        
+                    if not required_keys.issubset(spec.keys()):
                         logger.warning(
-                            f"CHART_DEBUG chart_spec missing required keys: {chart_spec.keys()}"
+                            "CHART_DEBUG chart_spec missing required keys: %s", spec.keys()
                         )
-                else:
-                    logger.warning("CHART_DEBUG chart_spec is not a dict, skipping")
+                        return None
+                    
+                    return spec   
+                
+                chart_specs: list[dict] = []
+                
+                if isinstance(chart_obj, dict):
+                    normalized = normalize_one(chart_obj)
+                    if normalized:
+                        chart_specs.append(normalized)
+                elif isinstance(chart_obj, list):
+                    for idx, item in enumerate(chart_obj):
+                        if not isinstance(item, dict):
+                            logger.warning(
+                                "CHART_DEBUG chart_specs[%s] is not a dict, skipping", idx
+                            )
+                            continue
+                        normalized = normalize_one(item)
+                        if normalized:
+                            chart_specs.append(normalized)
+                            
+                elif chart_obj is not None:
+                    logger.warning(
+                        "CHART_DEBUG chart_spec is neigther dict nor list. skipping: %r",
+                        type(chart_obj),
+                    )
+                    
+                if chart_specs and result_holder is not None:
+                    result_holder["chart_specs"] = chart_specs
+                    logger.info(
+                        "CHART_DEBUG set chart_specs on result_holder: %s", chart_specs
+                    )                                     
+                                
         except Exception as e:
             logger.warning(f"Chart spec generation failed: {e}")
 

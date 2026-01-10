@@ -189,11 +189,13 @@
                         :content="msg.text"
                         class="prose prose-invert max-w-none text-slate-100 leading-relaxed"
                       />
-                      <ChartRenderer
-                       v-if="msg.chart_spec"
-                       :spec="msg.chart_spec"
-                       class="mt-4"
-                       />
+                      <div v-if="msg.chart_specs?.length" class="mt-4 space-y-4">
+                        <ChartRenderer
+                        v-for="(spec, i) in msg.chart_specs"
+                        :key="1"
+                        :spec="spec"
+                        />
+                      </div>
 
                         <p v-else class="text-sm text-slate-100 whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
                       </div>
@@ -409,7 +411,7 @@ type ChatMessage = {
 role: 'user' | 'assistant'
 text: string
 sources?: string[]
-chart_spec?: ChartSpec
+chart_specs?: ChartSpec[]
 isEditing?: boolean
 }
 const messages = ref<ChatMessage[]>([])
