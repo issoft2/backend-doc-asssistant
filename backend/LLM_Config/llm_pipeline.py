@@ -883,7 +883,13 @@ async def llm_pipeline_stream(
                 kw in question.lower()
                 for kw in ["chart", "graph", "plot", "visual", "visualise", "visualize"]
             )
-            if domain == "FINANCE" and chart_intent_trigger or intent in {"NUMERIC_ANALYSIS", "LOOKUP", "CHART"}:
+            
+            # parentheses so FINANCE + trigger OR explicit numeric/chart intents
+            if (domain == "FINANCE" and chart_intent_trigger) or intent in {
+                "NUMERIC_ANALYSIS",
+                "LOOKUP",
+                "CHART"
+                }:
                 chart_messages = create_chart_spec_prompt(question, formatted_answer)
                 chart_resp = suggestion_llm_client.invoke(chart_messages)
                 raw_chart = getattr(chart_resp, "content",  None) or str(chart_resp)
@@ -896,7 +902,7 @@ async def llm_pipeline_stream(
                 except Exception:
                     # try to solve JSON from nosy output
                     start = raw_chart.find("{")
-                    end = raw_chart.find("}")
+                    end = raw_chart.rfind("}")
                     if start != -1 and end != -1 and end > start:
                         candidate = raw_chart[start : end + 1]
                         try:
@@ -905,7 +911,8 @@ async def llm_pipeline_stream(
                             chart_spec = None
                            
                 if isinstance(chart_spec, dict) and result_holder is not None:
-                        result_holder["chart_spec"] = chart_resp                 
+                        result_holder["chart_spec"] = chart_resp
+                        logger.info(f"SET chart_spec on result_holder: {chart_spec}")                 
                     
         except Exception as e:
             logger.warning(f"Chart spec generation failed: {e}")
