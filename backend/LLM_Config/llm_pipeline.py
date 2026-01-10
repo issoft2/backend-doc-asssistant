@@ -873,34 +873,37 @@ async def llm_pipeline_stream(
 
         _store(formatted_answer, unique_sources)
         yield formatted_answer
-        # after:
-        # store_answer(formatted_answer, unique_sources)
-        # yield formatted_answer
-        # Optionally add a chart spec for finance/chart-intent question
+       
+                # --- Optional chart spec for finance / visual/chart-like questions ---
         try:
-            # domain is "FINANCE" for this report
+            lower_q = (question or "").lower()
             chart_intent_trigger = any(
-                kw in question.lower()
+                kw in lower_q
                 for kw in ["chart", "graph", "plot", "visual", "visualise", "visualize"]
             )
-            
-            # parentheses so FINANCE + trigger OR explicit numeric/chart intents
-            if (domain == "FINANCE" and chart_intent_trigger) or intent in {
+
+            logger.info(
+                f"CHART_DEBUG domain={domain} intent={intent} "
+                f"chart_intent_trigger={chart_intent_trigger}"
+            )
+
+            if ((domain == "FINANCE" and chart_intent_trigger) or intent in {
                 "NUMERIC_ANALYSIS",
                 "LOOKUP",
-                "CHART"
-                }:
+                "CHART",
+            }):
+                logger.info("CHART_DEBUG entering chart_spec generation block")
+
                 chart_messages = create_chart_spec_prompt(question, formatted_answer)
                 chart_resp = suggestion_llm_client.invoke(chart_messages)
-                raw_chart = getattr(chart_resp, "content",  None) or str(chart_resp)
+                raw_chart = getattr(chart_resp, "content", None) or str(chart_resp)
                 raw_chart = raw_chart.strip()
                 logger.info(f"RAW_CHART_SPEC {raw_chart}")
-                
+
                 chart_spec = None
                 try:
                     chart_spec = json.loads(raw_chart)
                 except Exception:
-                    # try to solve JSON from nosy output
                     start = raw_chart.find("{")
                     end = raw_chart.rfind("}")
                     if start != -1 and end != -1 and end > start:
@@ -909,13 +912,20 @@ async def llm_pipeline_stream(
                             chart_spec = json.loads(candidate)
                         except Exception:
                             chart_spec = None
-                           
-                if isinstance(chart_spec, dict) and result_holder is not None:
-                        result_holder["chart_spec"] = chart_resp
-                        logger.info(f"SET chart_spec on result_holder: {chart_spec}")                 
-                    
+
+                if isinstance(chart_spec, dict):
+                    if result_holder is not None:
+                        result_holder["chart_spec"] = chart_spec
+                        logger.info(
+                            f"CHART_DEBUG set chart_spec on result_holder: {chart_spec}"
+                        )
+                else:
+                    logger.warning("CHART_DEBUG chart_spec is not a dict, skipping")
+            else:
+                logger.info("CHART_DEBUG condition not met, skipping chart_spec")
         except Exception as e:
             logger.warning(f"Chart spec generation failed: {e}")
+
       
 
     except Exception as e:
