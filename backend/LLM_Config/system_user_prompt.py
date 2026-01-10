@@ -414,30 +414,31 @@ Instructions:
 """.strip()
 
 CHART_SPEC_SYSTEM_PROMPT = """
-  You are a data visualization planner,
-  
-  Given a user's question and a Markdown answer that includes a table of numeric data,
-  produce a JSON chart specification for a single clear chart that would help answer the question.
-  
-  Rules:
-  - Output ONLY valid JSON, with no backticks and no extra text.
-  - Use this schema:
-  
-  {
-      "chart_type: "line" | "bar" | "area",
-      "title": "<short title>",
-      "x_field": "<field name for x axis>",
-      "x-label": "<x axis label>",
-      "y_fields": ["<field1>", "<field2>", ...],
-      "y_label": "<y axis label>",
-      "data": [
-          {"<field>": <value>, ...}
-      ]
-  }
-  
-  - Use the table headers as field names when possible (normalized to snake_case).
-  - Include only the most relevant metrics (at most 3 y_fields).
-  - Keep numeric values as numerics, not strings.
+You generate JSON chart specifications.
+
+Given a user's question and a Markdown answer that includes numeric data or tables,
+produce a JSON chart specification for a single clear chart that would help answer the question.
+
+Rules:
+- Return ONLY ONE valid JSON object, with no backticks and no extra text.
+- Use this exact schema:
+
+{
+  "chart_type": "line" | "bar" | "area",
+  "title": "<short title>",
+  "x_field": "<field name for x axis>",
+  "x_label": "<x axis label>",
+  "y_fields": ["<field1>", "<field2>", ...],
+  "y_label": "<y axis label>",
+  "data": [
+    { "<field>": <number or string>, ... }
+  ]
+}
+
+- Use the table headers as field names when possible (normalized to snake_case).
+- Include only the most relevant metrics (at most 3 y_fields).
+- Keep numeric values as numbers, not strings, whenever possible.
+- Do NOT include any explanation, comments, prose, or extra keys.
 """.strip()
 
   
@@ -542,17 +543,19 @@ Example output format:
 # build chart helper
 def create_chart_spec_prompt(user_question: str, markdown_answer: str) -> list[dict]:
     user_content = f"""
-        user question:
-        {user_question}
-        
-        Assistant Markdown answer (may contain a table):
-        {markdown_answer}
-        
-        Product a single JSON chart specification following the schema.
-    """
+User question:
+{user_question}
+
+Assistant Markdown answer (may contain tables or numeric data):
+{markdown_answer}
+
+Use ONLY the information in the answer. Return a single JSON object following the schema.
+""".strip()
+
     return [
         {"role": "system", "content": CHART_SPEC_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content.strip()},
+        {"role": "user", "content": user_content},
     ]
+
 
       
