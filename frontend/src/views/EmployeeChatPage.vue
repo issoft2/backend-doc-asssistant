@@ -325,7 +325,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { listConversations, getConversation, deleteConversation } from '../api'
-import { useQueryStream } from '../composables/useQueryStream'
+import { useQueryStream, type ChartSpec } from '../composables/useQueryStream'
 import MarkdownText from '../components/MarkdownText.vue'
 
 
@@ -336,6 +336,7 @@ status: streamStatus,
 statuses: statusSteps,
 isStreaming,
 suggestions,
+chartSpec,
 startStream,
 stopStream,
 } = useQueryStream()
@@ -346,12 +347,13 @@ const question = ref('')
 const loading = ref(false)
 const error = ref('')
 
-
 // ----- Messages -----
 type ChatMessage = {
 role: 'user' | 'assistant'
 text: string
 sources?: string[]
+chart_spec?: ChartSpec
+
 }
 const messages = ref<ChatMessage[]>([])
 
@@ -460,10 +462,11 @@ loading.value = true
 try {
 const res = await getConversation(convId)
 const history = res.data.messages || []
-messages.value = history.map(([role, content]: [string, string]) => ({
+messages.value = history.map(([role, content, meta]: [string, string, any?]) => ({
 role: role as 'user' | 'assistant',
 text: content,
 sources: [],
+chart_spec: meta?.chart_spec || undefined,
 }))
 } catch (e: any) {
 error.value = e?.response?.data?.detail || 'Failed to load conversation.'
@@ -487,6 +490,14 @@ const lastMsg = messages.value[messages.value.length - 1]
 if (lastMsg?.role === 'assistant') {
 lastMsg.text = val
 }
+})
+
+watch(chartSpec, (spec) => {
+  if (!spec) return
+  const lastMsg = messages.value[messages.value.length - 1]
+  if (lastMsg && lastMsg.role === 'assistant') {
+    lastMsg.chart_spec = spec
+  }
 })
 
 

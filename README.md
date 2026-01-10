@@ -129,7 +129,6 @@ On backend startup:
 
 init_db() creates DB schema if needed.​
 
-A startup event seeds a vendor user using env vars (VENDOR_EMAIL, VENDOR_PASSWORD, VENDOR_TENANT_ID) if that email does not exist.​
 
 Document Ingestion
 File upload endpoint (/documents/upload) accepts uploaded policy documents.​
@@ -259,22 +258,8 @@ Environment Configuration
 Create backend/.env with at least:
 
 text
-# JWT / security
-AUTH_SECRET_KEY=replace_with_a_long_random_string
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-# Database
-DATABASE_URL=sqlite:///./Users.db   # For dev/local
-# For Postgres:
-# DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/dbname
-
-# Vendor bootstrap
-VENDOR_EMAIL=vendor@example.com
-VENDOR_PASSWORD=change_me_vendor
-VENDOR_TENANT_ID=vendor-root
 
 # Chroma
-CHROMA_PERSIST_DIRECTORY=./chromadb_multi_tenant
 Recommendations:
 
 Use a long, random AUTH_SECRET_KEY (≥32 chars, ideally ≥64) and rotate per environment.​

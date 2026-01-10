@@ -1,6 +1,16 @@
 import { ref } from 'vue'
 import { logout } from '../authStore'
 
+export type ChartSpec = {
+  chart_type: 'line' | 'bar' | 'area'
+  title: string
+  x_field: string
+  x_label: string
+  y_fields: string[]
+  y_label: string
+  data: Array<Record<string, number | string>>
+}
+
 const TYPE_SPEED_MS = 12
 
 export function useQueryStream() {
@@ -10,6 +20,8 @@ export function useQueryStream() {
   const suggestions = ref<string[]>([])
   const isStreaming = ref(false)
   const abortController = ref<AbortController | null>(null)
+  const chartSpec = ref<ChartSpec | null>(null) // 2) inside composable
+
 
   // simple typewriter over a final string
   const startTyping = (text: string, speed = TYPE_SPEED_MS) => {
@@ -128,6 +140,15 @@ export function useQueryStream() {
             } catch {
               suggestions.value = []
             }
+           
+          } else if (eventType === 'chart') {
+             try{
+               const parsed = JSON.parse(data || '{}')
+               chartSpec.value = parsed as ChartSpec
+             }catch {
+              chartSpec.value = null
+             }
+             
           } else if (eventType === 'done') {
             status.value = 'Completed'
             statuses.value.push('Completed')
@@ -180,7 +201,11 @@ export function useQueryStream() {
     statuses,
     isStreaming,
     suggestions,
+    chartSpec,
     startStream,
     stopStream,
+    logout,
   }
+
+
 }

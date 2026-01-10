@@ -15,6 +15,8 @@ from LLM_Config.system_user_prompt import (
     create_critique_prompt,
     FORMATTER_SYSTEM_PROMPT,
     INTENT_PROMPT_TEMPLATE,
+    RERANK_SYSTEM_PROMPT,
+    create_chart_spec_prompt,
 )
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
@@ -34,6 +36,7 @@ if not logger.handlers:
     )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
 
 
 def build_capabilities_message_from_store(store_summary: dict) -> str:
@@ -67,19 +70,6 @@ def build_capabilities_message_from_store(store_summary: dict) -> str:
         msg += "\n\nYou can ask things like:\n" + preview
 
     return msg
-
-
-RERANK_SYSTEM_PROMPT = """
-You are a ranking assistant.
-
-Goal:
-- Given a user question and a list of text snippets, rank the snippets from most relevant to least relevant.
-
-Instructions:
-- Consider semantic relevance to the user question.
-- Respond with ONLY a JSON array of indices (0-based) in descending order of relevance.
-  For example: [2, 0, 1]
-""".strip()
 
 
 YEAR_REGEX = re.compile(r"\b(20[0-4][0-9])\b")  # 2000–2049
@@ -163,6 +153,7 @@ IntentType = Literal[
     "PROCEDURE",
     "LOOKUP",
     "GENERAL",
+    "CHART",
 ]
 
 
@@ -417,7 +408,11 @@ def infer_intent_and_rewrite(
         x in text
         for x in ["analyze this", "detailed analysis", "deep analysis", "root cause"]
     ):
-        cheap_intent = "ANALYSIS"    
+        cheap_intent = "ANALYSIS"
+    
+    elif any(x in text for x in ["chart", "graph", "plot", "visualize", "line chart", "bar chart"]):
+        cheap_intent = "CHART"    
+            
     else:
         cheap_intent = "GENERAL"
 
@@ -489,7 +484,8 @@ def infer_intent_and_rewrite(
         "CAPABILITIES",
         "UNSURE",
         "EXPORT_TABLE",  
-        "ANALYSIS",  
+        "ANALYSIS", 
+        "CHART",  
     }
     
     if llm_intent not in allowed_intents:
@@ -840,7 +836,7 @@ async def llm_pipeline_stream(
                 full_answer_parts.append(text)
 
         raw_answer = "".join(full_answer_parts).strip()
-        logger.info(f"RAW_ANSWER:\n {raw_answer}")
+        # logger.info(f"RAW_ANSWER:\n {raw_answer}")
 
         # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
         critique_messages = create_critique_prompt(
@@ -870,13 +866,45 @@ async def llm_pipeline_stream(
             formatter_messages = create_formatter_prompt(raw_answer)
             formatted_resp = formatter_llm_client.invoke(formatter_messages)
             formatted_answer = getattr(formatted_resp, "content", raw_answer)
-            logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
+            # logger.info(f"FORMATTED_ANSWER:\n {formatted_answer}")
         except Exception as e:
             logger.warning(f"Formatter failed, returning raw answer: {e}")
             formatted_answer = raw_answer
 
         _store(formatted_answer, unique_sources)
         yield formatted_answer
+        # after:
+        # store_answer(formatted_answer, unique_sources)
+        # yield formatted_answer
+        # Optionally add a chart spec for finance/chart-intent question
+        try:
+            if domain == "FINANCE" and intent in {"NUMERIC_ANALYSIS", "LOOKUP", "CHART"}:
+                chart_messages = create_chart_spec_prompt(question, formatted_answer)
+                chart_resp = suggestion_llm_client.invoke(chart_messages)
+                raw_chart = getattr(chart_resp, "content",  None) or str(chart_resp)
+                raw_chart = raw_chart.strip()
+                logger.info(f"RAW_CHART_SPEC {raw_chart}")
+                
+                chart_spec = None
+                try:
+                    chart_spec = json.loads(raw_chart)
+                except Exception:
+                    # try to solve JSON from nosy output
+                    start = raw_chart.find("{")
+                    end = raw_chart.find("}")
+                    if start != -1 and end != -1 and end > start:
+                        candidate = raw_chart[start : end + 1]
+                        try:
+                            chart_spec = json.loads(candidate)
+                        except Exception:
+                            chart_spec = None
+                           
+                if isinstance(chart_spec, dict) and result_holder is not None:
+                        result_holder["chart_spec"] = chart_resp                 
+                    
+        except Exception as e:
+            logger.warning(f"Chart spec generation failed: {e}")
+      
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
