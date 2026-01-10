@@ -105,10 +105,61 @@
             >
               <!-- User message -->
               <div v-if="msg.role === 'user'" class="flex justify-end">
-                <div class="max-w-2xl bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl rounded-br-sm p-5 shadow-xl">
-                  <p class="text-sm text-white whitespace-pre-wrap leading-relaxed">{{ msg.text }}</p>
+                <div class="relative group max-w-2xl bg-gradient-to-r from-indigo-600 to-purple-600
+                      rounded-2xl rounded-br-sm p-5 shadow-xl" >
+                  <!-- Edit mode -->
+                  <template v-if="editingMessageId === msg.id">
+                    <textarea
+                      v-model="editBuffer"
+                      class="w-full text-sm rounded-md bg-slate-900/80 border border-slate-700 px-2 py-1 text-white"
+                      rows="3"
+                    ></textarea>
+
+                    <div class="flex gap-2 mt-2 justify-end">
+                      <button
+                        class="px-2 py-1 text-xs rounded-md bg-indigo-600 hover:bg-indigo-500 text-white"
+                        @click="resendEdited(msg)"
+                      >
+                        Save & resend
+                      </button>
+                      <button
+                        class="px-2 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600 text-white"
+                        @click="cancelEditing"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </template>
+
+                  <!-- Normal view -->
+                  <template v-else>
+                    <p class="text-sm text-white whitespace-pre-wrap leading-relaxed">
+                      {{ msg.text }}
+                    </p>
+
+                    <!-- edit icon -->
+                    <button
+                      class="absolute -top-2 -right-2 p-1 rounded-full bg-slate-900/90 border border-slate-700
+                            opacity-0 group-hover:opacity-100 transition"
+                      @click="startEditing(msg)"
+                      title="Edit and resend"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 text-slate-200"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          d="M13.586 3.586a2 2 0 0 1 2.828 2.828l-8.5 8.5L5 15l.086-2.914 8.5-8.5z"
+                        />
+                        <path d="M4 16h12v2H4z" />
+                      </svg>
+                    </button>
+                  </template>
                 </div>
               </div>
+
 
               <!-- Assistant message -->
               <div v-else class="flex">
@@ -357,11 +408,22 @@ role: 'user' | 'assistant'
 text: string
 sources?: string[]
 chart_spec?: ChartSpec
-
+isEditing?: boolean
 }
 const messages = ref<ChatMessage[]>([])
 
+const editBuffer = ref('')
+const editingMessageId = ref<string | null>(null)
 
+function startEditing(msg: ChatMessage)   {
+  editingMessageId.value = msg.id
+  editBuffer.value = msg.text
+}
+
+function cancelEditing() {
+  editingMessageId.value = null
+  editBuffer.value = ''
+}
 // ----- Conversation/session state -----
 const conversationId = ref(uuidv4())
 const selectedConversationId = ref(conversationId.value)
@@ -479,6 +541,25 @@ loading.value = false
 }
 }
 
+async function resendEdited(msg: ChatMessage) {
+  const newText = editBuffer.value.trim()
+  if(!newText) return
+
+  // optionally update displayed text
+  msg.text = newText
+
+  // exit edit mode
+  editingMessageId.value = null
+  editBuffer.value = ''
+
+  // stop any current stream and resend as a new turn in the same conversation
+  await stopStream()
+  const payload = {
+    question: newText,
+    conversation_id: selectedConversationId.value
+  }
+  await startStream(payload)
+}
 
 async function startNewConversation() {
 conversationId.value = uuidv4()
