@@ -895,7 +895,7 @@ async def llm_pipeline_stream(
                 logger.info("CHART_DEBUG entering chart_spec generation block")
 
                 chart_messages = create_chart_spec_prompt(question, formatted_answer)
-                chart_resp = suggestion_llm_client.invoke(chart_messages)
+                chart_resp = formatter_llm_client.invoke(chart_messages)
                 raw_chart = getattr(chart_resp, "content", None) or str(chart_resp)
                 raw_chart = raw_chart.strip()
                 logger.info(f"RAW_CHART_SPEC {raw_chart}")
