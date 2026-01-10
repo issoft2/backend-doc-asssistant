@@ -878,7 +878,12 @@ async def llm_pipeline_stream(
         # yield formatted_answer
         # Optionally add a chart spec for finance/chart-intent question
         try:
-            if domain == "FINANCE" and intent in {"NUMERIC_ANALYSIS", "LOOKUP", "CHART"}:
+            # domain is "FINANCE" for this report
+            chart_intent_trigger = any(
+                kw in question.lower()
+                for kw in ["chart", "graph", "plot", "visual", "visualise", "visualize"]
+            )
+            if domain == "FINANCE" and chart_intent_trigger or intent in {"NUMERIC_ANALYSIS", "LOOKUP", "CHART"}:
                 chart_messages = create_chart_spec_prompt(question, formatted_answer)
                 chart_resp = suggestion_llm_client.invoke(chart_messages)
                 raw_chart = getattr(chart_resp, "content",  None) or str(chart_resp)
