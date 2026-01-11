@@ -31,6 +31,9 @@ class UserOut(BaseModel):
     role: Optional[str] = None
     is_active: bool = True
     create_at: Optional[str] = None
+    is_online: bool = False
+    last_login_at: Optional[str] = None
+    last_seen_at: Optional[str] = None
     
     class Config:
         from_attributes = True
