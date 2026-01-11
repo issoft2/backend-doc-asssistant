@@ -1,23 +1,71 @@
 <template>
-  <div
-    class="min-h-screen bg-gradient-to-br from-slate-950 via-black to-slate-900 flex flex-col lg:flex-row px-4 py-6 gap-6"
-  >
+  <div class="min-h-screen bg-gradient-to-br from-slate-950 via-black to-slate-900 flex flex-col lg:flex-row px-4 py-6 gap-6">
     <div class="flex flex-col lg:flex-row w-full max-w-7xl mx-auto gap-6">
-      <!-- Sidebar (unchanged from your previous version) -->
-      <aside
-        class="bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl flex flex-col w-full lg:w-80 lg:max-w-sm order-2 lg:order-1"
-      >
-        <!-- ... keep your conversation sidebar as-is ... -->
+      <!-- Sidebar -->
+      <aside class="bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl flex flex-col w-full lg:w-80 lg:max-w-sm order-2 lg:order-1">
+        <div class="p-4 flex items-center justify-between border-b border-slate-800/70">
+          <h2 class="text-sm font-bold bg-gradient-to-r from-slate-100 to-slate-200 bg-clip-text text-transparent">
+            Conversations
+          </h2>
+          <button
+            class="text-xs font-medium text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-all duration-200"
+            @click="startNewConversation"
+          >
+            New Chat
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto max-h-[60vh] lg:max-h-none p-2">
+          <div
+            v-for="conv in conversations"
+            :key="conv.conversation_id"
+            class="group/conversation w-full rounded-2xl p-3 border border-slate-800/50 hover:border-slate-700/70 hover:bg-slate-800/30 transition-all duration-200
+                   flex items-start justify-between gap-3 text-left cursor-pointer"
+            :class="conv.conversation_id === selectedConversationId ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10' : ''"
+            @click="openConversation(conv.conversation_id)"
+          >
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-slate-100 truncate group-hover/conversation:text-white transition-colors">
+                {{ conv.first_question || 'Untitled conversation' }}
+              </div>
+              <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                {{ formatDate(conv.last_activity_at) }}
+                <div
+                  class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"
+                  v-if="conv.conversation_id === selectedConversationId"
+                ></div>
+              </div>
+            </div>
+
+            <button
+              class="opacity-0 group-hover/conversation:opacity-100 p-1.5 rounded-xl hover:bg-red-500/20 hover:text-red-400 transition-all duration-200 ml-auto"
+              @click.stop="onDeleteConversation(conv.conversation_id)"
+              title="Delete conversation"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m7-10V4a1 1 0 00-1-1h-4M21 4H7M21 4H3m0 0h4M4 4h16" />
+              </svg>
+            </button>
+          </div>
+
+          <div v-if="!conversations.length" class="text-center py-12 px-4">
+            <div class="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
+              <svg class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <p class="text-sm text-slate-500 font-medium">No conversations yet</p>
+            <p class="text-xs text-slate-600 mt-1">Start a new chat to see it here</p>
+          </div>
+        </div>
       </aside>
 
-      <!-- Main chart/chat area -->
-      <main
-        class="flex flex-col flex-1 bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl overflow-hidden order-1 lg:order-2"
-      >
+      <!-- Main chat/chart area -->
+      <main class="flex flex-col flex-1 bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl overflow-hidden order-1 lg:order-2">
         <!-- Header -->
-        <header
-          class="p-6 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm flex flex-col gap-4"
-        >
+        <header class="p-6 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
           <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div class="min-w-0">
               <h1
@@ -26,30 +74,12 @@
                 Ask your data. See it as charts.
               </h1>
               <p class="text-sm text-slate-400 leading-relaxed">
-                Type a question about your policies or numbers. Get grounded answers with tables and
-                charts built from your own documents.
+                Ask in natural language. Answers stay within your company documents and can include tables and charts when relevant.
               </p>
             </div>
 
             <div class="flex items-center gap-3">
-              <!-- Chart mode toggle -->
-              <label
-                class="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/70 text-slate-200 cursor-pointer select-none"
-              >
-                <input
-                  v-model="chartOnly"
-                  type="checkbox"
-                  class="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
-                />
-                <span class="flex flex-col leading-tight">
-                  <span class="font-medium">Charts only</span>
-                  <span class="text-[10px] text-slate-400">
-                    Keep answers minimal, focus on visuals
-                  </span>
-                </span>
-              </label>
-
-              <!-- Voice selector (unchanged) -->
+              <!-- Voice selector -->
               <div
                 class="flex items-center gap-2 text-sm text-slate-300 bg-slate-800/50 px-3 py-2 rounded-xl border border-slate-700/50"
               >
@@ -95,7 +125,7 @@
               :key="msg.id ?? idx"
               class="group space-y-4"
             >
-              <!-- USER MESSAGE -->
+              <!-- User message -->
               <div v-if="msg.role === 'user'" class="flex justify-end">
                 <div
                   class="relative max-w-2xl bg-gradient-to-r from-indigo-600 to-purple-600
@@ -120,7 +150,7 @@
 
                     <textarea
                       v-model="editBuffer"
-                      class="w-full min-h-[72px] max-h-40 resize-none rounded-2xl border-2 border-indigo-300/70
+                      class="w-full min-h-[72px] max-h-40 cire-size-none rounded-2xl border-2 border-indigo-300/70
                              bg-slate-900/80 px-4 py-3 text-sm text-slate-50 placeholder:text-slate-400
                              focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400
                              shadow-lg transition-all duration-200"
@@ -182,7 +212,7 @@
                 </div>
               </div>
 
-              <!-- ASSISTANT MESSAGE + CHARTS -->
+              <!-- Assistant message -->
               <div v-else class="flex">
                 <div class="flex flex-col max-w-4xl w-full">
                   <!-- Streaming state -->
@@ -194,7 +224,7 @@
                         class="w-3 h-3 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full animate-ping"
                       ></div>
                       <span class="text-sm font-semibold text-slate-300">
-                        {{ streamStatus || 'Thinking...' }}
+                        {{ streamStatus || 'Thinking…' }}
                       </span>
                     </div>
                   </template>
@@ -221,14 +251,13 @@
                       </div>
 
                       <div class="flex-1 min-w-0 space-y-4">
-                        <!-- Text answer -->
                         <MarkdownText
                           v-if="msg.text"
                           :content="msg.text"
                           class="prose prose-invert max-w-none text-slate-100 leading-relaxed"
                         />
 
-                        <!-- Charts: visually separated block -->
+                        <!-- Charts -->
                         <div
                           v-if="msg.chart_specs?.length"
                           class="mt-2 pt-3 border-t border-slate-800/60 space-y-4"
@@ -237,9 +266,7 @@
                             class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2"
                           >
                             Visual answer
-                            <span
-                              class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
-                            ></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                           </h4>
                           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <ChartRenderer
@@ -253,7 +280,7 @@
                       </div>
                     </div>
 
-                    <!-- TTS controls & sources (keep your existing blocks) -->
+                    <!-- TTS & sources blocks stay as in your original page -->
                     <!-- ... -->
                   </template>
                 </div>
@@ -261,14 +288,37 @@
             </div>
           </section>
 
-          <!-- Empty state stays similar -->
+          <!-- Empty state (unchanged from your original) -->
+          <section v-else class="flex-1 flex flex-col items-center justify-center text-center px-8 py-24">
+            <div class="w-24 h-24 bg-slate-800/50 rounded-3xl flex items-center justify-center mb-8 shadow-xl">
+              <svg class="w-12 h-12 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-200 mb-2">Welcome to your AI Assistant</h3>
+            <p class="text-sm text-slate-500 max-w-md mb-8 leading-relaxed">
+              Ask about policies, procedures, or financial reports. Answers come with grounded explanations, tables, and charts when needed.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md w-full">
+              <button
+                class="group bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3 px-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                @click="question = 'Compare Q1 2023 and Q1 2024 revenue as charts.'"
+              >
+                📊 Compare quarters
+              </button>
+              <button
+                class="group bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3 px-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                @click="question = 'Summarise our remote work policy.'"
+              >
+                💼 Policy overview
+              </button>
+            </div>
+          </section>
 
           <!-- Input form -->
-          <form
-            @submit.prevent="onAsk"
-            class="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-sm"
-          >
-            <!-- Status indicators (unchanged) -->
+          <form @submit.prevent="onAsk" class="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
+            <!-- Status indicators stay as you had them -->
 
             <div class="flex items-end gap-3">
               <div class="flex-1 relative">
@@ -309,6 +359,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
