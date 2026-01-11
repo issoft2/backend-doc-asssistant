@@ -70,7 +70,7 @@ export async function logout() {
   authState.user = null
   localStorage.removeItem('user')
   removeAuthToken()
-  await router.push('/login')
+  await router.push('/')
 }
 
 
@@ -110,21 +110,3 @@ export async function loginToTenant({ email, tenant_id }) {
   return data
 }
 
-export async function logout() {
-
-   try {
-    await apiLogout()
-  } catch (e) {
-    // ignore network/401 errors
-  }
-
-  if (heartbeatId) {
-    clearInterval(heartbeatId)
-    heartbeatId = undefined
-  }
-  authState.accessToken = null
-  authState.user = null
-  setAuthToken(null)
-  localStorage.removeItem('user')
-  router.push('/')
-}
