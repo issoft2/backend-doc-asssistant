@@ -619,7 +619,7 @@ async def llm_pipeline_stream(
     result_holder: Optional[dict] = None,
     last_doc_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
-    intent, rewritten, domain = infer_intent_and_rewrite(
+    intent, rewritten, domain, chart_only = infer_intent_and_rewrite(
         user_message=question,
         history_turns=history,
     )
@@ -826,6 +826,7 @@ async def llm_pipeline_stream(
         intent=intent,
         domain=domain,
         last_answer=last_answer_text,
+        chart_only=chart_only
     )
 
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
