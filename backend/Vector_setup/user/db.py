@@ -24,6 +24,7 @@ class DBUser(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     is_first_login: bool = Field(default=True)
     # last_login_at: Optional[datetime] = None
+    # Newly added 
     is_online: bool = Field(default=False, index=True)
     last_login_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
