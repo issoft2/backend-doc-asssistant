@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from datetime import datetime
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -32,8 +33,8 @@ class UserOut(BaseModel):
     is_active: bool = True
     create_at: Optional[str] = None
     is_online: bool = False
-    last_login_at: Optional[str] = None
-    last_seen_at: Optional[str] = None
+    last_login_at: Optional[datetime] = None
+    last_seen_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

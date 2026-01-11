@@ -111,6 +111,9 @@ def add_to_user_schema() -> None:
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN last_seen_at TEXT;")
             )
+            
+             # backfill old rows
+        conn.execute(text("UPDATE users SET is_online = 0 WHERE is_online IS NULL;"))
 
         # ✅ always commit after all possible ALTERs
         conn.commit()
