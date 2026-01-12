@@ -7,7 +7,7 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api", 
 })
 
-import { setAuthToken, login as apiLogin, me as apiMe, apiLogout, apiHeartbeat } from './api'
+import { setAuthToken, removeAuthToken, login as apiLogin, me as apiMe, apiLogout, apiHeartbeat } from './api'
 
 export const authState = reactive({
   accessToken: localStorage.getItem('access_token') || null,
@@ -59,9 +59,8 @@ export async function startHeartbeat() {
 export async function logout() {
   try {
     await apiLogout()
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) {}
+  
   if (heartbeatId) {
     clearInterval(heartbeatId)
     heartbeatId = undefined
@@ -69,7 +68,7 @@ export async function logout() {
   authState.accessToken = null
   authState.user = null
   localStorage.removeItem('user')
-  removeAuthToken()
+  removeAuthToken
   await router.push('/')
 }
 

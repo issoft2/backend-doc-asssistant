@@ -42,6 +42,11 @@ api.interceptors.response.use(
   }
 )
 
+// remove token
+export function removeAuthToken() {
+  delete api.defaults.headers.common.Authorization
+}
+
 // Configure company + collection in one step
 export function configureCompanyAndCollection({ tenantId, collectionName }) {
   return api.post('/companies/configure', {
