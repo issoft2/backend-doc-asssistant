@@ -395,21 +395,35 @@
 
     <!-- Footer CTA -->
     <footer class="border-t border-slate-900 bg-slate-950">
-      <div
-        class="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-slate-400"
+    <div
+      class="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-slate-400"
+    >
+      <p class="max-w-xl">
+        Stop forwarding PDFs and answering the same questions twice. Give every tenant a secure AI
+        assistant that knows their policies and numbers — and can explain both.
+      </p>
+      <RouterLink
+        to="/login"
+        class="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-indigo-500 text-xs font-medium text-white hover:bg-indigo-400 transition"
       >
-        <p class="max-w-xl">
-          Stop forwarding PDFs and answering the same questions twice. Give every tenant a secure AI
-          assistant that knows their policies and numbers — and can explain both.
-        </p>
-        <RouterLink
-          to="/login"
-          class="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-indigo-500 text-xs font-medium text-white hover:bg-indigo-400 transition"
-        >
-          Open the app
-        </RouterLink>
+        Open the app
+      </RouterLink>
+    </div>
+
+    <div class="border-t border-slate-900/80">
+      <div
+        class="max-w-6xl mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-2 text-[10px] text-slate-500"
+      >
+        <span>
+          © {{ new Date().getFullYear() }} Company Guideline Assistant. All rights reserved.
+        </span>
+        <span>
+          Built for  organisations that care about privacy and clear answers.
+        </span>
       </div>
-    </footer>
+    </div>
+  </footer>
+
   </div>
 </template>
 <script setup>
