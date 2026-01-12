@@ -3,7 +3,7 @@ import logo from '../assets/logo.png'
 </script>
 
 <template>
-  <header class="flex items-center gap-3 px-4 py-3 border-b bg-white">
+  <!-- <header class="flex items-center gap-3 px-4 py-3 border-b bg-white">
     <img
       :src="logo"
       alt="Policy AI"
@@ -17,5 +17,5 @@ import logo from '../assets/logo.png'
         Multi-tenant platform
       </span>
     </div>
-  </header>
+  </header> -->
 </template>
