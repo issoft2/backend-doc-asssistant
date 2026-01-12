@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
-import os, smtplib
+import os
 
 from Vector_setup.services.email_service import _send_email
 
@@ -19,7 +19,7 @@ class ContactIn(BaseModel):
 @router.post("/contact")
 def create_contact(payload: ContactIn):
     if not CONTACT_RECIPIENT:
-        raise HTTException(status_code=500, detail="Contact recipient not configured")
+        raise HTTPException(status_code=500, detail="Contact recipient not configured")
     
     subject = f"[CG Assistant] {payload.category.title()} - {payload.name}"
     html_body = f"""
@@ -33,6 +33,6 @@ def create_contact(payload: ContactIn):
         # send to you vendor
         _send_email(CONTACT_RECIPIENT, subject, html_body)
     except Exception:
-        raise HTTException(status_code=500, detail="Could not send message")
+        raise HTTPException(status_code=500, detail="Could not send message")
     
     return {"detail": "Message sent"}
