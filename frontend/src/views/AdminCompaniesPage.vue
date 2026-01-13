@@ -1,420 +1,3 @@
-<template>
-  <div class="space-y-6 max-w-6xl mx-auto py-6">
-    <!-- Header -->
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-xl font-semibold text-slate-900">
-          Companies & Collections
-        </h1>
-        <p class="text-sm text-slate-500">
-          View existing companies, manage collections, upload documents, and add users.
-        </p>
-      </div>
-      <button class="btn-primary" @click="loadCompanies" :disabled="loading">
-        <span v-if="!loading">Refresh</span>
-        <span v-else>Refreshing…</span>
-      </button>
-    </header>
-
-    <!-- Companies table -->
-    <section class="bg-white border rounded-xl shadow-sm overflow-hidden">
-      <div class="border-b px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-slate-900">Companies</span>
-          <span class="text-[11px] text-slate-500">
-            {{ companies.length }} total
-          </span>
-        </div>
-        <div class="text-[11px] text-slate-400" v-if="lastLoadedAt">
-          Last updated: {{ lastLoadedAt }}
-        </div>
-      </div>
-
-      <div v-if="error" class="px-4 py-3 text-xs text-red-600">
-        {{ error }}
-      </div>
-
-      <div
-        v-if="!companies.length && !loading && !error"
-        class="px-4 py-6 text-sm text-slate-500"
-      >
-        No companies found yet. Use the Ingestion page to configure one (vendor only).
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm table-auto">
-          <thead class="bg-slate-50">
-            <tr>
-              <th
-                class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
-              >
-                Company / Tenant
-              </th>
-              <th
-                class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
-              >
-                Collections
-              </th>
-              <th
-                class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide"
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 bg-white">
-            <tr
-              v-for="company in companies"
-              :key="company.tenant_id"
-              class="hover:bg-slate-50"
-            >
-              <!-- Company -->
-              <td class="px-4 py-3 align-top">
-                <div class="font-medium text-slate-900">
-                  {{ company.tenant_id }}
-                </div>
-                <div class="text-xs text-slate-500">
-                  {{ company.display_name || '—' }}
-                </div>
-              </td>
-
-              <!-- Collections -->
-              <td class="px-4 py-3 align-top">
-                <div v-if="company.collections && company.collections.length">
-                  <ul class="space-y-1">
-                    <li
-                      v-for="col in company.collections"
-                      :key="col.collection_name || col.name"
-                      class="flex items-center justify-between gap-2"
-                    >
-                      <div class="flex-1">
-                        <div class="text-xs font-medium text-slate-800">
-                          {{ col.collection_name || col.name }}
-                        </div>
-                        <div class="text-[11px] text-slate-500">
-                          {{ col.doc_count ?? 0 }} docs
-                        </div>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-                <div v-else class="text-xs text-slate-400">
-                  No collections yet.
-                </div>
-              </td>
-
-              <!-- Actions -->
-              <td class="px-4 py-3 align-top space-y-2">
-                <!-- Everyone: load collections for this tenant they are allowed to see -->
-                <button
-                  class="btn-primary text-[11px] w-full"
-                  @click="loadCollections(company.tenant_id)"
-                  :disabled="loadingCollections === company.tenant_id"
-                >
-                  <span v-if="loadingCollections !== company.tenant_id">
-                    Load collections
-                  </span>
-                  <span v-else>Loading…</span>
-                </button>
-
-                <!-- Upload: visible only if current user can upload to this tenant -->
-                <button
-                  v-if="canUploadToTenant(company.tenant_id)"
-                  class="btn-primary text-[11px] w-full"
-                  @click="openUploadModal(company)"
-                  :disabled="!company.collections || !company.collections.length"
-                >
-                  Add document
-                </button>
-
-                <!-- Add user: vendor can add to any tenant, HR/Exec only to own tenant -->
-                <button
-                  v-if="canManageUsersForTenant(company.tenant_id)"
-                  class="btn-primary text-[11px] w-full"
-                  @click="openUserModal(company)"
-                >
-                  Add user
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div v-if="loading" class="px-4 py-3 text-xs text-slate-500">
-        Loading companies…
-      </div>
-    </section>
-
-    <!-- Upload modal -->
-    <transition name="fade">
-      <div
-        v-if="showUploadModal"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
-      >
-        <div
-          class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4"
-        >
-          <header class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-slate-900">
-                Upload document
-              </h2>
-              <p class="text-xs text-slate-500" v-if="activeTenantId">
-                {{ activeTenantId }} /
-                <span v-if="selectedCollectionName">
-                  {{ selectedCollectionName }}
-                </span>
-              </p>
-              <p class="text-[11px] text-slate-500" v-else>
-                Tenant is missing; close and reopen from a company row.
-              </p>
-            </div>
-            <button
-              type="button"
-              class="text-xs text-slate-500 hover:text-slate-700"
-              @click="closeUploadModal"
-            >
-              Close
-            </button>
-          </header>
-
-          <form class="space-y-3" @submit.prevent="onUploadFromAdmin">
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                Collection
-              </label>
-              <select
-                v-model="selectedCollectionName"
-                class="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              >
-                <option value="" disabled>Select collection</option>
-                <option
-                  v-for="col in activeCollections"
-                  :key="col.collection_name || col.name"
-                  :value="col.collection_name || col.name"
-                >
-                  {{ col.collection_name || col.name }}
-                </option>
-              </select>
-            </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                Document title (optional)
-              </label>
-              <input
-                v-model="docTitle"
-                type="text"
-                class="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="e.g. Remote Work Policy"
-              />
-            </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                File
-              </label>
-              <input
-                ref="fileInput"
-                type="file"
-                class="block w-full text-xs text-slate-600
-                       file:mr-3 file:py-2 file:px-4
-                       file:rounded-lg file:border-0
-                       file:text-xs file:font-semibold
-                       file:bg-indigo-50 file:text-indigo-700
-                       hover:file:bg-indigo-100 cursor-pointer"
-                @change="onFileChange"
-              />
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
-                @click="closeUploadModal"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                class="btn-primary text-[11px]"
-                :disabled="
-                  uploadLoading ||
-                  !activeTenantId ||
-                  !selectedCollectionName ||
-                  !file
-                "
-              >
-                <span v-if="!uploadLoading">Upload & index</span>
-                <span v-else>Uploading…</span>
-              </button>
-            </div>
-          </form>
-
-          <p v-if="uploadMessage" class="text-xs text-emerald-600">
-            {{ uploadMessage }}
-          </p>
-          <p v-if="uploadError" class="text-xs text-red-600">
-            {{ uploadError }}
-          </p>
-        </div>
-      </div>
-    </transition>
-
-    <!-- User signup modal -->
-    <transition name="fade">
-      <div
-        v-if="showUserModal"
-        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
-      >
-        <div
-          class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4"
-        >
-          <header class="flex items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-slate-900">
-                Add user
-              </h2>
-              <p class="text-xs text-slate-500" v-if="userTenantId">
-                Tenant: <span class="font-semibold">{{ userTenantId }}</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              class="text-xs text-slate-500 hover:text-slate-700"
-              @click="closeUserModal"
-            >
-              Close
-            </button>
-          </header>
-
-          <form class="space-y-3" @submit.prevent="onCreateUser">
-            <!-- Name row -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="space-y-1">
-                <label class="block text-xs font-medium text-slate-700">
-                  First name
-                </label>
-                <input
-                  v-model="userFirstName"
-                  type="text"
-                  class="w-full rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div class="space-y-1">
-                <label class="block text-xs font-medium text-slate-700">
-                  Last name
-                </label>
-                <input
-                  v-model="userLastName"
-                  type="text"
-                  class="w-full rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-            </div>
-
-            <!-- Contact row -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div class="space-y-1">
-                <label class="block text-xs font-medium text-slate-700">
-                  Date of birth
-                </label>
-                <input
-                  v-model="userDob"
-                  type="date"
-                  class="w-full rounded-lg border px-3 py-2 text-sm"
-                />
-              </div>
-              <div class="space-y-1">
-                <label class="block text-xs font-medium text-slate-700">
-                  Phone number
-                </label>
-                <input
-                  v-model="userPhone"
-                  type="tel"
-                  class="w-full rounded-lg border px-3 py-2 text-sm"
-                  placeholder="+234 801 234 5678"
-                />
-              </div>
-            </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                Email
-              </label>
-              <input
-                v-model="userEmail"
-                type="email"
-                class="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              />
-            </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                Password
-              </label>
-              <input
-                v-model="userPassword"
-                type="password"
-                class="w-full rounded-lg border px-3 py-2 text-sm"
-                required
-              />
-            </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                User role
-              </label>
-              <select
-                v-model="userRole"
-                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-                required
-              >
-                <option disabled value="">Select role</option>
-                <option value="management">Management</option>
-                <option value="executive">Executive</option>
-                <option value="hr">HR</option>
-                <option value="employee">Employee</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
-                @click="closeUserModal"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                class="btn-primary text-[11px]"
-                :disabled="userLoading || !userTenantId"
-              >
-                <span v-if="!userLoading">Create user</span>
-                <span v-else>Creating…</span>
-              </button>
-            </div>
-          </form>
-
-          <p v-if="userMessage" class="text-xs text-emerald-600">
-            {{ userMessage }}
-          </p>
-          <p v-if="userError" class="text-xs text-red-600">
-            {{ userError }}
-          </p>
-        </div>
-      </div>
-    </transition>
-  </div>
-</template>
-
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { authState } from '../authStore'
@@ -433,10 +16,14 @@ const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
 
 const isVendor = computed(() => currentRole.value === 'vendor')
 const canUpload = computed(() =>
-  ['hr', 'executive', 'admin', 'management'].includes(currentRole.value?.toLowerCase()),
+  ['hr', 'executive', 'admin', 'management'].includes(
+    currentRole.value?.toLowerCase(),
+  ),
 )
 const canManageUsers = computed(() =>
-  ['vendor', 'hr', 'executive', 'admin', 'management'].includes(currentRole.value?.toLowerCase()),
+  ['vendor', 'hr', 'executive', 'admin', 'management'].includes(
+    currentRole.value?.toLowerCase(),
+  ),
 )
 
 // Upload modal state
@@ -473,23 +60,54 @@ const userMessage = ref('')
 const userError = ref('')
 
 // Permission helpers
-
 function canUploadToTenant(tenantId) {
-  // Only HR/Executive of that tenant can upload; vendor cannot.
   if (!canUpload.value) return false
   return currentTenantId.value && currentTenantId.value === tenantId
 }
 
 function canManageUsersForTenant(tenantId) {
-  // Vendor: can add user to any tenant.
   if (isVendor.value) return true
-  // HR/Exec: only to their own tenant.
   if (!canManageUsers.value) return false
   return currentTenantId.value && currentTenantId.value === tenantId
 }
 
-// Data loading
+// Formatting & badge helpers
+function formatDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString()
+}
 
+function planBadgeClass(plan) {
+  switch (plan) {
+    case 'free_trial':
+      return 'bg-amber-100 text-amber-800'
+    case 'starter':
+      return 'bg-sky-100 text-sky-800'
+    case 'pro':
+      return 'bg-indigo-100 text-indigo-800'
+    case 'enterprise':
+      return 'bg-emerald-100 text-emerald-800'
+    default:
+      return 'bg-slate-100 text-slate-700'
+  }
+}
+
+function statusBadgeClass(status) {
+  switch (status) {
+    case 'trialing':
+      return 'bg-amber-100 text-amber-800'
+    case 'active':
+      return 'bg-emerald-100 text-emerald-800'
+    case 'expired':
+      return 'bg-rose-100 text-rose-800'
+    case 'cancelled':
+      return 'bg-slate-200 text-slate-700'
+    default:
+      return 'bg-slate-100 text-slate-700'
+  }
+}
+
+// Data loading
 async function loadCompanies() {
   loading.value = true
   error.value = ''
@@ -523,12 +141,13 @@ async function loadCollections(tenantId) {
 }
 
 // Upload modal handlers
-
 function openUploadModal(company) {
   if (!canUploadToTenant(company.tenant_id)) return
   activeTenantId.value = company.tenant_id
   selectedCollectionName.value =
-    (company.collections && (company.collections[0]?.collection_name || company.collections[0]?.name)) ||
+    (company.collections &&
+      (company.collections[0]?.collection_name ||
+        company.collections[0]?.name)) ||
     ''
   docTitle.value = ''
   file.value = null
@@ -579,7 +198,6 @@ async function onUploadFromAdmin() {
 }
 
 // User modal handlers
-
 function openUserModal(company) {
   if (!canManageUsersForTenant(company.tenant_id)) return
   userTenantId.value = company.tenant_id

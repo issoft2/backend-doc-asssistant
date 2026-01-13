@@ -217,39 +217,49 @@ def create_collection_for_current_tenant(
     )
 
 
+
 @router.get("/companies", response_model=List[CompanyOut])
 def list_companies(
-    store: MultiTenantChromaStoreManager = Depends(get_store),
+    db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user),
 ):
     """
-    List all companies/tenants that currently have collections.
-    - Vendor: sees all companies.
-    - Other users: see only their own company.
-    """
-    all_tenants = store.list_companies()  # list[{ "tenant_id", "display_name"}]
-    my_tenant_id = current_user.tenant_id
+    List companies/tenants.
 
+    - Vendor: sees all tenants.
+    - Other users: only their own tenant.
+    """
     if current_user.role == "vendor":
-        return [CompanyOut(**t) for t in all_tenants]
+        stmt = select(Tenant)
+    else:
+        stmt = select(Tenant).where(Tenant.id == current_user.tenant_id)
+
+    rows = db.exec(stmt).all()
 
     return [
-        CompanyOut(**t)
-        for t in all_tenants
-        if t["tenant_id"] == my_tenant_id
+        CompanyOut(
+            tenant_id=t.id,
+            display_name=t.name,
+            created_at=t.created_at,
+            plan=t.plan,
+            subscription_status=t.subscription_status,
+            trial_ends_at=t.trial_ends_at,
+        )
+        for t in rows
     ]
-
 
 @router.get("/companies/{tenant_id}/collections", response_model=List[CollectionOut])
 def list_company_collections(
     tenant_id: str,
     store: MultiTenantChromaStoreManager = Depends(get_store),
+    db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user),
 ):
     """
-    List all collections for a given tenant (names without tenant prefix).
-    - Vendor: can see collections for any tenant.
-    - Other users: only allowed to view their own tenant.
+    List collections (names) for a tenant.
+
+    - Vendor: any tenant.
+    - Other users: only their own tenant.
     """
     if current_user.role != "vendor" and tenant_id != current_user.tenant_id:
         raise HTTPException(
@@ -257,16 +267,25 @@ def list_company_collections(
             detail="Not allowed to access this tenant",
         )
 
+    # Optional: ensure tenant exists in SQL
+    tenant = db.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
     names = store.list_collections(tenant_id)
-    # If you don't have doc counts for now, set to 0.
+
     return [
         CollectionOut(
             tenant_id=tenant_id,
             collection_name=n,
-            doc_count=0,
+            doc_count=0,  # later wire real counts from Chroma if needed
         )
         for n in names
     ]
+
 
 
 # ---------- Document upload (production) ----------
