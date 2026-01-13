@@ -156,20 +156,22 @@ def configure_company_and_collection(
 class CollectionCreateIn(BaseModel):
     name: str  # just the collection/policy name
 
-# Enforce trial upload limits here
+
 def enforce_tenant_limits(
     tenant: Tenant,
     db: Session,
 ):
-    # Example max 1 collections on trial
+    # Example: max 1 collection on trial
     if tenant.plan == "free_trial":
-        count = db.exec(
-            select(func.count(Collection.id)).where(Collection.tenant_id == tenant.id)
-        ).one()[0]
+        stmt = select(func.count(Collection.id)).where(
+            Collection.tenant_id == tenant.id
+        )
+        count = db.exec(stmt).one()  # already an int
+
         if count >= 1:
             raise HTTPException(
                 status_code=492,
-                detail="Trial Limit reached: maximum 1 collection. Please upgrade."
+                detail="Trial Limit reached: maximum 1 collection. Please upgrade.",
             )
 
 @router.post("/collections", response_model=CollectionOut)
