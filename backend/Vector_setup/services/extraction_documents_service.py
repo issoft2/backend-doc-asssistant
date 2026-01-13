@@ -1,6 +1,8 @@
 from io import BytesIO
 from docx import Document
 from typing import List
+import csv
+from io import StringIO
 
 
 from Vector_setup.services.extracting_excel_document_service import _extract_excel_with_pandas
@@ -23,6 +25,19 @@ def extract_text_from_upload(filename: str, raw_bytes: bytes) -> str:
     
     if name.endswith((".xlsx", ".xlsm", ".xls")):
         return _extract_excel_with_pandas(raw_bytes, name)
+    
+    if name.endswith(".csv"):
+        # Decode bytes → text
+        text = raw_bytes.decode("utf-8", errors="ignore")
+        buffer = StringIO(text)
+
+        reader = csv.reader(buffer)
+        rows = []
+        for row in reader:
+            # join columns with separator; tweak as you like
+            rows.append(" | ".join(col.strip() for col in row if col is not None))
+
+        return "\n".join(rows) 
 
     if name.endswith(".docx"):
         doc = Document(BytesIO(raw_bytes))
