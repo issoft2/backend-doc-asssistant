@@ -274,25 +274,27 @@ def _format_history_for_intent(
     return "\n".join(lines)
 
 
+
 def infer_intent_and_rewrite(
     user_message: str,
     history_turns: Optional[List[Tuple[str, str]]] = None,
-) -> Tuple[str, Optional[str], str]:
+) -> Tuple[str, Optional[str], str, bool]:
     """
     Returns:
-      - intent: one of "CHITCHAT", "CAPABILITIES", "FOLLOWUP_ELABORATE", "NEW_QUESTION", "UNSURE" or a rule-based type
+      - intent: one of "CHITCHAT", "CAPABILITIES", "FOLLOWUP_ELABORATE",
+                "NEW_QUESTION", "UNSURE" or a rule-based type
       - rewritten: optional rewritten question (or None)
       - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
       - chart_only: bool
     """
     text = (user_message or "").lower().strip()
-    
+
+    # Flag for "charts only" style requests
     chart_only = any(
-        p in text 
+        p in text
         for p in [
             "charts only",
             "chart only",
-            "only charts",
             "only charts",
             "just the chart",
             "just charts",
@@ -323,7 +325,7 @@ def infer_intent_and_rewrite(
             "good evening",
         ]
     ):
-        return "CHITCHAT", None, "GENERAL"
+        return "CHITCHAT", None, "GENERAL", chart_only
 
     # 2) Cheap CAPABILITIES detection
     if any(
@@ -340,7 +342,7 @@ def infer_intent_and_rewrite(
             "what information can you provide for me now",
         ]
     ):
-        return "CAPABILITIES", None, "GENERAL"
+        return "CAPABILITIES", None, "GENERAL", chart_only
 
     # 3) Domain guess
     domain = "GENERAL"
@@ -414,7 +416,6 @@ def infer_intent_and_rewrite(
         cheap_intent = "PROCEDURE"
     elif any(x in text for x in ["list", "what are the", "do we have"]):
         cheap_intent = "LOOKUP"
-        
     elif any(
         x in text
         for x in ["export as table", "as a table", "table of", "csv", "spreadsheet"]
@@ -425,10 +426,8 @@ def infer_intent_and_rewrite(
         for x in ["analyze this", "detailed analysis", "deep analysis", "root cause"]
     ):
         cheap_intent = "ANALYSIS"
-    
     elif any(x in text for x in ["chart", "graph", "plot", "visualize", "line chart", "bar chart"]):
-        cheap_intent = "CHART"    
-            
+        cheap_intent = "CHART"
     else:
         cheap_intent = "GENERAL"
 
@@ -473,12 +472,12 @@ def infer_intent_and_rewrite(
             llm_intent = (data.get("intent") or "UNSURE").strip().upper()
             rewritten_raw = (data.get("rewritten_question") or "").strip()
 
-            # Only accept rewrites that look like real questions or instructions,
-            # not critiques of the assistant.
+            # Only accept rewrites that look like real questions or instructions
             if rewritten_raw:
                 lowered = rewritten_raw.lower()
-                if lowered.startswith(("why was your answer", "your previous answer", "the assistant")):
-                    # Discard critique-style rewrites
+                if lowered.startswith(
+                    ("why was your answer", "your previous answer", "the assistant")
+                ):
                     rewritten = None
                 else:
                     rewritten = rewritten_raw
@@ -486,7 +485,6 @@ def infer_intent_and_rewrite(
                 rewritten = None
         else:
             raise ValueError("Intent classifier did not return a JSON object")
-
 
     except Exception as e:
         logger.warning(f"Intent parsing failed: {e}")
@@ -499,11 +497,11 @@ def infer_intent_and_rewrite(
         "CHITCHAT",
         "CAPABILITIES",
         "UNSURE",
-        "EXPORT_TABLE",  
-        "ANALYSIS", 
-        "CHART",  
+        "EXPORT_TABLE",
+        "ANALYSIS",
+        "CHART",
     }
-    
+
     if llm_intent not in allowed_intents:
         llm_intent = "UNSURE"
 
@@ -520,6 +518,7 @@ def infer_intent_and_rewrite(
         domain = "GENERAL"
 
     return intent, rewritten, domain, chart_only
+
 
 
 def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
