@@ -179,3 +179,36 @@ async def get_current_db_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     return user  # this is DBUser
+
+def ensure_tenant_active_by_id(
+    tenant_id: str,
+    db: Session = Depends(get_db),
+) -> Tenant:
+    tenant = db.get(Tenant, tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant not found",
+        )
+
+    now = datetime.utcnow()
+    if (
+        tenant.subscription_status == "trialing"
+        and tenant.trial_ends_at
+        and tenant.trial_ends_at < now
+    ):
+        tenant.subscription_status = "expired"
+        db.add(tenant)
+        db.commit()
+        raise HTTPException(
+            status_code=402,
+            detail="Trial expired. Please contact support.",
+        )
+
+    if tenant.subscription_status in ("expired", "canceled"):
+        raise HTTPException(
+            status_code=402,
+            detail="Subscription inactive.",
+        )
+
+    return tenant

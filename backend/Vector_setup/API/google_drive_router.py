@@ -19,7 +19,7 @@ from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.services.extraction_documents_service import extract_text_from_upload
 from googleapiclient.errors import HttpError
 import requests
-from Vector_setup.user.auth_jwt import ensure_tenant_active
+from Vector_setup.user.auth_jwt import ensure_tenant_active, ensure_tenant_active_by_id
 
 
 
@@ -87,8 +87,6 @@ def google_drive_callback(
     code: str,
     state: str,
     db: Session = Depends(get_db),
-    tenant: Tenant = Depends(ensure_tenant_active)
-
 ):
     # 1) Parse tenant_id from state
     state_params = parse_qs(state)
@@ -97,6 +95,9 @@ def google_drive_callback(
         raise HTTPException(status_code=400, detail="Missing tenant in state")
     tenant_id = tenant_ids[0]
 
+    # Enforce trial/subscription without requiring current_user/JWT
+    tenant = ensure_tenant_active_by_id(tenant_id=tenant_id, db=db)
+    
     # 2) Build OAuth flow
     flow = Flow.from_client_config(
         {
