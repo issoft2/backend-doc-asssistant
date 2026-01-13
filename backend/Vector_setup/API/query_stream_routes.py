@@ -36,7 +36,6 @@ async def query_knowledge_stream(
     current_user: TokenUser = Depends(get_current_user_from_header_or_query),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
-    tenant: Tenant = Depends(ensure_tenant_active)
 
 ) -> StreamingResponse:
     """
