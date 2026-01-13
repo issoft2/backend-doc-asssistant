@@ -130,10 +130,6 @@ export function apiHeartbeat() {
   api.post('/auth/users/heartbeat')
 }
 
-export function apiStopHeartbeat() {
-  api.post('/auth/user/stop/heartbeat')
-}
-
 export function apiLogout() {
   return api.post('/auth/logout')
 }
