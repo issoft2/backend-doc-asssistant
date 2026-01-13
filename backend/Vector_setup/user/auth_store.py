@@ -95,3 +95,15 @@ def login_tenant_request(
     if not db_user or not db_user.is_active:
          return None
     return db_user
+
+def get_db_user_by_email(
+    email: str,
+    tenant_id: str,
+    db: Session,
+) -> DBUser | None:
+    stmt = (
+        select(DBUser)
+        .where(DBUser.email == email)
+        .where(DBUser.tenant_id == tenant_id)
+    )
+    return db.exec(stmt).first()
