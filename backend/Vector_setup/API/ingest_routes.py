@@ -125,7 +125,7 @@ def configure_company_and_collection(
         now = datetime.utcnow()
         tenant = Tenant(
             id = req.tenant_id,
-            name = req.tenant_id
+            name = req.name,
             plan = req.plan,
             subscription_status="trialing",
             trial_ends_at=now + timedelta(days=60),
