@@ -20,10 +20,10 @@ export function useQueryStream() {
   const suggestions = ref<string[]>([])
   const isStreaming = ref(false)
   const abortController = ref<AbortController | null>(null)
-  const chartSpec = ref<ChartSpec[] | null>(null) // 2) inside composable
 
+  // Exposed to the page; watcher there attaches it to the last assistant message
+  const chartSpec = ref<ChartSpec[] | null>(null)
 
-  // simple typewriter over a final string
   const startTyping = (text: string, speed = TYPE_SPEED_MS) => {
     answer.value = ''
     if (!text) return
@@ -51,6 +51,7 @@ export function useQueryStream() {
     suggestions.value = []
     statuses.value = []
     status.value = ''
+    chartSpec.value = null
     isStreaming.value = true
 
     // Build query params
@@ -61,7 +62,6 @@ export function useQueryStream() {
       collection_name: payload.collection_name ?? '',
     })
 
-    // Attach token as query param (to match your backend)
     const token = localStorage.getItem('access_token')
     if (token) {
       params.set('token', token)
@@ -86,6 +86,7 @@ export function useQueryStream() {
       if (response.status === 401 || response.status === 403) {
         logout()
         isStreaming.value = false
+        abortController.value = null
         return
       }
 
@@ -93,13 +94,14 @@ export function useQueryStream() {
         status.value = `Error: stream failed with status ${response.status}`
         statuses.value.push(status.value)
         isStreaming.value = false
+        abortController.value = null
         return
       }
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder('utf-8')
       let buffer = ''
-      let fullAnswer = '' // accumulate all tokens here
+      let fullAnswer = ''
 
       while (true) {
         const { value, done } = await reader.read()
@@ -121,7 +123,8 @@ export function useQueryStream() {
             if (line.startsWith('event:')) {
               eventType = line.slice('event:'.length).trim()
             } else if (line.startsWith('data:')) {
-              // allow multi-line data; keep appending
+              // allow multi-line data; keep appending with newline
+              if (data) data += '\n'
               data += line.slice('data:'.length).trim()
             }
           }
@@ -130,36 +133,65 @@ export function useQueryStream() {
             const msg = data || ''
             status.value = msg
             if (msg) statuses.value.push(msg)
+
           } else if (eventType === 'token') {
             const delta = (data || '').replace(/<\|n\|>/g, '\n')
             fullAnswer += delta
+
           } else if (eventType === 'suggestions') {
+            // Robust suggestions handler: supports array or { suggestions: [...] }
             try {
               const parsed = JSON.parse(data || '[]')
-              suggestions.value = Array.isArray(parsed) ? parsed : []
-            } catch {
+              if (Array.isArray(parsed)) {
+                suggestions.value = parsed
+              } else if (parsed && Array.isArray((parsed as any).suggestions)) {
+                suggestions.value = (parsed as any).suggestions
+              } else {
+                suggestions.value = []
+              }
+            } catch (e) {
+              console.error('Failed to parse suggestions payload', e, data)
               suggestions.value = []
             }
-           
-          } else if (eventType === 'chart') {
-             try{
-               const payload = JSON.parse(data) as { charts: ChartSpec[]} 
 
-               chartSpec.value = payload.charts ?? []
-             }catch (e){
+          } else if (eventType === 'chart') {
+            // Robust chart handler: supports multiple payload shapes
+            try {
+              const parsed = JSON.parse(data || '{}') as
+                | { charts: ChartSpec[] }
+                | { chart: ChartSpec }
+                | ChartSpec[]
+                | ChartSpec
+                | null
+
+              let charts: ChartSpec[] = []
+
+              if (Array.isArray(parsed)) {
+                charts = parsed
+              } else if (parsed && 'charts' in parsed && Array.isArray((parsed as any).charts)) {
+                charts = (parsed as any).charts
+              } else if (parsed && 'chart' in parsed) {
+                charts = [(parsed as any).chart]
+              } else if (parsed && typeof parsed === 'object') {
+                charts = [parsed as ChartSpec]
+              }
+
+              chartSpec.value = charts.length ? charts : null
+            } catch (e) {
               console.error('Failed to parse chart payload', e, data)
               chartSpec.value = null
-             }
-             
+            }
+
           } else if (eventType === 'done') {
             status.value = 'Completed'
             statuses.value.push('Completed')
             isStreaming.value = false
-            // stop low-level stream and start fake typing
+
+            // Stop the underlying stream
             controller.abort()
             abortController.value = null
 
-            // kick off typewriter into `answer`
+            // Kick off typewriter into `answer`
             startTyping(fullAnswer)
             return
           }
@@ -170,7 +202,6 @@ export function useQueryStream() {
       isStreaming.value = false
       abortController.value = null
 
-      // Fallback: if we got a fullAnswer but no done event, still type it out
       if (fullAnswer) {
         startTyping(fullAnswer)
       }
@@ -208,6 +239,4 @@ export function useQueryStream() {
     stopStream,
     logout,
   }
-
-
 }
