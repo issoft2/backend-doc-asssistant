@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, s
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
-from sqlmodel import Session, select 
+from sqlmodel import Session, select, func
 from datetime import datetime, timedelta
 from Vector_setup.user.db import get_db, Tenant, Collection
 from Vector_setup.user.auth_jwt import ensure_tenant_active
