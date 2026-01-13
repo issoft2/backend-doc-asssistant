@@ -170,7 +170,7 @@ class FirstLoginVerifyRequest(BaseModel):
     token: str
 
 @router.post("/first-login/verify")
-def verify_first_login(payload: FirstLoginVerifyRequest,  tenant: Tenant = Depends(ensure_tenant_active),
+def verify_first_login(payload: FirstLoginVerifyRequest
 ):
     raw_token = payload.token
 
