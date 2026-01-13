@@ -9,6 +9,7 @@ from Vector_setup.user.password import verify_password
 from .auth_store import  get_users_by_email
 from Vector_setup.base.auth_models import  UserInDB
 from .db import DBUser
+import os
 
 
 
