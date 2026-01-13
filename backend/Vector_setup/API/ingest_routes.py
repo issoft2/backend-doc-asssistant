@@ -44,9 +44,10 @@ class CompanyOut(BaseModel):
     tenant_id: str
     display_name: str | None = None
     created_at: datetime
-    plan: str               # "free_trial", "starter", "pro", etc.
-    subscription_status: str  # "trialing", "active", "expired", "cancelled"
+    plan: str
+    subscription_status: str
     trial_ends_at: datetime | None
+
 
 
 class CollectionOut(BaseModel):
@@ -128,7 +129,7 @@ def configure_company_and_collection(
             id = req.tenant_id,
             name = req.name or req.tenant_id,  # ← ensure non-null
             plan = req.plan,
-            subscription_status="trialing",
+            subscription_status=req.subscription_status,
             trial_ends_at=now + timedelta(days=60),
         )
         db.add(tenant)
@@ -141,9 +142,12 @@ def configure_company_and_collection(
     )
 
     return CompanyOut(
-        status=result["status"],
         tenant_id=tenant.id,
         display_name=tenant.name,
+        created_at=tenant.created_at,
+        plan=tenant.plan,
+        subscription_status=tenant.subscription_status,
+        trial_ends_at=tenant.trial_ends_at,
     )
 
 
