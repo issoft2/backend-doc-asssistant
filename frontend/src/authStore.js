@@ -58,7 +58,7 @@ export async function stopHeartbeat() {
 
 export async function logout() {
   try {
-    apiStopHeartbeat()
+    stopHeartbeat()
 
     await apiLogout()
   } catch (e) {
