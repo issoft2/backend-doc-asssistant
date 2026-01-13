@@ -8,7 +8,7 @@ from jose import JWTError, jwt, ExpiredSignatureError
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from .auth_store import get_user_by_email
+from .auth_store import get_user_by_email, get_db_user_by_email
 from Vector_setup.base.auth_models import UserOut
 from .db import DBUser, Tenant, get_db
 import os
@@ -174,7 +174,7 @@ async def get_current_db_user(
     except JWTError:
         raise credentials_exception
 
-    user = get_user_by_email(email, tenant_id, db)
+    user = get_db_user_by_email(email, tenant_id, db)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
