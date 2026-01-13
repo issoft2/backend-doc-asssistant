@@ -11,12 +11,11 @@ from fastapi.security import OAuth2PasswordBearer
 
 from .auth_store import get_user_by_email, get_users_by_email
 from Vector_setup.base.auth_models import UserOut, UserInDB
-from .db import DBUser
+from .db import DBUser, Tenant, get_db
 import os
 from .password import verify_password
 from sqlmodel import Session
-
-from .db import get_db
+from Vector_setup.API.auth_router import get_current_user 
 
 
 SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "CHANGE_ME_SUPER_SECRET") # "CHANGE_ME_IN_PROD"
@@ -144,3 +143,47 @@ def decode_and_get_user(token: str) -> TokenUser:
             detail="Could not validate token",
         )
    
+   
+def get_current_tenant(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+) -> Tenant:
+    tenant = db.get(Tenant, current_user.tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant not found"
+        )
+    return tenant
+
+def ensure_tenant_active(
+    tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
+
+) -> Tenant:
+    # Vendor bypass sunscription/trial checks
+    if current_user.role == "vendor":
+        return tenant
+    
+    now = datetime.utcnow()
+    if (
+        tenant.subscription_status == "trialing"
+        and tenant.trial_ends_at 
+        and tenant.trial_ends_at < now
+    ):
+        tenant.subscription_status = "expired"
+        db.add(tenant)
+        db.commit()
+        raise HTTPException(
+            status_code=402,
+            detail="Trial expired. Please contact support.",
+        )
+        
+    if tenant.subscription_status in ("expired", 'canceled'):
+        raise HTTPException(
+            status_code=402,
+            detail="Subscription inactive."
+        )
+        
+    return tenant               

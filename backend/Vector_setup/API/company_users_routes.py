@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from Vector_setup.user.db import get_db, DBUser
+from Vector_setup.user.db import get_db, DBUser, Tenant
 from Vector_setup.base.auth_models import UserOut, UserUpdate
 from Vector_setup.API.admin_permission import require_user_admin
+from Vector_setup.user.auth_jwt import ensure_tenant_active
+
 
 
 router = APIRouter(prefix="/company/users", tags=["company_users"])
@@ -21,7 +23,8 @@ def list_users(
 def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    _: DBUser = Depends(require_user_admin)
+    _: DBUser = Depends(require_user_admin),
+     tenant: Tenant = Depends(ensure_tenant_active),
 ):
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if not user:
@@ -33,7 +36,9 @@ def update_user(
     user_id: str,
     user_update: UserUpdate,
     db: Session = Depends(get_db),
-    _: DBUser = Depends(require_user_admin)
+    _: DBUser = Depends(require_user_admin),
+    tenant: Tenant = Depends(ensure_tenant_active),
+
 ):
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if not user:
@@ -54,7 +59,8 @@ def update_user(
 def toggle_user_active(  # ✅ renamed from deactivate_user
     user_id: str,
     db: Session = Depends(get_db),
-    _: DBUser = Depends(require_user_admin)
+    _: DBUser = Depends(require_user_admin),
+     tenant: Tenant = Depends(ensure_tenant_active),
 ):
     user = db.query(DBUser).filter(DBUser.id == user_id).first()  # ✅ consistent .first()
     if not user:

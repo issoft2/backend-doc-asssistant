@@ -7,69 +7,119 @@
       Use this page to configure companies and ingest policy documents.
     </p>
 
-    <!-- Vendor-only: configure company & first collection -->
-    <section
-      v-if="isVendor"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Configure company & first collection
-        </h2>
-        <p class="text-xs text-slate-500">
-          Only vendor can provision a new company/tenant and its first collection.
-        </p>
-      </header>
+    <!-- Vendor-only: configure company / tenant -->
+<section
+  v-if="isVendor"
+  class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
+>
+  <header>
+    <h2 class="text-sm font-semibold text-slate-900">
+      Configure company / tenant
+    </h2>
+    <p class="text-xs text-slate-500">
+      Only vendor can provision a new company/tenant. Collections are created separately within the tenant.
+    </p>
+  </header>
 
-      <form
-        class="grid gap-3 md:grid-cols-3 items-end"
-        @submit.prevent="onConfigure"
+  <form
+    class="grid gap-3 md:grid-cols-4 items-end"
+    @submit.prevent="onConfigure"
+  >
+    <!-- Tenant ID -->
+    <div class="space-y-1 md:col-span-2">
+      <label class="block text-xs font-medium text-slate-700">
+        Company / Tenant ID
+      </label>
+      <input
+        v-model="tenantId"
+        type="text"
+        class="w-full rounded-lg border px-3 py-2 text-sm"
+        placeholder="e.g. acme_corp"
+        required
+      />
+      <p class="text-[11px] text-slate-400">
+        Stable identifier used in API calls and routing.
+      </p>
+    </div>
+
+    <!-- Optional display name -->
+    <div class="space-y-1 md:col-span-2">
+      <label class="block text-xs font-medium text-slate-700">
+        Company name (display)
+      </label>
+      <input
+        v-model="tenantName"
+        type="text"
+        class="w-full rounded-lg border px-3 py-2 text-sm"
+        placeholder="e.g. Acme Corporation"
+      />
+      <p class="text-[11px] text-slate-400">
+        Optional friendly name shown in the UI.
+      </p>
+    </div>
+
+    <!-- Plan -->
+    <div class="space-y-1">
+      <label class="block text-xs font-medium text-slate-700">
+        Plan
+      </label>
+      <select
+        v-model="tenantPlan"
+        class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
       >
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Company / Tenant ID
-          </label>
-          <input
-            v-model="tenantId"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. acme_corp"
-            required
-          />
-        </div>
+        <option value="free_trial">Free trial</option>
+        <option value="starter">Starter</option>
+        <option value="pro">Pro</option>
+        <option value="enterprise">Enterprise</option>
+      </select>
+    </div>
 
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            First collection name
-          </label>
-          <input
-            v-model="collectionName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. policies"
-            required
-          />
-        </div>
+    <!-- Subscription status -->
+    <div class="space-y-1">
+      <label class="block text-xs font-medium text-slate-700">
+        Subscription status
+      </label>
+      <select
+        v-model="tenantSubscriptionStatus"
+        class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+      >
+        <option value="trialing">Trialing</option>
+        <option value="active">Active</option>
+        <option value="expired">Expired</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
 
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="configureLoading"
-          >
-            <span v-if="!configureLoading">Create company & collection</span>
-            <span v-else>Saving…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="configureMessage" class="text-xs text-emerald-600">
-        {{ configureMessage }}
+    <!-- Trial info (read-only hint) -->
+    <div class="space-y-1 md:col-span-2">
+      <p class="text-[11px] text-slate-500">
+        For <span class="font-semibold">free_trial</span> tenants with status
+        <span class="font-semibold">trialing</span>, the backend computes and stores
+        the trial end date. You can show or edit it in a separate tenant details view later.
       </p>
-      <p v-if="configureError" class="text-xs text-red-600">
-        {{ configureError }}
-      </p>
-    </section>
+    </div>
+
+    <!-- Submit -->
+    <div class="flex justify-end md:col-span-4">
+      <button
+        type="submit"
+        class="btn-primary"
+        :disabled="configureLoading"
+      >
+        <span v-if="!configureLoading">Create company / tenant</span>
+        <span v-else>Saving…</span>
+      </button>
+    </div>
+  </form>
+
+  <p v-if="configureMessage" class="text-xs text-emerald-600">
+    {{ configureMessage }}
+  </p>
+  <p v-if="configureError" class="text-xs text-red-600">
+    {{ configureError }}
+  </p>
+</section>
+
 
     <!-- Non-vendor info -->
     <section
@@ -526,6 +576,9 @@ const tenantId = ref('')
 const collectionName = ref('')
 const tenantCollectionName = ref('')
 const activeCollectionName = ref('')
+const tenantName = ref('')
+const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>('free_trial')
+const tenantSubscriptionStatus = ref<'trialing' | 'active' | 'expired' | 'cancelled'>('trialing')
 
 const docTitle = ref('')
 const file = ref<File | null>(null)
@@ -607,13 +660,21 @@ async function onConfigure() {
   try {
     await configureCompanyAndCollection({
       tenantId: tenantId.value,
-      collectionName: collectionName.value,
+      name: tenantName.value || tenantId.value,
+      plan: tenantPlan.value,
+      subscription_status: tenantSubscriptionStatus.value,
+
     })
-    configureMessage.value = `Company "${tenantId.value}" and collection "${collectionName.value}" created.`
+    configureMessage.value = `Company "${tenantId.value}"  created.`
+    tenantId.value = '',
+    tenantName.value = '',
+    tenantPlan.value = 'free_trial',
+    tenantSubscriptionStatus.value = 'trialing'
+
   } catch (e: any) {
     configureError.value =
       e.response?.data?.detail ||
-      'Failed to configure company and collection.'
+      'Failed to configure company'
   } finally {
     configureLoading.value = false
   }

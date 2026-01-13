@@ -2,6 +2,11 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, s
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
+from sqlmodel import Session, select 
+from datetime import datetime, timedelta
+from Vector_setup.user.db import get_db, Tenant, Collection
+from Vector_setup.user.auth_jwt import ensure_tenant_active
+
 
 import logging
 
@@ -37,6 +42,10 @@ class TenantCollectionConfigOut(BaseModel):
 class CompanyOut(BaseModel):
     tenant_id: str
     display_name: str | None = None
+    created_at: datetime
+    plan: str               # "free_trial", "starter", "pro", etc.
+    subscription_status: str  # "trialing", "active", "expired", "cancelled"
+    trial_ends_at: datetime | None
 
 
 class CollectionOut(BaseModel):
@@ -98,22 +107,39 @@ def require_uploader(
 
 # ---------- Admin configuration APIs ----------
 
-@router.post("/companies/configure", response_model=TenantCollectionConfigOut)
+@router.post("/companies/configure", response_model=CompanyOut)
 def configure_company_and_collection(
     req: TenantCollectionConfigRequest,
     store: MultiTenantChromaStoreManager = Depends(get_store),
+    db: Session = Depends(get_db),
     current_user: UserOut = Depends(require_vendor),
 ):
     """
     Configure a company and its first collection in a single call.
     Only vendor can create/provision companies.
     """
-    # At this point require_vendor has already ensured role == "vendor".
+    
+    # 1) Ensure Tenant exisits in SQL
+    tenant = db.get(Tenant, req.tenant_id)
+    if not tenant:
+        now = datetime.utcnow()
+        tenant = Tenant(
+            id = req.tenant_id,
+            name = req.tenant_id
+            plan = req.plan,
+            subscription_status="trialing",
+            trial_ends_at=now + timedelta(days=60),
+        )
+        db.add(tenant)
+        db.commit()
+        db.refresh(tenant)
+    
+    # 2) Configure in Chroma 
     result = store.configure_tenant_and_collection(req)
-    return TenantCollectionConfigOut(
+    return CompanyOut(
         status=result["status"],
         tenant_id=result["tenant_id"],
-        collection_name=result["collection_name"],
+        display_name=result["tenant_id"],
     )
 
 
@@ -122,12 +148,30 @@ def configure_company_and_collection(
 class CollectionCreateIn(BaseModel):
     name: str  # just the collection/policy name
 
+# Enforce trial upload limits here
+def enforce_tenant_limits(
+    tenant: Tenant,
+    db: Session,
+):
+    # Example max 1 collections on trial
+    if tenant.plan == "free_trial":
+        count = db.exec(
+            select(func.count(Collection.id)).where(Collection.tenant_id == tenant.id)
+        ).one()[0]
+        if count >= 1:
+            raise HTTPException(
+                status_code=492,
+                detail="Trial Limit reached: maximum 1 collection. Please upgrade."
+            )
 
 @router.post("/collections", response_model=CollectionOut)
 def create_collection_for_current_tenant(
     req: CollectionCreateIn,
     store: MultiTenantChromaStoreManager = Depends(get_store),
+    db: Session = Depends(get_db),
     current_user: UserOut = Depends(require_collection_creator),
+    tenant: Tenant = Depends(ensure_tenant_active),
+
 ):
     """
     HR/Executive creates a collection for their own tenant.
@@ -135,17 +179,33 @@ def create_collection_for_current_tenant(
     Vendor cannot create collections.
     """
     tenant_id = current_user.tenant_id
+    
+    # enforce trial limit to one
+    enforce_tenant_limits(tenant, db)
 
+    # 2) Create in Chroma
     result = store.create_collection(
         CollectionCreateRequest(
             tenant_id=tenant_id,
             collection_name=req.name,
         )
     )
+    
+    # 3) Mirror in SQL
+    collection = Collection(
+        tenant_id=tenant_id,
+        name=result['collection_name'],
+        doc_count=result['document_count'],
+    )
+    db.add(collection)
+    db.commit()
+    db.refresh(collection)
+    
+    
     return CollectionOut(
         tenant_id=tenant_id,
-        collection_name=result["collection_name"],
-        doc_count=result["document_count"],
+        collection_name=collection.name,
+        doc_count=collection.doc_count,
     )
 
 
@@ -212,6 +272,7 @@ async def upload_document(
     file: UploadFile = File(...),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     current_user: UserOut = Depends(require_uploader),
+    tenant: Tenant = Depends(ensure_tenant_active),
 ):
     """
     Upload a document file and index it into the tenant's collection.

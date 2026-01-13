@@ -7,6 +7,24 @@ from datetime import datetime
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/users.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 
+
+class Tenant(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Billing / subscription 
+    plan: str = Field(default="free_trial")
+    subscription_status: str = Field(default="trialing") # trialing, active, expired, cancelled
+    trial_ends_at: datetime | None = Field(default=None)
+    
+class Collection(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    tenant_id: str = Field(index=True, foreign_key="tenant.id")
+    name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    doc_count: int = Field(default=0)
+     
 class DBUser(SQLModel, table=True):
     __tablename__ = "users"
     

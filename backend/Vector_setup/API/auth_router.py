@@ -7,13 +7,15 @@ from sqlmodel import Session, select
 from Vector_setup.base.auth_models import UserCreate, UserOut, LoginRequestTenant
 from Vector_setup.user.auth_store import create_user, get_user_by_email, login_tenant_request, create_first_login_token
 from Vector_setup.user.auth_jwt import create_access_token, authenticate_user, ACCESS_TOKEN_EXPIRE_MINUTES
-from Vector_setup.user.db import get_db, FirstLoginToken, engine, DBUser
+from Vector_setup.user.db import get_db, FirstLoginToken, engine, DBUser, Tenant
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.services.email_service import send_first_login_email  # your email helper
 from Vector_setup.user.password import verify_password, get_password_hash
 import os
 import logging
 from pydantic import BaseModel
+from Vector_setup.user.auth_jwt import ensure_tenant_active
+
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ def signup(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(get_current_user),
+    tenant: Tenant = Depends(ensure_tenant_active),
 ) -> UserOut:
      # 1) Block employees completely
     if current_user.role == "employee":
@@ -83,6 +86,8 @@ def signup(
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active),
+
 ):
     # form_data.username holds the email
     auth_result = authenticate_user(form_data.username, form_data.password, db)
@@ -136,6 +141,8 @@ def login(
 def login_tenant(
     body: LoginRequestTenant,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active),
+
 ):
     user = login_tenant_request(body, db)
     if not user:
@@ -163,7 +170,8 @@ class FirstLoginVerifyRequest(BaseModel):
     token: str
 
 @router.post("/first-login/verify")
-def verify_first_login(payload: FirstLoginVerifyRequest):
+def verify_first_login(payload: FirstLoginVerifyRequest,  tenant: Tenant = Depends(ensure_tenant_active),
+):
     raw_token = payload.token
 
     with Session(engine) as session:
@@ -210,7 +218,8 @@ class FirstLoginSetPasswordRequest(BaseModel):
     
 
 @router.post("/first-login/set-password")
-def set_first_login_password(payload: FirstLoginSetPasswordRequest):
+def set_first_login_password(payload: FirstLoginSetPasswordRequest,  tenant: Tenant = Depends(ensure_tenant_active),
+):
     raw_token = payload.token
     new_password = payload.new_password
 

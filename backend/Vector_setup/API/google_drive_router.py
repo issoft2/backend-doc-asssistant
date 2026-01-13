@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlencode
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-from Vector_setup.user.db import DBUser, TenantGoogleDriveConfig, IngestedDriveFile,  get_db
+from Vector_setup.user.db import DBUser, TenantGoogleDriveConfig, IngestedDriveFile,  get_db, Tenant
 from Vector_setup.API.admin_permission import require_tenant_admin
 from Vector_setup.user.auth_jwt import get_current_user
 import os
@@ -19,6 +19,8 @@ from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.services.extraction_documents_service import extract_text_from_upload
 from googleapiclient.errors import HttpError
 import requests
+from Vector_setup.user.auth_jwt import ensure_tenant_active
+
 
 
 
@@ -47,6 +49,7 @@ router = APIRouter(prefix="/google-drive", tags=["google-drive"])
 @router.get("/auth-url")
 def get_google_drive_auth_url(
     current_user: DBUser = Depends(require_tenant_admin),
+    tenant: Tenant = Depends(ensure_tenant_active),
 ):
     tenant_id = current_user.tenant_id
 
@@ -84,6 +87,8 @@ def google_drive_callback(
     code: str,
     state: str,
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active)
+
 ):
     # 1) Parse tenant_id from state
     state_params = parse_qs(state)
@@ -147,6 +152,8 @@ def google_drive_callback(
 def google_drive_status(
     current_user: DBUser = Depends(require_tenant_admin),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active)
+
 ):
     cfg = (
         db.query(TenantGoogleDriveConfig)
@@ -218,6 +225,8 @@ def list_drive_files(
     recursive: bool = False,
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(require_tenant_admin),
+    tenant: Tenant = Depends(ensure_tenant_active),
+
     
 ):
     """
@@ -381,6 +390,8 @@ async def ingest_drive_file(
     db: Session = Depends(get_db),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     current_user: DBUser = Depends(require_tenant_admin),
+    tenant: Tenant = Depends(ensure_tenant_active)
+
 ):
     """
     Download a file from Google Drive for this tenant, and ingest it into a collection.

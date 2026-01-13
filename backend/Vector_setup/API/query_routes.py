@@ -6,13 +6,14 @@ from typing import Optional
 from sqlmodel import Session
 
 
-from Vector_setup.user.db import get_db
+from Vector_setup.user.db import get_db, Tenant
 from Vector_setup.API.ingest_routes import get_store
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.user.auth_jwt import get_current_user, TokenUser  # <-- add this
 from Vector_setup.base.auth_models import UserOut
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn
 from Vector_setup.chat_history.conversation_store import list_conversations_for_user, ConversationSummary, get_conversation_details_for_user, delete_conversation
+from Vector_setup.user.auth_jwt import ensure_tenant_active
 
 
 router = APIRouter()
@@ -33,6 +34,7 @@ async def query_policies_api(
     current_user: TokenUser = Depends(get_current_user),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active)
 ):
     
     # 2) Get last 3 turns of chat this user + tenant
@@ -72,6 +74,7 @@ async def query_policies_api(
 def list_user_conversations(
     current_user: TokenUser = Depends(get_current_user),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active),
 ):
     return list_conversations_for_user(
         db=db,
@@ -87,6 +90,7 @@ def get_conversation_detail(
     conversation_id: str,
     current_user: TokenUser = Depends(get_current_user),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active),
 ):
    return get_conversation_details_for_user(
        db=db,

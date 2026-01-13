@@ -8,7 +8,7 @@ from LLM_Config.system_user_prompt import create_suggestion_prompt
 from LLM_Config.llm_setup import suggestion_llm_client
 
 
-from Vector_setup.user.db import get_db
+from Vector_setup.user.db import get_db, Tenant
 from Vector_setup.API.ingest_routes import get_store
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.user.auth_jwt import (
@@ -17,6 +17,8 @@ from Vector_setup.user.auth_jwt import (
 )
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn, get_last_doc_id
 from LLM_Config.llm_pipeline import llm_pipeline_stream
+from Vector_setup.user.auth_jwt import ensure_tenant_active
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,8 @@ async def query_knowledge_stream(
     current_user: TokenUser = Depends(get_current_user_from_header_or_query),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
+    tenant: Tenant = Depends(ensure_tenant_active)
+
 ) -> StreamingResponse:
     """
     Streaming RAG query endpoint using Server-Sent Events (SSE).
