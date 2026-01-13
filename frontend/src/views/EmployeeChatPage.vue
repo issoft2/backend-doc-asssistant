@@ -2,7 +2,9 @@
   <div class="min-h-screen bg-gradient-to-br from-slate-950 via-black to-slate-900 flex flex-col lg:flex-row px-4 py-6 gap-6">
     <div class="flex flex-col lg:flex-row w-full max-w-7xl mx-auto gap-6">
       <!-- Sidebar -->
-      <aside class="bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl flex flex-col w-full lg:w-80 lg:max-w-sm order-2 lg:order-1">
+      <aside
+        class="bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl flex flex-col w-full lg:w-80 lg:max-w-sm order-2 lg:order-1"
+      >
         <div class="p-4 flex items-center justify-between border-b border-slate-800/70">
           <h2 class="text-sm font-bold bg-gradient-to-r from-slate-100 to-slate-200 bg-clip-text text-transparent">
             Conversations
@@ -43,8 +45,12 @@
               title="Delete conversation"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m7-10V4a1 1 0 00-1-1h-4M21 4H7M21 4H3m0 0h4M4 4h16" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m7-10V4a1 1 0 00-1-1h-4M21 4H7M21 4H3m0 0h4M4 4h16"
+                />
               </svg>
             </button>
           </div>
@@ -52,8 +58,12 @@
           <div v-if="!conversations.length" class="text-center py-12 px-4">
             <div class="w-16 h-16 mx-auto mb-4 bg-slate-800/50 rounded-2xl flex items-center justify-center">
               <svg class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
               </svg>
             </div>
             <p class="text-sm text-slate-500 font-medium">No conversations yet</p>
@@ -63,7 +73,9 @@
       </aside>
 
       <!-- Main chat/chart area -->
-      <main class="flex flex-col flex-1 bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl overflow-hidden order-1 lg:order-2">
+      <main
+        class="flex flex-col flex-1 bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl overflow-hidden order-1 lg:order-2"
+      >
         <!-- Header -->
         <header class="p-6 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
           <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -122,7 +134,7 @@
           >
             <div
               v-for="(msg, idx) in messages"
-              :key="msg.id ?? idx"
+              :key="msg.id"
               class="group space-y-4"
             >
               <!-- User message -->
@@ -133,9 +145,7 @@
                 >
                   <!-- Edit mode -->
                   <div v-if="editingMessageId === msg.id" class="space-y-3">
-                    <div
-                      class="flex items-center justify-between text-[11px] text-indigo-100/80"
-                    >
+                    <div class="flex items-center justify-between text-[11px] text-indigo-100/80">
                       <span class="inline-flex items-center gap-1">
                         <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                           <path
@@ -150,7 +160,7 @@
 
                     <textarea
                       v-model="editBuffer"
-                      class="w-full min-h-[72px] max-h-40 cire-size-none rounded-2xl border-2 border-indigo-300/70
+                      class="w-full min-h-[72px] max-h-40 resize-none rounded-2xl border-2 border-indigo-300/70
                              bg-slate-900/80 px-4 py-3 text-sm text-slate-50 placeholder:text-slate-400
                              focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400
                              shadow-lg transition-all duration-200"
@@ -279,21 +289,25 @@
                         </div>
                       </div>
                     </div>
-
-                    <!-- TTS & sources blocks stay as in your original page -->
-                    <!-- ... -->
                   </template>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- Empty state (unchanged from your original) -->
-          <section v-else class="flex-1 flex flex-col items-center justify-center text-center px-8 py-24">
+          <!-- Empty state -->
+          <section
+            v-else
+            class="flex-1 flex flex-col items-center justify-center text-center px-8 py-24"
+          >
             <div class="w-24 h-24 bg-slate-800/50 rounded-3xl flex items-center justify-center mb-8 shadow-xl">
               <svg class="w-12 h-12 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
             <h3 class="text-lg font-bold text-slate-200 mb-2">Welcome to your AI Assistant</h3>
@@ -317,9 +331,10 @@
           </section>
 
           <!-- Input form -->
-          <form @submit.prevent="onAsk" class="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
-            <!-- Status indicators stay as you had them -->
-
+          <form
+            @submit.prevent="onAsk"
+            class="p-6 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-sm"
+          >
             <div class="flex items-end gap-3">
               <div class="flex-1 relative">
                 <label class="sr-only">Your question</label>
@@ -333,6 +348,21 @@
                   :disabled="isStreaming || loading"
                   @keydown.enter.exact.prevent="handleEnter"
                 ></textarea>
+
+                <!-- Suggestions -->
+                <div
+                  v-if="suggestions && suggestions.length"
+                  class="mt-3 flex flex-wrap gap-2"
+                >
+                  <button
+                    v-for="(s, i) in suggestions"
+                    :key="i"
+                    class="text-xs px-3 py-1.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-100 border border-slate-700/80 transition-colors"
+                    @click.prevent="onSuggestionClick(s)"
+                  >
+                    {{ s }}
+                  </button>
+                </div>
               </div>
 
               <button
@@ -347,19 +377,20 @@
                   stroke="currentColor"
                   stroke-width="2.5"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 19.5 15-7.5-15-7.5 3 7.5-3 7.5zM10.5 12h9" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="m4.5 19.5 15-7.5-15-7.5 3 7.5-3 7.5zM10.5 12h9"
+                  />
                 </svg>
               </button>
             </div>
-
-            <!-- Error block unchanged -->
           </form>
         </div>
       </main>
     </div>
   </div>
 </template>
-
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
@@ -369,19 +400,17 @@ import { useQueryStream, type ChartSpec } from '../composables/useQueryStream'
 import MarkdownText from '../components/MarkdownText.vue'
 import ChartRenderer from '../components/ChartRenderer.vue'
 
-
 // ----- Streaming composable -----
 const {
-answer: streamedAnswer,
-status: streamStatus,
-statuses: statusSteps,
-isStreaming,
-suggestions,
-chartSpec,
-startStream,
-stopStream,
+  answer: streamedAnswer,
+  status: streamStatus,
+  statuses: statusSteps,
+  isStreaming,
+  suggestions,
+  chartSpec,
+  startStream,
+  stopStream,
 } = useQueryStream()
-
 
 // ----- Form + UI state -----
 const question = ref('')
@@ -390,18 +419,19 @@ const error = ref('')
 
 // ----- Messages -----
 type ChatMessage = {
-role: 'user' | 'assistant'
-text: string
-sources?: string[]
-chart_specs?: ChartSpec[]
-isEditing?: boolean
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  sources?: string[]
+  chart_specs?: ChartSpec[]
+  isEditing?: boolean
 }
 const messages = ref<ChatMessage[]>([])
 
 const editBuffer = ref('')
 const editingMessageId = ref<string | null>(null)
 
-function startEditing(msg: ChatMessage)   {
+function startEditing(msg: ChatMessage) {
   editingMessageId.value = msg.id
   editBuffer.value = msg.text
 }
@@ -410,244 +440,214 @@ function cancelEditing() {
   editingMessageId.value = null
   editBuffer.value = ''
 }
+
 // ----- Conversation/session state -----
 const conversationId = ref(uuidv4())
 const selectedConversationId = ref(conversationId.value)
 const conversations = ref<any[]>([])
-
 
 // ----- TTS -----
 const isSpeaking = ref(false)
 const voices = ref<SpeechSynthesisVoice[]>([])
 const selectedVoiceName = ref('')
 
-
-
 // ----- Voices -----
 function loadVoices() {
-if (!('speechSynthesis' in window)) return
-const list = window.speechSynthesis.getVoices()
-voices.value = list
-if (!selectedVoiceName.value && list.length) {
-const enVoice =
-list.find(v => v.lang?.toLowerCase().startsWith('en')) ?? list[0]
-selectedVoiceName.value = enVoice.name
+  if (!('speechSynthesis' in window)) return
+  const list = window.speechSynthesis.getVoices()
+  voices.value = list
+  if (!selectedVoiceName.value && list.length) {
+    const enVoice = list.find(v => v.lang?.toLowerCase().startsWith('en')) ?? list[0]
+    selectedVoiceName.value = enVoice.name
+  }
 }
-}
-
 
 onMounted(() => {
-if ('speechSynthesis' in window) {
-loadVoices()
-window.speechSynthesis.onvoiceschanged = loadVoices
-}
-loadConversations()
+  if ('speechSynthesis' in window) {
+    loadVoices()
+    window.speechSynthesis.onvoiceschanged = loadVoices
+  }
+  loadConversations()
 })
-
 
 // ----- TTS helpers -----
 function speak(text: string) {
-if (!('speechSynthesis' in window)) {
-alert('Text-to-speech is not supported in this browser.')
-return
+  if (!('speechSynthesis' in window)) {
+    alert('Text-to-speech is not supported in this browser.')
+    return
+  }
+  if (!text) return
+
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+
+  const voice = voices.value.find(v => v.name === selectedVoiceName.value) ?? null
+  if (voice) {
+    utterance.voice = voice
+    utterance.lang = voice.lang
+  }
+
+  utterance.onstart = () => {
+    isSpeaking.value = true
+  }
+  utterance.onend = () => {
+    isSpeaking.value = false
+  }
+  utterance.onerror = () => {
+    isSpeaking.value = false
+  }
+
+  window.speechSynthesis.speak(utterance)
 }
-if (!text) return
-
-
-window.speechSynthesis.cancel()
-const utterance = new SpeechSynthesisUtterance(text)
-
-
-const voice =
-voices.value.find(v => v.name === selectedVoiceName.value) ?? null
-if (voice) {
-utterance.voice = voice
-utterance.lang = voice.lang
-}
-
-
-utterance.onstart = () => {
-isSpeaking.value = true
-}
-utterance.onend = () => {
-isSpeaking.value = false
-}
-utterance.onerror = () => {
-isSpeaking.value = false
-}
-
-
-window.speechSynthesis.speak(utterance)
-}
-
 
 function stopSpeaking() {
-if ('speechSynthesis' in window) {
-window.speechSynthesis.cancel()
-isSpeaking.value = false
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+    isSpeaking.value = false
+  }
 }
-}
-
 
 // ----- Conversations -----
 function formatDate(v?: string) {
-if (!v) return ''
-return new Date(v).toLocaleString()
+  if (!v) return ''
+  return new Date(v).toLocaleString()
 }
-
 
 async function loadConversations() {
-try {
-const res = await listConversations()
-conversations.value = res.data || []
-} catch {
-// ignore for now
+  try {
+    const res = await listConversations()
+    conversations.value = res.data || []
+  } catch {
+    // ignore for now
+  }
 }
-}
-
 
 async function openConversation(convId: string) {
-selectedConversationId.value = convId
-conversationId.value = convId
-error.value = ''
-loading.value = true
-try {
-const res = await getConversation(convId)
-const history = res.data.messages || []
-messages.value = history.map(([role, content, meta]: [string, string, any?]) => ({
-role: role as 'user' | 'assistant',
-text: content,
-sources: [],
-chart_spec: meta?.chart_spec || undefined,
-}))
-} catch (e: any) {
-error.value = e?.response?.data?.detail || 'Failed to load conversation.'
-} finally {
-loading.value = false
-}
+  selectedConversationId.value = convId
+  conversationId.value = convId
+  error.value = ''
+  loading.value = true
+  try {
+    const res = await getConversation(convId)
+    const history = res.data.messages || []
+    messages.value = history.map(
+      ([role, content, meta]: [string, string, any?], index: number) => ({
+        id: meta?.id ?? `${convId}-${index}`,
+        role: role as 'user' | 'assistant',
+        text: content,
+        sources: meta?.sources || [],
+        chart_specs: meta?.chart_specs || (meta?.chart_spec ? [meta.chart_spec] : []),
+      }),
+    )
+  } catch (e: any) {
+    error.value = e?.response?.data?.detail || 'Failed to load conversation.'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function resendEdited(msg: ChatMessage) {
   const newText = editBuffer.value.trim()
-  if(!newText) return
+  if (!newText) return
 
-  // optionally update displayed text
   msg.text = newText
-
-  // exit edit mode
   editingMessageId.value = null
   editBuffer.value = ''
 
-  // stop any current stream and resend as a new turn in the same conversation
   await stopStream()
-  const payload = {
+  await startStream({
     question: newText,
-    conversation_id: selectedConversationId.value
-  }
-  await startStream(payload)
+    conversation_id: selectedConversationId.value,
+  })
 }
 
 async function startNewConversation() {
-conversationId.value = uuidv4()
-selectedConversationId.value = conversationId.value
-messages.value = []
-question.value = ''
+  conversationId.value = uuidv4()
+  selectedConversationId.value = conversationId.value
+  messages.value = []
+  question.value = ''
 }
-
 
 // ----- Streaming integration -----
 watch(streamedAnswer, (val) => {
-const lastMsg = messages.value[messages.value.length - 1]
-if (lastMsg?.role === 'assistant') {
-lastMsg.text = val
-}
+  const lastMsg = messages.value[messages.value.length - 1]
+  if (lastMsg?.role === 'assistant') {
+    lastMsg.text = val
+  }
 })
 
 watch(chartSpec, (newVal) => {
   if (!newVal || !newVal.length) return
-
   const lastMsg = [...messages.value].reverse().find(m => m.role === 'assistant')
-  
   if (lastMsg) {
     lastMsg.chart_specs = newVal
   }
 })
 
-
 // ----- Main submit handler -----
 const onAsk = async () => {
-if (!question.value.trim() || loading.value || isStreaming.value) return
+  if (!question.value.trim() || loading.value || isStreaming.value) return
 
+  messages.value.push({
+    id: uuidv4(),
+    role: 'user',
+    text: question.value,
+    sources: [],
+  })
 
-// Add user message
-messages.value.push({
-role: 'user',
-text: question.value,
-sources: [],
-})
+  messages.value.push({
+    id: uuidv4(),
+    role: 'assistant',
+    text: '',
+    sources: [],
+  })
 
+  error.value = ''
+  const asked = question.value
+  question.value = ''
 
-// Add empty assistant message to stream into
-messages.value.push({
-role: 'assistant',
-text: '',
-sources: [],
-})
-
-
-error.value = ''
-const asked = question.value
-question.value = ''
-
-
-// Start streaming
-startStream({
-question: asked,
-conversation_id: conversationId.value,
-})
+  startStream({
+    question: asked,
+    conversation_id: conversationId.value,
+  })
 }
-
 
 // Disable send while busy or empty
 const isSubmitDisabled = computed(() => {
-return loading.value || isStreaming.value || !question.value.trim()
+  return loading.value || isStreaming.value || !question.value.trim()
 })
-
 
 // Suggestions reuse onAsk
 async function onSuggestionClick(s: string) {
-if (loading.value || isStreaming.value) return
-question.value = s
-await onAsk()
+  if (loading.value || isStreaming.value) return
+  question.value = s
+  await onAsk()
 }
-
 
 async function handleEnter() {
-if (loading.value || isStreaming.value) return
-await onAsk()
+  if (loading.value || isStreaming.value) return
+  await onAsk()
 }
-
 
 // Delete conversation
 async function onDeleteConversation(convId: string) {
-const ok = window.confirm('Delete this conversation and its messages?')
-if (!ok) return
+  const ok = window.confirm('Delete this conversation and its messages?')
+  if (!ok) return
 
-
-try {
-await deleteConversation(convId)
-conversations.value = conversations.value.filter(
-c => c.conversation_id !== convId,
-)
-if (selectedConversationId.value === convId) {
-startNewConversation()
-}
-} catch (e: any) {
-error.value =
-e?.response?.data?.detail || 'Failed to delete conversation.'
-}
+  try {
+    await deleteConversation(convId)
+    conversations.value = conversations.value.filter(
+      c => c.conversation_id !== convId,
+    )
+    if (selectedConversationId.value === convId) {
+      startNewConversation()
+    }
+  } catch (e: any) {
+    error.value = e?.response?.data?.detail || 'Failed to delete conversation.'
+  }
 }
 </script>
+
 <style scoped>
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -671,7 +671,8 @@ table {
   width: 100%;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #d4d4d4;
   padding: 4px 8px;
 }
@@ -680,5 +681,4 @@ th {
   background-color: #f5f5f5;
   text-align: left;
 }
-
 </style>
