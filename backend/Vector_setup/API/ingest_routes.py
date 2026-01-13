@@ -16,6 +16,7 @@ from Vector_setup.base.db_setup_management import (
     MultiTenantChromaStoreManager,
     CollectionCreateRequest,
     CompanyProvisionRequest,
+    CompanyCreateRequest,
 )
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.base.auth_models import UserOut
@@ -109,7 +110,7 @@ def require_uploader(
 
 @router.post("/companies/configure", response_model=CompanyOut)
 def configure_company_and_collection(
-    req: CompanyOut,
+    req: CompanyCreateRequest,
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(require_vendor),

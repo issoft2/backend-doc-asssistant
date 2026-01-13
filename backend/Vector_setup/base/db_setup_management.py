@@ -14,7 +14,12 @@ from Vector_setup.embeddings.embedding_service import EmbeddingService
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-
+class CompanyCreateRequest(BaseModel):
+    tenant_id: str
+    name: str | None = None
+    plan: str = "free_trial"
+    subscription_status: str = "trialing"
+    
 class TenantCollectionConfigRequest(BaseModel):
     tenant_id: str
     collection_name: Optional[str] = None
