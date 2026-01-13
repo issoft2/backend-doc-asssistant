@@ -277,17 +277,35 @@ def list_company_collections(
             detail="Tenant not found",
         )
 
+    # List collection names from your store
     names = store.list_collections(tenant_id)
-
-    return [
-        CollectionOut(
+    
+    collections_out = list[CollectionOut] = []
+    
+    for name in names:
+        # Get underlying Chroma collection for this tenant + collection
+        # Adjust method name/signature to your actual manager
+        chroma_collection = store.get_collection(
             tenant_id=tenant_id,
-            collection_name=n,
-            doc_count=0,  # later wire real counts from Chroma if needed
+            collection_name=name
         )
-        for n in names
-    ]
-
+        
+        # Chroma Collection has .count() -> number of items/embeddings in the collection 
+        try:
+            doc_count = chroma_collection.count()
+        except Exception:
+            doc_count = 0
+            
+        collections_out.append(
+            CollectionOut(
+                tenant_id=tenant_id,
+                collection_name=name,
+                doc_count=doc_count,
+            )
+        )
+    return collections_out    
+    
+    
 
 
 # ---------- Document upload (production) ----------

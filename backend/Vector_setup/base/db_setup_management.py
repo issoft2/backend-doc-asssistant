@@ -122,6 +122,7 @@ class MultiTenantChromaStoreManager:
             self.persist_dir,
             embedding_model_name,
         )
+           
 
     @property
     def client(self) -> PersistentClient:
@@ -177,10 +178,17 @@ class MultiTenantChromaStoreManager:
 
         return chunks
 
+
+
+
+
     # -----------------------
     # Tenant / collection API
     # -----------------------
     
+    def get_collection(self, tenant_id: str, collection_name: str):
+        full_name = f"{tenant_id}__{collection_name}"
+        return self._client.get_or_create_collection(name=full_name)     
 
     def configure_tenant_and_collection(self, req: TenantCollectionConfigRequest) -> dict:
         provision_result = self.provision_company_space(
