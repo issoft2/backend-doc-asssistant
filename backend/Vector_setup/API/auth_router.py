@@ -88,8 +88,6 @@ def signup(
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
-    tenant: Tenant = Depends(ensure_tenant_active),
-
 ):
     # form_data.username holds the email
     auth_result = authenticate_user(form_data.username, form_data.password, db)
