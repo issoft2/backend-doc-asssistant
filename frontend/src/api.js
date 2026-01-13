@@ -135,7 +135,7 @@ export function apiStopHeartbeat() {
 }
 
 export function apiLogout() {
-  return api.post('/logout')
+  return api.post('/auth/logout')
 }
 
 
