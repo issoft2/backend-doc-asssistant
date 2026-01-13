@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 from Vector_setup.base.db_setup_management import (
     MultiTenantChromaStoreManager,
-    TenantCollectionConfigRequest,
     CollectionCreateRequest,
+    CompanyProvisionRequest,
 )
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.base.auth_models import UserOut
@@ -109,7 +109,7 @@ def require_uploader(
 
 @router.post("/companies/configure", response_model=CompanyOut)
 def configure_company_and_collection(
-    req: TenantCollectionConfigRequest,
+    req: CompanyOut,
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
     current_user: UserOut = Depends(require_vendor),
@@ -135,11 +135,14 @@ def configure_company_and_collection(
         db.refresh(tenant)
     
     # 2) Configure in Chroma 
-    result = store.configure_tenant_and_collection(req)
+    result =store.provision_company_space(
+        CompanyProvisionRequest(tenant_id=req.tenant_id)
+    )
+
     return CompanyOut(
         status=result["status"],
-        tenant_id=result["tenant_id"],
-        display_name=result["tenant_id"],
+        tenant_id=tenant.id,
+        display_name=tenant.name,
     )
 
 

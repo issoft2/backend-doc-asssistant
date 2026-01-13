@@ -175,6 +175,7 @@ class MultiTenantChromaStoreManager:
     # -----------------------
     # Tenant / collection API
     # -----------------------
+    
 
     def configure_tenant_and_collection(self, req: TenantCollectionConfigRequest) -> dict:
         provision_result = self.provision_company_space(
