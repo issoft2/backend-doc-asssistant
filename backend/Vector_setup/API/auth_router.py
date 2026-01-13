@@ -270,7 +270,7 @@ def set_first_login_password(payload: FirstLoginSetPasswordRequest
 @router.post("/logout")
 def logout(
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_user),
+    current_user: DBUser = Depends(get_current_db_user),
 ):
     # mark user as offline
     current_user.is_online = False
@@ -298,19 +298,4 @@ def heartbeat(
         db.refresh(current_user)
     except Exception as e:
         logger.warning("Error marking the use status to online")    
-
-
-@router.post("//user/stop/heartbeat")
-def update_user_presence(
-    current_user: DBUser = Depends(get_current_db_user),
-    db: Session = Depends(get_db),
-):
-    current_user.last_seen_at = datetime.utcnow()
-    try:
-        current_user.is_online = False
-        db.add(current_user)
-        db.commit()
-        db.refresh(current_user)
-    except Exception as e:
-        logger.warning(f"Error setting user offline: {e}")
     

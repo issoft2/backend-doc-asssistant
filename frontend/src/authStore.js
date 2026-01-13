@@ -52,14 +52,9 @@ export async function startHeartbeat() {
    apiHeartbeat().catch(() => {})
 }
 
-export async function stopHeartbeat() {
-  apiStopHeartbeat().catch(() => {})
-}
 
 export async function logout() {
   try {
-    stopHeartbeat()
-
     await apiLogout()
   } catch (e) {
     console.error("Error signing out of the system: ", e)
