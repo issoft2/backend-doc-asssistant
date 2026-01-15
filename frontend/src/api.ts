@@ -194,7 +194,6 @@ export function signup({
   phone,
   role,
   organization_id,
-  tenant_id,
 }: SignupPayload) {
   return api.post('/auth/signup', {
     email,
@@ -206,7 +205,6 @@ export function signup({
     phone,
     role,
     organization_id,
-    tenant_id,
   })
 }
 
