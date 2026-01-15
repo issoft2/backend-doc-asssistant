@@ -10,6 +10,8 @@ from Vector_setup.user.password import get_password_hash
 from fastapi import HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt, ExpiredSignatureError
+import os  # ← add this
+
 
 
 
