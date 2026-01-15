@@ -81,7 +81,7 @@ COLLECTION_ADMIN_ROLES: Set[str] = {
 ORG_ADMIN_ROLES: Set[str] = {
     "group_admin",
     "group_exe",
-    "vendor"
+    "vendor",
 }
 
 

@@ -31,6 +31,7 @@ def create_organization(
     Create an organization (umbrella or subsidiary) for a tenant.
     Only group_admin / group_exec can create.
     """
+    print("CURRENT USER:", current_user.tenant_id, current_user.role)
     print("BODY:", body)
     _ensure_org_admin(current_user)
 
