@@ -133,6 +133,21 @@ def add_to_user_schema() -> None:
         # ✅ always commit after all possible ALTERs
         conn.commit()
         
+        
+  #organization_id collection table 
+ @app.on_event("startup")
+def add_to_user_schema() -> None:
+    with engine.connect() as conn:
+        res = conn.execute(text("PRAGMA table_info(collection);"))
+        cols = [row[1] for row in res.fetchall()]
+
+        if "organization_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE collection ADD COLUMN organization_id INTEGER;")
+            )    
+
+        # ✅ always commit after all possible ALTERs
+        conn.commit()      
 
 # --- Vendor user seeding on startup ---
 @app.on_event("startup")
