@@ -63,7 +63,7 @@ class DBUser(SQLModel, table=True):
     is_online: bool = Field(default=False, index=True)
     last_login_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
-    Organization_id: Optional[str] = Field(default=None, index=True)
+    organization_id: Optional[str] = Field(default=None, index=True)
     
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),

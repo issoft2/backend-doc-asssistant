@@ -60,14 +60,14 @@ def user_can_access_collection(
         # Org-scoped collection
         if collection.visibility == CollectionVisibility.org:
             return (
-                user.Organization_id is not None
-                and user.Organization_id == collection.organization_id
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
             )
         
          # Role-scoped collection
         if collection.visibility == CollectionVisibility.role:
             roles = collection.allowed_roles or []
-            if user.Organization_id != collection.organization_id:
+            if user.organization_id != collection.organization_id:
                 return False
             return user.role in roles   
         
