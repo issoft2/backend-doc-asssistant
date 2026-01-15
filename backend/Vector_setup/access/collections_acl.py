@@ -1,7 +1,7 @@
 from Vector_setup.user.db import DBUser, Collection, CollectionVisibility
 from Vector_setup.user.roles import GROUP_ROLES, SUB_ROLES
 
-from sqlmodel import Session, select 
+from sqlmodel import Session, select, List
 
 
 
