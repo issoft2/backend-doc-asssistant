@@ -154,10 +154,10 @@ class AuditLog(SQLModel, table=True):
      resource_id: Optional[str] = Field(default=None, index=True)
      
      # Small, flexible metadata
-     metadata: Optional[Dict[str, Any]] = Field(
-         default=None,
-         sa_column=Column(JSON),
-     )
+     meta: Optional[Dict[str, Any]] = Field(
+        default=None,
+        sa_column=Column('metadata', JSON, nullable=True),
+    )
      
      created: datetime = Field(default_factory=datetime.utcnow)
         
