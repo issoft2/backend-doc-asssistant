@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 
-from Vector_setup.user.db import DBUser, Tenant, Collection, Organization
-from Vector_setup.user.auth_jwt import ensure_tenant_active, get_current_db_user, get_db
+from Vector_setup.user.db import DBUser, Tenant, Collection, Organization,  get_db
+from Vector_setup.user.auth_jwt import ensure_tenant_active
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager, CollectionCreateRequest
 from Vector_setup.schema.schema_signature import (
     CollectionCreateIn,
@@ -14,6 +14,7 @@ from Vector_setup.schema.schema_signature import (
 from Vector_setup.user.audit import write_audit_log
 from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES
 from Vector_setup.access.collections_acl import user_can_access_collection
+from Vector_setup.user.auth_store import get_current_db_user
 
 
 

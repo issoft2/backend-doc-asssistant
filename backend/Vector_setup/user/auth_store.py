@@ -1,14 +1,48 @@
 # auth_store.py
 from sqlmodel import Session, select
 from  Vector_setup.base.auth_models  import UserCreate, UserInDB, LoginRequestTenant
-from .db import DBUser, FirstLoginToken, Organization
+from .db import DBUser, FirstLoginToken, Organization,  get_db
 from typing import List, Optional
 import uuid
 from datetime import datetime, timedelta
 import secrets, hashlib
 from Vector_setup.user.password import get_password_hash
-from fastapi import HTTPException, Depends 
-from Vector_setup.user.auth_jwt import get_current_db_user 
+from fastapi import HTTPException, Depends, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt, ExpiredSignatureError
+
+
+
+# This must match your login endpoint path
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth")
+
+SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "CHANGE_ME_SUPER_SECRET") # "CHANGE_ME_IN_PROD"
+ALGORITHM = "HS256"
+
+
+async def get_current_db_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> DBUser:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str | None = payload.get("sub")
+        tenant_id: str | None = payload.get("tenant_id")
+        if email is None or tenant_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = get_db_user_by_email(email, tenant_id, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return user  # this is DBUser
 
 def create_user(data: UserCreate, db: Session) -> UserInDB:
     user_id = str(uuid.uuid4())
