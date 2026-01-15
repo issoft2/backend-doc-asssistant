@@ -218,7 +218,7 @@ async function onSubmit() {
     await signup({
       email: email.value,
       password: password.value,
-      tenantId: tenantId.value,
+      tenant_id: tenantId.value,
       first_name: firstName.value || undefined,
       last_name: lastName.value || undefined,
       date_of_birth: dateOfBirth.value || undefined,
