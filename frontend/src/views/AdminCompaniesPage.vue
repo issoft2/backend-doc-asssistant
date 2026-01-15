@@ -1065,7 +1065,7 @@ async function onUploadFromAdmin() {
   uploadLoading.value = true
   try {
     await uploadDocument({
-      tenantId: activeTenantId.value,
+      tenant_id: activeTenantId.value,
       collectionName: selectedCollectionName.value,
       title: docTitle.value,
       file: file.value,

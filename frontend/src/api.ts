@@ -19,14 +19,14 @@ export interface MeResponse {
 }
 
 export interface ConfigureCompanyPayload {
-  tenantId: string
+  tenant_id: string
   collectionName?: string
   plan: 'free_trial' | 'starter' | 'pro' | 'enterprise'
   subscription_status: 'trialing' | 'active' | 'expired' | 'cancelled'
 }
 
 export interface UploadDocumentPayload {
-  tenantId: string
+  tenant_id: string
   collectionName: string
   title?: string
   file: File
@@ -36,13 +36,14 @@ export interface UploadDocumentPayload {
 export interface SignupPayload {
   email: string
   password: string
-  tenantId: string
+  tenant_id: string
   first_name?: string
   last_name?: string
   date_of_birth?: string
   phone?: string
   role?: string
   organization_id: string | number
+  
 }
 
 export interface LoginPayload {
@@ -118,9 +119,9 @@ export function removeAuthToken() {
 
 // ---- Companies / collections ----
 export function configureCompanyAndCollection(payload: ConfigureCompanyPayload) {
-  const { tenantId, collectionName, plan, subscription_status } = payload
+  const { tenant_id, collectionName, plan, subscription_status } = payload
   return api.post('/companies/configure', {
-    tenant_id: tenantId,
+    tenant_id: tenant_id,
     collection_name: collectionName,
     plan,
     subscription_status,
@@ -133,8 +134,8 @@ export function listCompanies() {
 }
 
 // List collections for a company (admin listing page or tenant scoped)
-export function listCollections(tenantId: string) {
-  return api.get(`/companies/${tenantId}/collections`)
+export function listCollections(tenant_id: string) {
+  return api.get(`/companies/${tenant_id}/collections`)
 }
 
 // Tenant-scoped collection creation (backend infers tenant from token)
@@ -164,14 +165,14 @@ export function toggleCompanyUserActive(userId: string) {
 
 // ---- Documents ----
 export function uploadDocument({
-  tenantId,
+  tenant_id,
   collectionName,
   title,
   file,
   doc_id,
 }: UploadDocumentPayload) {
   const formData = new FormData()
-  formData.append('tenant_id', tenantId)
+  formData.append('tenant_id', tenant_id)
   formData.append('collection_name', collectionName)
   if (title) formData.append('title', title)
   if (doc_id) formData.append('doc_id', doc_id)
@@ -186,24 +187,26 @@ export function uploadDocument({
 export function signup({
   email,
   password,
-  tenantId,
+  tenant_id,
   first_name,
   last_name,
   date_of_birth,
   phone,
   role,
   organization_id,
+  tenant_id,
 }: SignupPayload) {
   return api.post('/auth/signup', {
     email,
     password,
-    tenant_id: tenantId,
+    tenant_id: tenant_id,
     first_name,
     last_name,
     date_of_birth,
     phone,
     role,
     organization_id,
+    tenant_id,
   })
 }
 
@@ -289,14 +292,14 @@ export async function fetchOrganizations() {
 
 
 export function createOrganizationForTenant(
-  tenantId: string,
+  tenant_id: string,
   payload: {
     name: string
     type: 'umbrella' | 'subsidiary'
   },
 ) {
   return api.post<OrganizationOut>('/organizations', {
-    tenant_id: tenantId,
+    tenant_id: tenant_id,
     ...payload,
   })
 }
@@ -314,14 +317,14 @@ export function createOrganization(payload: CreateOrganizationPayload) {
 }
 
 export function createCollectionForOrganization(
-  tenantId: string,
+  tenant_id: string,
   organizationId: string | number,
   payload: {
     name: string
   },
 ) {
   return api.post(
-    `/tenants/${tenantId}/organizations/${organizationId}/collections`,
+    `/tenants/${tenant_id}/organizations/${organizationId}/collections`,
     payload,
   )
 }
