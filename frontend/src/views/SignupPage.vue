@@ -213,7 +213,7 @@ async function onSubmit() {
   submitting.value = true
   error.value = ''
   message.value = ''
-
+console.log(organizationId)
   try {
     await signup({
       email: email.value,

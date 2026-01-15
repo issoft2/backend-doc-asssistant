@@ -1141,17 +1141,20 @@ async function onCreateUser() {
 
   userLoading.value = true
   try {
-    await signup({
+    const payload = {
       email: userEmail.value,
       password: userPassword.value,
       tenant_id: userTenantId.value,
       organization_id: Number(userOrganizationId.value),
       first_name: userFirstName.value,
       last_name: userLastName.value,
-      date_of_birth: userDob.value,
-      phone: userPhone.value,
+      date_of_birth: userDob.value || undefined,
+      phone: userPhone.value || undefined,
       role: userRole.value,
-    })
+    }
+    console.log('signup payload', payload) // keep while debugging
+
+    await signup(payload)
 
     userMessage.value = 'User created successfully.'
     userEmail.value = ''
@@ -1170,6 +1173,7 @@ async function onCreateUser() {
     userLoading.value = false
   }
 }
+
 
 onMounted(loadCompanies)
 </script>
