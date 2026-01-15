@@ -105,7 +105,24 @@ export async function loginToTenant({ email, tenant_id }) {
   authState.user = user
   localStorage.setItem('user', JSON.stringify(user))
 
-  if (['hr', 'executive', 'management', 'admin'].includes(user.role)) {
+  const adminRoles = [
+  'vendor',
+  'group_admin',
+  'group_exe',
+  'group_hr',
+  'group_finance',
+  'group_operation',
+  'group_production',
+  'group_marketing',
+  'group_legal',
+  'sub_admin',
+  'sub_md',
+  'sub_hr',
+  'sub_finance',
+  'sub_operations',
+]
+
+  if (adminRoles.includes(user.role)) {
     await router.push('/admin/companies')
   } else {
     await router.push('/chat')
