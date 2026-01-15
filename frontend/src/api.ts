@@ -135,7 +135,8 @@ export function listCompanies() {
 
 // List collections for a company (admin listing page or tenant scoped)
 export function listCollections(tenant_id: string) {
-  return api.get(`/companies/${tenant_id}/collections`)
+  return api.get('/collections')
+  // return api.get(`/companies/${tenant_id}/collections`)
 }
 
 // Tenant-scoped collection creation (backend infers tenant from token)
