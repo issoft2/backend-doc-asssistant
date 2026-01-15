@@ -825,6 +825,7 @@ async function loadCompanies() {
   error.value = ''
   try {
     const res = await listCompanies()
+    console.log(res)
     const payload = Array.isArray(res) ? res : res?.data
     companies.value = (payload || []).map(c => ({
       ...c,
