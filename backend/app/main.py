@@ -13,7 +13,7 @@ from Vector_setup.API.company_users_routes import router as company_user_router
 from Vector_setup.API.google_drive_router import router as google_drive_router
 from Vector_setup.API.contact_router import router as contact_router
 from Vector_setup.API.organizations_router import router as organization_router
-from backend.Vector_setup.API.collections_router import router as collection_router
+from Vector_setup.API.collections_router import router as collection_router
 
 
 from Vector_setup.user.db import init_db, DBUser, engine
