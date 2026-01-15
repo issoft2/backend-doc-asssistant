@@ -25,7 +25,7 @@ def create_organization(
     body: OrganizationCreateIn,
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_db_user),
-    tenant: Tenant = Depends(ensure_tenant_active),
+    # tenant: Tenant = Depends(ensure_tenant_active),
 ):
     """
     Create an organization (umbrella or subsidiary) for a tenant.
