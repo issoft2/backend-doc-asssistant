@@ -88,6 +88,7 @@ class UserCreateIn(BaseModel):
     organization_id: Optional[str]
     role: str
     date_of_birth: Optional[str] = None   # ← add thi
+    phone: Optional[str] = None
     # ... other fields ...
 
         
