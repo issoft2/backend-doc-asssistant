@@ -42,6 +42,7 @@ export interface SignupPayload {
   date_of_birth?: string
   phone?: string
   role?: string
+  organization_id: string | number
 }
 
 export interface LoginPayload {
@@ -191,6 +192,7 @@ export function signup({
   date_of_birth,
   phone,
   role,
+  organization_id,
 }: SignupPayload) {
   return api.post('/auth/signup', {
     email,
@@ -201,6 +203,7 @@ export function signup({
     date_of_birth,
     phone,
     role,
+    organization_id,
   })
 }
 
@@ -282,4 +285,14 @@ export function sendContact(payload: Record<string, unknown>) {
 export async function fetchOrganizations() {
   const { data } = await api.get<OrganizationOut[]>('/organizations')
   return data
+}
+
+export interface CreateOrganizationPayload {
+  name: string
+  type: 'umbrella' | 'subsidiary'
+  parent_id?: string | null
+}
+
+export function createOrganization(payload: CreateOrganizationPayload) {
+  return api.post<OrganizationOut>('/organizations', payload)
 }

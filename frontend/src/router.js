@@ -11,6 +11,7 @@ import HomePage from './views/HomePage.vue'   // ⬅ add this
 import CompanyUsersPage from './views/CompanyUsersPage.vue'
 import NotAllowedPage from './views/NotAllowedPage.vue'
 import FirstLogin from './views/FirstLoginPage.vue'
+import OrganizationPage from './views/OrganizationsAdminPage.vue'
 
 
 
@@ -85,6 +86,13 @@ const routes = [
   component: FirstLogin,
   meta: {}
 },
+
+{
+  path: '/admin/organizations',
+  name: 'OrganizationsAdmin',
+  component: OrganizationPage,
+  meta: { requiresAuth: true, adminOnly: true },
+}
 
 ]
 
