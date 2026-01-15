@@ -176,29 +176,6 @@ def ensure_tenant_active(
     return tenant               
 
 
-async def get_current_db_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> DBUser:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("sub")
-        tenant_id: str | None = payload.get("tenant_id")
-        if email is None or tenant_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = get_db_user_by_email(email, tenant_id, db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return user  # this is DBUser
 
 def ensure_tenant_active_by_id(
     tenant_id: str,

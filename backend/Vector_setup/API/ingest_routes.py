@@ -5,7 +5,7 @@ import uuid
 from sqlmodel import Session, select, func
 from datetime import datetime, timedelta
 from Vector_setup.user.db import get_db, Tenant, Collection
-from Vector_setup.user.auth_jwt import ensure_tenant_active
+from Vector_setup.user.auth_jwt import ensure_tenant_active, get_current_user
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.db import DBUser, Collection
 from Vector_setup.schema.schema_signature import CollectionOut, CompanyOut
@@ -21,7 +21,7 @@ from Vector_setup.base.db_setup_management import (
     CompanyProvisionRequest,
     CompanyCreateRequest,
 )
-from Vector_setup.user.auth_jwt import get_current_user, get_current_db_user
+from Vector_setup.user.auth_store import  get_current_db_user
 from Vector_setup.base.auth_models import UserOut
 from Vector_setup.services.extraction_documents_service import extract_text_from_upload
 from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES, UPLOAD_ROLES, VENDOR_ROLES
