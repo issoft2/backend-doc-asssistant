@@ -1111,9 +1111,9 @@ const organizationsForUserTenant = computed(() => {
 function openUserModal(company) {
   if (!canManageUsersForTenant(company.tenant_id)) return
   if (!company.organizations || !company.organizations.length) return
-   console.log('Company object is what? ', company)
+   console.log('Company object is Org what? ', company.organizations[0])
   userTenantId.value = company.tenant_id
-  userOrganizationId.value = String(company.organizations[0].id)
+  userOrganizationId.value = company.organizations[0].id
   userEmail.value = ''
   userPassword.value = ''
   userFirstName.value = ''
