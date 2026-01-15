@@ -4,10 +4,10 @@
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-slate-900">
-          Companies & Collections
+          Companies & Hierarchy
         </h1>
         <p class="text-sm text-slate-500">
-          View existing companies, manage collections, upload documents, and add users.
+          Manage companies, organizations, collections, documents, and users in a tenant-first flow.
         </p>
       </div>
       <button class="btn-primary" @click="loadCompanies" :disabled="loading">
@@ -15,13 +15,6 @@
         <span v-else>Refreshing…</span>
       </button>
     </header>
-
-    <!-- Debug (optional, remove later) -->
-    <!--
-    <pre class="text-[10px] text-slate-500 px-4 py-2 bg-slate-50 rounded">
-      {{ JSON.stringify(companies, null, 2) }}
-    </pre>
-    -->
 
     <!-- Companies table -->
     <section class="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -59,7 +52,7 @@
                 Plan & status
               </th>
               <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Collections
+                Organizations & collections
               </th>
               <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 Actions
@@ -104,44 +97,100 @@
                 </div>
               </td>
 
-              <!-- Collections -->
+              <!-- Organizations & collections -->
               <td class="px-4 py-3">
-                <div v-if="company.collections && company.collections.length">
-                  <ul class="space-y-1">
-                    <li
-                      v-for="col in company.collections"
-                      :key="col.collection_name || col.name"
-                      class="flex items-center justify-between gap-2"
-                    >
-                      <div class="flex-1">
-                        <div class="text-xs font-medium text-slate-800">
-                          {{ col.collection_name || col.name }}
-                        </div>
-                        <div class="text-[11px] text-slate-500">
-                          {{ col.doc_count ?? 0 }} docs
+                <div
+                  v-if="company.organizations && company.organizations.length"
+                  class="space-y-2"
+                >
+                  <div
+                    v-for="org in company.organizations"
+                    :key="org.id"
+                    class="border border-slate-100 rounded-md px-2 py-1.5"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-xs font-semibold text-slate-800">
+                        {{ org.name }}
+                        <span class="text-[10px] text-slate-400">
+                          ({{ org.type }})
+                        </span>
+                      </div>
+                      <div class="text-[10px] text-slate-500">
+                        {{ collectionsForOrg(company, org.id).length }} collections
+                      </div>
+                    </div>
+
+                    <div class="mt-1">
+                      <div
+                        v-if="collectionsForOrg(company, org.id).length"
+                        class="space-y-0.5"
+                      >
+                        <div
+                          v-for="col in collectionsForOrg(company, org.id)"
+                          :key="col.id || col.collection_name || col.name"
+                          class="flex items-center justify-between gap-2"
+                        >
+                          <div class="text-[11px] text-slate-800">
+                            {{ col.name || col.collection_name }}
+                          </div>
+                          <div class="text-[10px] text-slate-500">
+                            {{ col.doc_count ?? 0 }} docs
+                          </div>
                         </div>
                       </div>
-                    </li>
-                  </ul>
+                      <div
+                        v-else
+                        class="text-[11px] text-slate-400"
+                      >
+                        No collections yet for this organization.
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div v-else class="text-xs text-slate-400">
-                  No collections loaded.
+                  No organizations defined yet.
                 </div>
               </td>
 
               <!-- Actions -->
               <td class="px-4 py-3 space-y-2">
+                <!-- Load orgs & collections -->
                 <button
                   class="btn-primary text-[11px] w-full"
-                  @click="loadCollections(company.tenant_id)"
+                  @click="loadCollectionsAndOrgs(company.tenant_id)"
                   :disabled="loadingCollections === company.tenant_id"
                 >
                   <span v-if="loadingCollections !== company.tenant_id">
-                    Load collections
+                    Load orgs & collections
                   </span>
                   <span v-else>Loading…</span>
                 </button>
 
+                <!-- Manage organizations -->
+                <button
+                  class="btn-primary text-[11px] w-full"
+                  @click="openOrganizationsModal(company)"
+                >
+                  Manage organizations
+                </button>
+
+                <!-- Add collection (org required) -->
+                <button
+                  v-if="canUploadToTenant(company.tenant_id)"
+                  class="btn-primary text-[11px] w-full"
+                  @click="openCollectionModal(company)"
+                  :disabled="!company.organizations || !company.organizations.length"
+                >
+                  Add collection
+                </button>
+                <p
+                  v-if="canUploadToTenant(company.tenant_id) && (!company.organizations || !company.organizations.length)"
+                  class="text-[11px] text-slate-500"
+                >
+                  Create an organization first.
+                </p>
+
+                <!-- Add document (collection required) -->
                 <button
                   v-if="canUploadToTenant(company.tenant_id)"
                   class="btn-primary text-[11px] w-full"
@@ -151,13 +200,21 @@
                   Add document
                 </button>
 
+                <!-- Add user (org required) -->
                 <button
                   v-if="canManageUsersForTenant(company.tenant_id)"
                   class="btn-primary text-[11px] w-full"
                   @click="openUserModal(company)"
+                  :disabled="!company.organizations || !company.organizations.length"
                 >
                   Add user
                 </button>
+                <p
+                  v-if="canManageUsersForTenant(company.tenant_id) && (!company.organizations || !company.organizations.length)"
+                  class="text-[11px] text-slate-500"
+                >
+                  Create an organization to assign the user to.
+                </p>
               </td>
             </tr>
           </tbody>
@@ -169,7 +226,202 @@
       </div>
     </section>
 
-    <!-- Upload modal -->
+    <!-- Organizations modal -->
+    <transition name="fade">
+      <div
+        v-if="showOrgsModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Organizations for {{ orgTenantId }}
+              </h2>
+              <p class="text-[11px] text-slate-500">
+                Create umbrella or subsidiary organizations under this tenant.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeOrganizationsModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <!-- Existing orgs -->
+          <div class="space-y-1 max-h-40 overflow-auto">
+            <p
+              v-if="!orgsForTenant.length"
+              class="text-[11px] text-slate-400"
+            >
+              No organizations yet. Create one below.
+            </p>
+            <ul v-else class="space-y-1">
+              <li
+                v-for="org in orgsForTenant"
+                :key="org.id"
+                class="flex items-center justify-between px-2 py-1 rounded-md bg-slate-50"
+              >
+                <span class="text-[11px] text-slate-800">
+                  {{ org.name }} ({{ org.type }})
+                </span>
+                <span class="text-[10px] text-slate-400">
+                  ID: {{ org.id }}
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Create org form -->
+          <form class="space-y-3" @submit.prevent="onCreateOrganizationForTenant">
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization name
+              </label>
+              <input
+                v-model="orgName"
+                type="text"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g. Helium Group, Lagos Clinic"
+                required
+              />
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Type
+              </label>
+              <select
+                v-model="orgType"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option value="umbrella">Umbrella (group-level)</option>
+                <option value="subsidiary">Subsidiary</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeOrganizationsModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn-primary text-[11px]"
+                :disabled="orgSaving || !orgTenantId"
+              >
+                <span v-if="!orgSaving">Create organization</span>
+                <span v-else>Creating…</span>
+              </button>
+            </div>
+          </form>
+
+          <p v-if="orgMessage" class="text-xs text-emerald-600">
+            {{ orgMessage }}
+          </p>
+          <p v-if="orgError" class="text-xs text-red-600">
+            {{ orgError }}
+          </p>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Collection modal (org-scoped) -->
+    <transition name="fade">
+      <div
+        v-if="showCollectionModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Add collection
+              </h2>
+              <p class="text-xs text-slate-500" v-if="collectionTenantId">
+                Tenant: <span class="font-semibold">{{ collectionTenantId }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeCollectionModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <form class="space-y-3" @submit.prevent="onCreateCollectionForOrg">
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization
+              </label>
+              <select
+                v-model="collectionOrgId"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option disabled value="">Select organization</option>
+                <option
+                  v-for="org in organizationsForCollectionTenant"
+                  :key="org.id"
+                  :value="String(org.id)"
+                >
+                  {{ org.name }} ({{ org.type }})
+                </option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Collection name
+              </label>
+              <input
+                v-model="collectionName"
+                type="text"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g. hr_policies"
+                required
+              />
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeCollectionModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn-primary text-[11px]"
+                :disabled="collectionLoading || !collectionTenantId || !collectionOrgId"
+              >
+                <span v-if="!collectionLoading">Create collection</span>
+                <span v-else>Creating…</span>
+              </button>
+            </div>
+          </form>
+
+          <p v-if="collectionMessage" class="text-xs text-emerald-600">
+            {{ collectionMessage }}
+          </p>
+          <p v-if="collectionError" class="text-xs text-red-600">
+            {{ collectionError }}
+          </p>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Upload modal (unchanged except now collections are org-bound) -->
     <transition name="fade">
       <div
         v-if="showUploadModal"
@@ -213,10 +465,10 @@
                 <option value="" disabled>Select collection</option>
                 <option
                   v-for="col in activeCollections"
-                  :key="col.collection_name || col.name"
-                  :value="col.collection_name || col.name"
+                  :key="col.id || col.collection_name || col.name"
+                  :value="col.name || col.collection_name"
                 >
-                  {{ col.collection_name || col.name }}
+                  {{ col.name || col.collection_name }}
                 </option>
               </select>
             </div>
@@ -284,7 +536,7 @@
       </div>
     </transition>
 
-    <!-- User signup modal -->
+    <!-- User signup modal (now org-aware) -->
     <transition name="fade">
       <div
         v-if="showUserModal"
@@ -310,6 +562,27 @@
           </header>
 
           <form class="space-y-3" @submit.prevent="onCreateUser">
+            <!-- Org selection -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization
+              </label>
+              <select
+                v-model="userOrganizationId"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option disabled value="">Select organization</option>
+                <option
+                  v-for="org in organizationsForUserTenant"
+                  :key="org.id"
+                  :value="String(org.id)"
+                >
+                  {{ org.name }} ({{ org.type }})
+                </option>
+              </select>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="space-y-1">
                 <label class="block text-xs font-medium text-slate-700">
@@ -393,17 +666,12 @@
                 required
               >
                 <option disabled value="">Select role</option>
-                <!-- Tenant employee roles -->
                 <option value="employee">Employee</option>
-
-                <!-- Subsidiary-level roles -->
                 <option value="sub_hr">Subsidiary HR</option>
                 <option value="sub_finance">Subsidiary Finance</option>
                 <option value="sub_operations">Subsidiary Operations</option>
                 <option value="sub_md">Subsidiary MD</option>
                 <option value="sub_admin">Subsidiary Admin</option>
-
-                <!-- Group-level roles (if this panel is used for group tenants too) -->
                 <option value="group_hr">Group HR</option>
                 <option value="group_finance">Group Finance</option>
                 <option value="group_operation">Group Operations</option>
@@ -413,7 +681,6 @@
                 <option value="group_exe">Group Executive</option>
                 <option value="group_admin">Group Admin</option>
               </select>
-
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
@@ -427,7 +694,7 @@
               <button
                 type="submit"
                 class="btn-primary text-[11px]"
-                :disabled="userLoading || !userTenantId"
+                :disabled="userLoading || !userTenantId || !userOrganizationId"
               >
                 <span v-if="!userLoading">Create user</span>
                 <span v-else>Creating…</span>
@@ -450,11 +717,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { authState } from '../authStore'
-import { listCompanies, listCollections, uploadDocument, signup } from '../api'
+import {
+  listCompanies,
+  listCollections,
+  uploadDocument,
+  signup,
+  createOrganizationForTenant,
+  createCollectionForOrganization,
+} from '../api'
 
-/**
- * State
- */
 const companies = ref([])
 const loading = ref(false)
 const loadingCollections = ref('')
@@ -465,11 +736,7 @@ const currentUser = computed(() => authState.user)
 const currentRole = computed(() => currentUser.value?.role || '')
 const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
 
-/**
- * RBAC role groups (aligned with new backend)
- */
 const vendorRoles = ['vendor']
-
 const groupAdminRoles = [
   'group_admin',
   'group_exe',
@@ -480,7 +747,6 @@ const groupAdminRoles = [
   'group_marketing',
   'group_legal',
 ]
-
 const subAdminRoles = [
   'sub_admin',
   'sub_md',
@@ -493,57 +759,13 @@ const isVendor = computed(() => vendorRoles.includes(currentRole.value))
 const isGroupAdmin = computed(() => groupAdminRoles.includes(currentRole.value))
 const isSubAdmin = computed(() => subAdminRoles.includes(currentRole.value))
 
-// Capabilities
-const canUpload = computed(() =>
-  isVendor.value || isGroupAdmin.value || isSubAdmin.value,
+const canUpload = computed(
+  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
+)
+const canManageUsers = computed(
+  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
 )
 
-const canManageUsers = computed(() =>
-  isVendor.value || isGroupAdmin.value || isSubAdmin.value,
-)
-
-/**
- * Upload modal state
- */
-const showUploadModal = ref(false)
-const activeTenantId = ref('')
-const selectedCollectionName = ref('')
-const docTitle = ref('')
-const file = ref(null)
-const uploadLoading = ref(false)
-const uploadMessage = ref('')
-const uploadError = ref('')
-const fileInput = ref(null)
-
-const activeCollections = computed(() => {
-  if (!activeTenantId.value) return []
-  const company = companies.value.find(
-    (c) => c.tenant_id === activeTenantId.value,
-  )
-  return company?.collections || []
-})
-
-/**
- * User signup modal state
- */
-const showUserModal = ref(false)
-const userTenantId = ref('')
-const userEmail = ref('')
-const userPassword = ref('')
-const userFirstName = ref('')
-const userLastName = ref('')
-const userDob = ref('')
-const userPhone = ref('')
-const userRole = ref('')
-const userLoading = ref(false)
-const userMessage = ref('')
-const userError = ref('')
-
-/**
- * Permission helpers
- * - Vendor: can upload/manage users for all tenants
- * - Group/Sub admins: only within their own tenant
- */
 function canUploadToTenant(tenantId) {
   if (!canUpload.value) return false
   if (isVendor.value) return true
@@ -556,9 +778,6 @@ function canManageUsersForTenant(tenantId) {
   return currentTenantId.value && currentTenantId.value === tenantId
 }
 
-/**
- * Helpers
- */
 function formatDate(value) {
   if (!value) return '—'
   const d = new Date(value)
@@ -596,17 +815,20 @@ function statusBadgeClass(status) {
   }
 }
 
-/**
- * Data loading
- */
+function collectionsForOrg(company, orgId) {
+  const cols = company.collections || []
+  return cols.filter(c => c.organization_id === orgId)
+}
+
 async function loadCompanies() {
   loading.value = true
   error.value = ''
   try {
     const res = await listCompanies()
     const payload = Array.isArray(res) ? res : res?.data
-    companies.value = (payload || []).map((c) => ({
+    companies.value = (payload || []).map(c => ({
       ...c,
+      organizations: c.organizations || [],
       collections: c.collections || [],
     }))
     lastLoadedAt.value = new Date().toLocaleTimeString()
@@ -619,15 +841,16 @@ async function loadCompanies() {
   }
 }
 
-async function loadCollections(tenantId) {
+async function loadCollectionsAndOrgs(tenantId) {
   loadingCollections.value = tenantId
   try {
     const res = await listCollections(tenantId)
     const payload = Array.isArray(res) ? res : res?.data
     const cols = payload || []
-    companies.value = companies.value.map((c) =>
+    companies.value = companies.value.map(c =>
       c.tenant_id === tenantId ? { ...c, collections: cols } : c,
     )
+    // organizations assumed to be in listCompanies payload; if you have a listOrgs endpoint, call it here too
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('loadCollections error:', e)
@@ -638,17 +861,177 @@ async function loadCollections(tenantId) {
 }
 
 /**
- * Upload modal handlers
+ * Organizations modal state/handlers
  */
+const showOrgsModal = ref(false)
+const orgTenantId = ref('')
+const orgsForTenant = ref([])
+const orgName = ref('')
+const orgType = ref('umbrella')
+const orgSaving = ref(false)
+const orgMessage = ref('')
+const orgError = ref('')
+
+function openOrganizationsModal(company) {
+  orgTenantId.value = company.tenant_id
+  orgsForTenant.value = company.organizations || []
+  orgName.value = ''
+  orgType.value = 'umbrella'
+  orgMessage.value = ''
+  orgError.value = ''
+  showOrgsModal.value = true
+}
+
+function closeOrganizationsModal() {
+  showOrgsModal.value = false
+}
+
+async function onCreateOrganizationForTenant() {
+  orgMessage.value = ''
+  orgError.value = ''
+
+  const name = orgName.value.trim()
+  if (!orgTenantId.value) {
+    orgError.value = 'Tenant is missing.'
+    return
+  }
+  if (!name) {
+    orgError.value = 'Organization name is required.'
+    return
+  }
+
+  orgSaving.value = true
+  try {
+    const { data } = await createOrganizationForTenant(orgTenantId.value, {
+      name,
+      type: orgType.value,
+    })
+    orgsForTenant.value = [...orgsForTenant.value, data]
+    companies.value = companies.value.map(c =>
+      c.tenant_id === orgTenantId.value
+        ? { ...c, organizations: [...(c.organizations || []), data] }
+        : c,
+    )
+    orgName.value = ''
+    orgType.value = 'umbrella'
+    orgMessage.value = 'Organization created.'
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('create org error:', e)
+    orgError.value =
+      e?.response?.data?.detail || 'Failed to create organization.'
+  } finally {
+    orgSaving.value = false
+  }
+}
+
+/**
+ * Collection modal state/handlers
+ */
+const showCollectionModal = ref(false)
+const collectionTenantId = ref('')
+const collectionOrgId = ref('')
+const collectionName = ref('')
+const collectionLoading = ref(false)
+const collectionMessage = ref('')
+const collectionError = ref('')
+
+const organizationsForCollectionTenant = computed(() => {
+  if (!collectionTenantId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === collectionTenantId.value,
+  )
+  return company?.organizations || []
+})
+
+function openCollectionModal(company) {
+  if (!canUploadToTenant(company.tenant_id)) return
+  if (!company.organizations || !company.organizations.length) return
+
+  collectionTenantId.value = company.tenant_id
+  collectionOrgId.value = String(company.organizations[0].id)
+  collectionName.value = ''
+  collectionMessage.value = ''
+  collectionError.value = ''
+  showCollectionModal.value = true
+}
+
+function closeCollectionModal() {
+  showCollectionModal.value = false
+}
+
+async function onCreateCollectionForOrg() {
+  collectionMessage.value = ''
+  collectionError.value = ''
+
+  const name = collectionName.value.trim()
+  if (!collectionTenantId.value || !collectionOrgId.value) {
+    collectionError.value = 'Organization is required.'
+    return
+  }
+  if (!name) {
+    collectionError.value = 'Collection name is required.'
+    return
+  }
+
+  collectionLoading.value = true
+  try {
+    const { data } = await createCollectionForOrganization(
+      collectionTenantId.value,
+      collectionOrgId.value,
+      { name },
+    )
+    companies.value = companies.value.map(c =>
+      c.tenant_id === collectionTenantId.value
+        ? {
+            ...c,
+            collections: [...(c.collections || []), data],
+          }
+        : c,
+    )
+    collectionName.value = ''
+    collectionMessage.value = 'Collection created.'
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('create collection error:', e)
+    collectionError.value =
+      e?.response?.data?.detail || 'Failed to create collection.'
+  } finally {
+    collectionLoading.value = false
+  }
+}
+
+/**
+ * Upload modal state/handlers
+ */
+const showUploadModal = ref(false)
+const activeTenantId = ref('')
+const selectedCollectionName = ref('')
+const docTitle = ref('')
+const file = ref(null)
+const uploadLoading = ref(false)
+const uploadMessage = ref('')
+const uploadError = ref('')
+const fileInput = ref(null)
+
+const activeCollections = computed(() => {
+  if (!activeTenantId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === activeTenantId.value,
+  )
+  return company?.collections || []
+})
+
 function openUploadModal(company) {
   if (!canUploadToTenant(company.tenant_id)) return
 
   activeTenantId.value = company.tenant_id
+  const firstCol =
+    company.collections && company.collections.length
+      ? company.collections[0]
+      : null
   selectedCollectionName.value =
-    (company.collections &&
-      (company.collections[0]?.collection_name ||
-        company.collections[0]?.name)) ||
-    ''
+    firstCol?.name || firstCol?.collection_name || ''
   docTitle.value = ''
   file.value = null
   uploadMessage.value = ''
@@ -700,12 +1083,36 @@ async function onUploadFromAdmin() {
 }
 
 /**
- * User modal handlers
+ * User modal state/handlers
  */
+const showUserModal = ref(false)
+const userTenantId = ref('')
+const userOrganizationId = ref('')
+const userEmail = ref('')
+const userPassword = ref('')
+const userFirstName = ref('')
+const userLastName = ref('')
+const userDob = ref('')
+const userPhone = ref('')
+const userRole = ref('')
+const userLoading = ref(false)
+const userMessage = ref('')
+const userError = ref('')
+
+const organizationsForUserTenant = computed(() => {
+  if (!userTenantId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === userTenantId.value,
+  )
+  return company?.organizations || []
+})
+
 function openUserModal(company) {
   if (!canManageUsersForTenant(company.tenant_id)) return
+  if (!company.organizations || !company.organizations.length) return
 
   userTenantId.value = company.tenant_id
+  userOrganizationId.value = String(company.organizations[0].id)
   userEmail.value = ''
   userPassword.value = ''
   userFirstName.value = ''
@@ -726,8 +1133,8 @@ async function onCreateUser() {
   userMessage.value = ''
   userError.value = ''
 
-  if (!userTenantId.value) {
-    userError.value = 'Tenant is missing.'
+  if (!userTenantId.value || !userOrganizationId.value) {
+    userError.value = 'Tenant and organization are required.'
     return
   }
 
@@ -736,7 +1143,8 @@ async function onCreateUser() {
     await signup({
       email: userEmail.value,
       password: userPassword.value,
-      tenantId: userTenantId.value,
+      tenant_id: userTenantId.value,
+      organization_id: Number(userOrganizationId.value),
       first_name: userFirstName.value,
       last_name: userLastName.value,
       date_of_birth: userDob.value,
@@ -762,12 +1170,8 @@ async function onCreateUser() {
   }
 }
 
-/**
- * Lifecycle
- */
 onMounted(loadCompanies)
 </script>
-
 
 <style scoped>
 .fade-enter-active,
