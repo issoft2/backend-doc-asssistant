@@ -1111,7 +1111,7 @@ const organizationsForUserTenant = computed(() => {
 function openUserModal(company) {
   if (!canManageUsersForTenant(company.tenant_id)) return
   if (!company.organizations || !company.organizations.length) return
-
+   console.log('Company object is what? ', company)
   userTenantId.value = company.tenant_id
   userOrganizationId.value = String(company.organizations[0].id)
   userEmail.value = ''
@@ -1134,6 +1134,7 @@ async function onCreateUser() {
   userMessage.value = ''
   userError.value = ''
 
+
   if (!userTenantId.value || !userOrganizationId.value) {
     userError.value = 'Tenant and organization are required.'
     return
@@ -1145,7 +1146,7 @@ async function onCreateUser() {
       email: userEmail.value,
       password: userPassword.value,
       tenant_id: userTenantId.value,
-      organization_id: Number(userOrganizationId.value),
+      organization_id: userOrganizationId.value,
       first_name: userFirstName.value,
       last_name: userLastName.value,
       date_of_birth: userDob.value || undefined,
