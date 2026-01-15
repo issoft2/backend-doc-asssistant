@@ -122,6 +122,11 @@ def add_to_user_schema() -> None:
                 text("ALTER TABLE users ADD COLUMN last_seen_at TEXT;")
             )
             
+        if "organization_id" not in cols:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN organization_id INTEGER;")
+            )    
+            
              # backfill old rows
         conn.execute(text("UPDATE users SET is_online = 0 WHERE is_online IS NULL;"))
 
