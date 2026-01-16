@@ -8,6 +8,7 @@ from Vector_setup.schema.schema_signature import OrganizationCreateIn, Organizat
 from Vector_setup.user.auth_jwt import ensure_tenant_active
 from Vector_setup.user.auth_store import get_current_db_user
 from Vector_setup.user.roles import ORG_ADMIN_ROLES
+from Vector_setup.user.permissions import is_sub_role, is_group_role
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -78,6 +79,7 @@ def list_organizations(
 
     - Non-vendor: always scoped to their own tenant; ignores tenant_id param.
     - Vendor: can pass tenant_id to view orgs for that tenant.
+    - sub_* within the effective tenant, only see their own org.
     """
     # non‑vendor: always own tenant
     if current_user.role != "vendor":
@@ -91,7 +93,18 @@ def list_organizations(
           )
       effective_tenant_id = tenant_id
 
+    # Base filter: tenant
     stmt = select(Organization).where(Organization.tenant_id == effective_tenant_id)
+    
+    # 3 Org filter for sub_* roles
+    if is_sub_role(current_user.role):
+        if current_user.organization_id is None:
+            # no org -> orgs visible
+            stmt = stmt.where(False)
+            
+        else:
+            stmt = stmt.where(Organization.id == current_user.organization_id)
+                
     rows = db.exec(stmt).all()
 
     return [
