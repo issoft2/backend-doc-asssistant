@@ -167,8 +167,14 @@ export async function fetchOrganizations(
 
 
 // List collections for a company (admin listing page or tenant scoped)
-export function listCollectionsForTenant(tenant_id: string) {
-  return api.get<CollectionOut[]>('/collections', { params: { tenant_id } })
+export  async function listCollectionsForTenant(
+  tenant_id: String,
+): Promise<CollectionOut[]>{
+  const { data } = await api.get<CollectionOut[]>('collections', {
+   params: {tenant_id },
+  })
+  return data
+
 }
 
 
