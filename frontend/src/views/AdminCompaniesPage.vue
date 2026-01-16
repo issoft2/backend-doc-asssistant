@@ -936,7 +936,7 @@ const organizationsForUserTenant = computed(() => {
   return company?.organizations || []
 })
 
-const collectionsForUserOrg = computed(() => {π
+const collectionsForUserOrg = computed(() => {
   if (!userTenantId.value || !userOrganizationId.value) return []
   const company = companies.value.find(
     c => c.tenant_id === userTenantId.value,
