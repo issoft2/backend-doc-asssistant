@@ -274,21 +274,6 @@
                 required
               />
             </div>
-
-            <div class="space-y-1">
-              <label class="block text-xs font-medium text-slate-700">
-                Type
-              </label>
-              <select
-                v-model="orgType"
-                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-                required
-              >
-                <option value="umbrella">Umbrella (group-level)</option>
-                <option value="subsidiary">Subsidiary</option>
-              </select>
-            </div>
-
             <div class="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -772,7 +757,6 @@ const showOrgsModal = ref(false)
 const orgTenantId = ref('')
 const orgsForTenant = ref([])
 const orgName = ref('')
-const orgType = ref('umbrella')
 const orgSaving = ref(false)
 const orgMessage = ref('')
 const orgError = ref('')
@@ -782,7 +766,6 @@ function openOrganizationsModal(company) {
   orgTenantId.value = company.tenant_id
   orgsForTenant.value = company.organizations || []
   orgName.value = ''
-  orgType.value = 'umbrella'
   orgMessage.value = ''
   orgError.value = ''
   showOrgsModal.value = true
@@ -814,7 +797,6 @@ async function onCreateOrganizationForTenant() {
   try {
     const { data: newOrg } = await createOrganizationForTenant(orgTenantId.value, {
       name,
-      type: orgType.value,
     })
     orgsForTenant.value = [...orgsForTenant.value, newOrg]
     companies.value = companies.value.map(c =>
@@ -823,7 +805,6 @@ async function onCreateOrganizationForTenant() {
         : c,
     )
     orgName.value = ''
-    orgType.value = 'umbrella'
     orgMessage.value = 'Organization created.'
   } catch (e) {
     console.error('create org error:', e)

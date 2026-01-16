@@ -31,23 +31,6 @@
           />
         </div>
 
-        <div>
-          <label class="block text-xs font-medium text-slate-700 mb-1">
-            Type
-          </label>
-          <select
-            v-model="type"
-            class="w-full rounded-md border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-            required
-          >
-            <option value="umbrella">Umbrella (Group-level)</option>
-            <option value="subsidiary">Subsidiary</option>
-          </select>
-          <p class="mt-1 text-[11px] text-slate-400">
-            Umbrella organizations usually represent the group company; subsidiaries map to individual entities or branches.
-          </p>
-        </div>
-
         <button
           type="submit"
           class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -159,7 +142,6 @@ async function onCreate() {
   try {
     await createOrganization({
       name: trimmed,
-      type: type.value,
     })
     name.value = ''
     await loadOrgs()
