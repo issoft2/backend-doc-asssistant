@@ -28,7 +28,7 @@ def get_store() -> MultiTenantChromaStoreManager:
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 def _ensure_collection_admin(user: DBUser) -> None:
-    if user.role not in COLLECTION_ADMIN_ROLES or user.role not in COLLECTION_CREATOR_ROLES:
+    if user.role not in COLLECTION_ADMIN_ROLES and user.role not in COLLECTION_CREATOR_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to manage collections.",
