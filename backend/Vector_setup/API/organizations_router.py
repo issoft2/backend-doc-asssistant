@@ -4,40 +4,45 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 
 from Vector_setup.user.db import DBUser, Tenant, Organization, get_db
-from Vector_setup.schema.schema_signature import OrganizationCreateIn, OrganizationOut
+from Vector_setup.schema.schema_signature import OrganizationCreateIn, OrganizationOut, OrganizationUpdate
 from Vector_setup.user.auth_jwt import ensure_tenant_active
 from Vector_setup.user.auth_store import get_current_db_user
-from Vector_setup.user.roles import ORG_ADMIN_ROLES
+from Vector_setup.user.roles import ORG_MANAGER_ROLES
 from Vector_setup.user.permissions import is_sub_role, is_group_role
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
 def _ensure_org_admin(user: DBUser) -> None:
-    if user.role not in ORG_ADMIN_ROLES:
+    if user.role not in ORG_MANAGER_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to manage organizations.",
         )
 
 
+def require_org_manager(current_user: DBUser = Depends(get_current_db_user)) -> DBUser:
+    # Only allow non-sub_* elevated roles to manage organizations
+    if current_user.role.startswith("sub_") or current_user.role not in ORG_MANAGER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to manage organizations.",
+        )
+    return current_user
+
+
 @router.post("", response_model=OrganizationOut, status_code=status.HTTP_201_CREATED)
 def create_organization(
     body: OrganizationCreateIn,
     db: Session = Depends(get_db),
-    current_user: DBUser = Depends(get_current_db_user),
+    current_user: DBUser = Depends(require_org_manager),
     # tenant: Tenant = Depends(ensure_tenant_active),
 ):
-    """
-    Create an organization (umbrella or subsidiary) for a tenant.
-    Only group_admin / group_exec can create.
-    """
-    print("CURRENT USER:", current_user.tenant_id, current_user.role)
-    print("BODY:", body)
-    _ensure_org_admin(current_user)
-
+ 
     # Tenant isolation
-    if body.tenant_id != current_user.tenant_id and current_user.role != 'vendor':
+    target_tenant_id = body.tenant_id or current_user.tenant_id
+
+    if current_user.role != "vendor" and target_tenant_id != current_user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to create organizations for this tenant.",
@@ -117,3 +122,35 @@ def list_organizations(
         )
         for o in rows
     ]
+
+
+@router.put("/{org_id}", response_model=OrganizationOut)
+def update_organization(
+    org_id: str,
+    body: OrganizationUpdate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(require_org_manager),
+):
+    org = db.get(Organization, org_id)
+    if not org or org.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    org.name = body.name or org.name
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    return OrganizationOut.from_orm(org)
+
+
+@router.delete("/{org_id}", status_code=204)
+def delete_organization(
+    org_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(require_org_manager),
+):
+    org = db.get(Organization, org_id)
+    if not org or org.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    db.delete(org)
+    db.commit()

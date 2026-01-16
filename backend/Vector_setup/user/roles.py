@@ -85,6 +85,13 @@ ORG_ADMIN_ROLES: Set[str] = {
     "vendor",
 }
 
+ORG_MANAGER_ROLES: Set[str] = {
+    "group_admin",
+    "group_exe",
+    "vendor",
+    "group_md",
+    }
+
 
 USER_CREATOR_ROLES: set[str] = {
     # Group-level
