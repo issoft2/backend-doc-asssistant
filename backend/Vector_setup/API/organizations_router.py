@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 
 from Vector_setup.user.db import DBUser, Tenant, Organization, get_db
-from Vector_setup.schema.schema_signature import OrganizationCreateIn, OrganizationOut,  OrganizationUpdate
+from Vector_setup.schema.schema_signature import OrganizationCreateIn, OrganizationOut, OrganizationUpdate
 from Vector_setup.user.auth_jwt import ensure_tenant_active
 from Vector_setup.user.auth_store import get_current_db_user
 from Vector_setup.user.roles import ORG_MANAGER_ROLES
