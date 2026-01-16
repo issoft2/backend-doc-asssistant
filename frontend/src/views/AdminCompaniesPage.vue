@@ -252,10 +252,7 @@
                 class="flex items-center justify-between px-2 py-1 rounded-md bg-slate-50"
               >
                 <span class="text-[11px] text-slate-800">
-                  {{ org.name }} ({{ org.type }})
-                </span>
-                <span class="text-[10px] text-slate-400">
-                  ID: {{ org.id }}
+                  {{ org.name }}
                 </span>
               </li>
             </ul>
@@ -344,7 +341,7 @@
                   :key="org.id"
                   :value="String(org.id)"
                 >
-                  {{ org.name }} ({{ org.type }})
+                  {{ org.name }}
                 </option>
               </select>
             </div>
@@ -853,7 +850,12 @@ async function onCreateCollectionForOrg() {
   collectionError.value = ''
 
   const name = collectionName.value.trim()
-  if (!collectionTenantId.value || !collectionOrgId.value) {
+
+  if (!collectionTenantId.value) {
+    collectionError.value = 'Tenant is required.'
+    return
+  }
+  if (!collectionOrgId.value) {
     collectionError.value = 'Organization is required.'
     return
   }
@@ -862,17 +864,24 @@ async function onCreateCollectionForOrg() {
     return
   }
   if (!canUploadToTenant(collectionTenantId.value)) {
-    collectionError.value = 'You are not allowed to create collections for this tenant.'
+    collectionError.value =
+      'You are not allowed to create collections for this tenant.'
     return
+  }
+
+  // build payload matching CollectionCreateIn
+  const payload = {
+    tenant_id: collectionTenantId.value,
+    organization_id: Number(collectionOrgId.value),
+    name,
+    visibility: 'org',        // or 'tenant', 'private' – align with your enum
+    allowed_roles: [],                 // or a default, e.g. ['employee']
+    allowed_user_ids: [],              // if you want user-level ACLs later
   }
 
   collectionLoading.value = true
   try {
-    const { data: newCol } = await createCollectionForOrganization(
-      collectionTenantId.value,
-      collectionOrgId.value,
-      { name },
-    )
+    const { data: newCol } = await createCollectionForOrganization(payload)
     companies.value = companies.value.map(c =>
       c.tenant_id === collectionTenantId.value
         ? { ...c, collections: [...(c.collections || []), newCol] }
@@ -880,7 +889,7 @@ async function onCreateCollectionForOrg() {
     )
     collectionName.value = ''
     collectionMessage.value = 'Collection created.'
-  } catch (e) {
+  } catch (e: any) {
     console.error('create collection error:', e)
     collectionError.value =
       e?.response?.data?.detail || 'Failed to create collection.'
@@ -888,6 +897,7 @@ async function onCreateCollectionForOrg() {
     collectionLoading.value = false
   }
 }
+
 
 /** User modal */
 const showUserModal = ref(false)

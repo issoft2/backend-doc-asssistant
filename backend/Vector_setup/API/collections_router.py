@@ -75,7 +75,7 @@ def create_collection(
     # Enforce unique (tenant_id, name)
     stmt = (
         select(Collection)
-        .where(Collection.tenant_id == body.tenant_id)
+        .where(Collection.tenant_id == body.tenant_id & Collection.organization_id == body.organization_id)
         .where(Collection.name == body.name)
     )
     existing = db.exec(stmt).first()

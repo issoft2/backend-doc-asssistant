@@ -320,15 +320,15 @@ export function createOrganization(payload: CreateOrganizationPayload) {
   return api.post<OrganizationOut>('/organizations', payload)
 }
 
-export function createCollectionForOrganization(
-  organizationId: string | number,
-  payload: {
-    name: string
-  },
-) {
-  return api.post(
-    `/organizations/${organizationId}/collections`,
-    payload,
-  )
+// align with CollectionCreateIn
+export function createCollectionForOrganization(payload: {
+  tenant_id: string
+  organization_id: number | null
+  name: string
+  visibility: 'tenant' | 'org' | 'role' | 'user'
+  allowed_roles: string[]
+  allowed_user_ids: string[]
+}) {
+  return api.post('/collections', payload)
 }
 
