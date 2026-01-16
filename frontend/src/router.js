@@ -28,6 +28,7 @@ const adminRoles = [
   'sub_hr',
   'sub_finance',
   'sub_operations',
+  'sub_legal',
 ]
 
 const routes = [
@@ -43,7 +44,7 @@ const routes = [
     component: AdminLayout,
     meta: {
       requiresAuth: true,
-      roles: adminRoles, // only these see admin layout
+      roles: { requiresAuth: true, roles: adminRoles }, // only these see admin layout
     },
     children: [
       {
@@ -73,7 +74,7 @@ const routes = [
     component: EmployeeLayout,
     meta: {
       requiresAuth: true,
-      roles: adminRoles, // everyone logged in
+      roles: { requiresAuth: true, roles: adminRoles }, // everyone logged in
     },
     children: [
       {

@@ -56,8 +56,6 @@ def create_organization(
         id=org_id,
         tenant_id=body.tenant_id,
         name=body.name,
-        type=body.type,
-        parent_id=body.parent_id,
     )
     db.add(org)
     db.commit()
@@ -67,8 +65,6 @@ def create_organization(
         id=org.id,
         tenant_id=org.tenant_id,
         name=org.name,
-        type=org.type,
-        parent_id=org.parent_id,
         created_at=org.created_at,
         updated_at=org.updated_at,
     )
@@ -90,8 +86,6 @@ def list_organizations_for_current_tenant(
             id=o.id,
             tenant_id=o.tenant_id,
             name=o.name,
-            type=o.type,
-            parent_id=o.parent_id,
             created_at=o.created_at,
             updated_at=o.updated_at,
         )

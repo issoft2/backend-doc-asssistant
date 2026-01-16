@@ -56,6 +56,7 @@ SUB_ROLES: Set[str] = {
 
 VENDOR_ROLES: Set[str] = {
     "vendor",
+    "system_manager"
 }
 
 UPLOAD_ROLES: Set[str] = {

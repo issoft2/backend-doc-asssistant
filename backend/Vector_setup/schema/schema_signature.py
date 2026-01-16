@@ -66,16 +66,12 @@ class CollectionUpdateIn(BaseModel):
 class OrganizationCreateIn(BaseModel):
     tenant_id: str
     name: str
-    type: OrganizationType = OrganizationType.subsidiary
-    parent_id: Optional[str] = None
-
+    
 
 class OrganizationOut(BaseModel):
     id: str
     tenant_id: str
     name: str
-    type: OrganizationType
-    parent_id: Optional[str]
     created_at: datetime
     updated_at: datetime
     

@@ -76,6 +76,8 @@ class ChatMessage(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     tenant_id: str = Field(index=True)
     user_id: str = Field(index=True)
+    organization_id: int | None = Field(default=None, index=True)   
+    collection_id: int | None = Field(default=None, index=True)   
     role: str # "user" or "assistant"
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -126,20 +128,13 @@ def get_db():
     with Session(engine) as session:
         yield session
 
-
-class OrganizationType(str, Enum):
-    umbrella = "umbrella"
-    subsidiary = "subsidiary"
     
 class Organization(SQLModel, table=True):
     __tablename__ = "organizations"
     
     id: str = Field(primary_key=True, index=True)
     tenant_id: str = Field(index=True)
-    name: str = Field(index=True)
-    type: OrganizationType = Field(default=OrganizationType.subsidiary)
-    parent_id: Optional[str] = Field(default=None, foreign_key="organizations.id")
-    
+    name: str = Field(index=True)    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)    
     

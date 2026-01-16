@@ -18,10 +18,8 @@ from Vector_setup.schema.schema_signature import UserCreateIn
 import os
 import logging
 from pydantic import BaseModel
-from Vector_setup.user.roles import USER_CREATOR_ROLES, VENDOR_ROLES
-
-
-
+from Vector_setup.user.permissions import map_role_to_permissions
+        
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +27,31 @@ FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN", "https://lexiscope.duckdns.org"
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
 @router.get("/me", response_model=UserOut)
 def read_me(current_user: DBUser = Depends(get_current_db_user)) -> UserOut:
     """
     Return the current user's profile, including tenant, org, and role.
     """
-    return UserOut.model_validate(current_user)
+    perms = map_role_to_permissions(current_user.role)
+    return UserOut(
+        id=current_user.id,
+        email=current_user.email,
+        tenant_id=current_user.tenant_id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        date_of_birth=current_user.date_of_birth,
+        phone=current_user.phone,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        create_at=current_user.created_at,
+        is_online=current_user.is_online,
+        last_login_at=current_user.last_login_at,
+        last_seen_at=current_user.last_seen_at,
+        roles=[current_user.role],
+        permissions=perms,
+        organization_id=current_user.organization_id,
+    )
 
 
 @router.post("/signup", response_model=UserOut)

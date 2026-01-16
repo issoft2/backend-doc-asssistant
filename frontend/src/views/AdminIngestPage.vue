@@ -684,7 +684,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { authState } from '../authStore'
 import {
-  configureCompanyAndCollection,
+  configureTenantPayload,
   createCollection,
   uploadDocument,
   listCollections,
@@ -711,47 +711,33 @@ interface DriveFileOut {
 
 type IngestStatus = 'idle' | 'running' | 'success' | 'error'
 
-// --- Auth / role state ---
+// --- Auth / permission state ---
 const currentUser = computed(() => authState.user)
-const currentRole = computed(() => currentUser.value?.role || '')
-const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
+const currentTenantId = computed(() => currentUser.value?.tenant_id ?? null)
 
-const vendorRoles = ['vendor']
-const groupAdminRoles = [
-  'group_admin',
-  'group_exe',
-  'group_hr',
-  'group_finance',
-  'group_operation',
-  'group_production',
-  'group_marketing',
-  'group_legal',
-]
-const subAdminRoles = [
-  'sub_admin',
-  'sub_md',
-  'sub_hr',
-  'sub_finance',
-  'sub_operations',
-]
+const permissions = computed(() => currentUser.value?.permissions || [])
+const hasPermission = (p: string) => permissions.value.includes(p)
+const hasAnyPermission = (ps: string[]) =>
+  ps.some(p => permissions.value.includes(p))
 
-const isVendor = computed(() => vendorRoles.includes(currentRole.value))
-const isGroupAdmin = computed(() => groupAdminRoles.includes(currentRole.value))
-const isSubAdmin = computed(() => subAdminRoles.includes(currentRole.value))
+const isVendor = computed(() => currentUser.value?.role === 'vendor')
 
-// Only group/sub admins can create collections
-const canCreateCollections = computed(
-  () => isGroupAdmin.value || isSubAdmin.value,
+// Config capabilities
+const canCreateOrganizations = computed(() =>
+  hasAnyPermission(['ORG:CREATE:SUB', 'ORG:CREATE:GROUP', 'ORG:ADMIN']),
 )
 
-// Only vendor/group/sub admins can upload; employees cannot
-const canUpload = computed(
-  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
+const canCreateCollections = computed(() =>
+  hasPermission('COLLECTION:CREATE'),
+)
+
+const canUpload = computed(() =>
+  hasPermission('DOC:UPLOAD'),
 )
 
 // --- Collections / config state ---
 const collections = ref<string[]>([])
-const tenantId = ref('')
+const tenantId = ref('') // used by vendor when creating/configuring a tenant
 const tenantName = ref('')
 const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>(
   'free_trial',
@@ -786,17 +772,15 @@ const organizations = ref<OrganizationOut[]>([])
 const orgLoading = ref(false)
 const orgCreating = ref(false)
 const orgName = ref('')
-const orgType = ref<'umbrella' | 'subsidiary'>('umbrella')
 const orgError = ref('')
 const orgMessage = ref('')
 
-// If vendor, use the tenant they are configuring via tenantId input.
-// Otherwise, use the current authenticated tenant.
+// If vendor, allow them to type a tenantId to view orgs; otherwise use current tenant.
 const currentTenantScopeId = computed(() => {
   if (isVendor.value) {
-    return tenantId.value || currentTenantId.value || ''
+    return tenantId.value || (currentTenantId.value?.toString() ?? '')
   }
-  return currentTenantId.value || ''
+  return currentTenantId.value?.toString() ?? ''
 })
 
 async function loadOrganizationsForTenant() {
@@ -811,7 +795,7 @@ async function loadOrganizationsForTenant() {
 
   orgLoading.value = true
   try {
-    // assumes backend returns organizations for current tenant from token
+    // backend returns organizations for current tenant from token
     const data = await fetchOrganizations()
     organizations.value = data || []
   } catch (e: any) {
@@ -837,17 +821,16 @@ async function onCreateOrganization() {
     orgError.value = 'Organization name is required.'
     return
   }
+  if (!canCreateOrganizations.value) {
+    orgError.value = 'You are not allowed to create organizations.'
+    return
+  }
 
   orgCreating.value = true
   try {
-    // If backend infers tenant from token, drop tenant_id here.
-    await createOrganization({
-      tenant_id: tid,
-      name: trimmed,
-      type: orgType.value,
-    })
+    // backend infers tenant from token
+    await createOrganization({ name: trimmed })
     orgName.value = ''
-    orgType.value = 'umbrella'
     orgMessage.value = 'Organization created.'
     await loadOrganizationsForTenant()
   } catch (e: any) {
@@ -865,7 +848,7 @@ async function loadCollections() {
     return
   }
   try {
-    const resp = await listCollections(currentTenantId.value)
+    const resp = await listCollections()
     const rows = resp.data || []
     collections.value = rows.map((row: any) => row.collection_name)
     if (!activeCollectionName.value && collections.value.length) {
@@ -877,7 +860,7 @@ async function loadCollections() {
   }
 }
 
-// Vendor: configure company
+// Vendor: configure tenant (plan/status)
 async function onConfigure() {
   if (!isVendor.value) return
 
@@ -885,26 +868,25 @@ async function onConfigure() {
   configureError.value = ''
   configureLoading.value = true
   try {
-    await configureCompanyAndCollection({
-      tenantId: tenantId.value,
-      collectionName: tenantName.value || tenantId.value,
+    await configureTenantPayload({
+      tenant_id: Number(tenantId.value),
       plan: tenantPlan.value,
       subscription_status: tenantSubscriptionStatus.value,
     })
-    configureMessage.value = `Company "${tenantId.value}" created.`
+    configureMessage.value = `Tenant "${tenantId.value}" configured.`
     tenantId.value = ''
     tenantName.value = ''
     tenantPlan.value = 'free_trial'
     tenantSubscriptionStatus.value = 'trialing'
   } catch (e: any) {
     configureError.value =
-      e.response?.data?.detail || 'Failed to configure company'
+      e?.response?.data?.detail || 'Failed to configure tenant'
   } finally {
     configureLoading.value = false
   }
 }
 
-// Group/Sub admins: create collection
+// Group/Sub admins (by permission): create collection
 async function onCreateCollection() {
   createCollectionMessage.value = ''
   createCollectionError.value = ''
@@ -931,7 +913,7 @@ async function onCreateCollection() {
     }
   } catch (e: any) {
     createCollectionError.value =
-      e.response?.data?.detail || 'Failed to create collection.'
+      e?.response?.data?.detail || 'Failed to create collection.'
   } finally {
     createCollectionLoading.value = false
   }
@@ -991,7 +973,6 @@ async function onUpload() {
   uploadLoading.value = true
   try {
     await uploadDocument({
-      tenantId: currentTenantId.value,
       collectionName: name,
       title: docTitle.value,
       file: file.value,
@@ -1002,7 +983,7 @@ async function onUpload() {
     file.value = null
   } catch (e: any) {
     uploadError.value =
-      e.response?.data?.detail || 'Failed to upload document.'
+      e?.response?.data?.detail || 'Failed to upload document.'
   } finally {
     uploadLoading.value = false
   }

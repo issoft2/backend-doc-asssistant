@@ -197,19 +197,26 @@ async def query_knowledge_stream(
                     logger.warning("Failed to serialize chart_spec for SSE")    
                 # Audit the query once per request
         try:
-            write_audit_log(
+           write_audit_log(
                 db=db,
                 user=current_user,
                 action="query",
-                resource_type="collection",
-                resource_id=",".join(collection_names),
+                resource_type="collection_query",
+                resource_id=",".join(str(c.id) for c in collection_names),  # primary IDs, not names
                 metadata={
                     "question": question,
                     "top_k": top_k,
-                    "collections": collection_names,
+                    "tenant_id": current_user.tenant_id,
+                    "organization_id": current_user.organization_id,
+                    "user_id": current_user.id,
+                    "user_role": current_user.role,
                     "conversation_id": conversation_id,
+                    "collection_ids": [c.id for c in collection_names],
+                    "collection_names": [c.name for c in collection_names],
+                    "client_ip": request.client.host,
                 },
             )
+
         except Exception:
             logger.warning("Failed to write audit log for query", exc_info=True)
 

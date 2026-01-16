@@ -713,348 +713,289 @@
     </transition>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, onMounted } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
 import { authState } from '../authStore'
 import {
-  listCompanies,
-  listCollections,
+  configureTenantPayload,
+  createCollection,
   uploadDocument,
-  signup,
-  createOrganizationForTenant,
-  createCollectionForOrganization,
+  listCollections,
+  getGoogleDriveAuthUrl,
+  getGoogleDriveStatus,
+  listDriveFiles,
+  ingestDriveFile,
+  disconnectGoogleDriveApi,
+  fetchOrganizations,
+  createOrganization,
+  type OrganizationOut,
 } from '../api'
 
-const companies = ref([])
-const loading = ref(false)
-const loadingCollections = ref('')
-const error = ref('')
-const lastLoadedAt = ref('')
+interface DriveFileOut {
+  id: string
+  name: string
+  mime_type: string
+  is_folder: boolean
+  size?: number | null
+  modified_time?: string | null
+  already_ingested: boolean
+  is_supported: boolean
+}
 
+type IngestStatus = 'idle' | 'running' | 'success' | 'error'
+
+// --- Auth / permission state ---
 const currentUser = computed(() => authState.user)
-const currentRole = computed(() => currentUser.value?.role || '')
-const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
+const currentTenantId = computed(() => currentUser.value?.tenant_id ?? null)
 
-const vendorRoles = ['vendor']
-const groupAdminRoles = [
-  'group_admin',
-  'group_exe',
-  'group_hr',
-  'group_finance',
-  'group_operation',
-  'group_production',
-  'group_marketing',
-  'group_legal',
-]
-const subAdminRoles = [
-  'sub_admin',
-  'sub_md',
-  'sub_hr',
-  'sub_finance',
-  'sub_operations',
-]
+const permissions = computed(() => currentUser.value?.permissions || [])
+const hasPermission = (p: string) => permissions.value.includes(p)
+const hasAnyPermission = (ps: string[]) =>
+  ps.some(p => permissions.value.includes(p))
 
-const isVendor = computed(() => vendorRoles.includes(currentRole.value))
-const isGroupAdmin = computed(() => groupAdminRoles.includes(currentRole.value))
-const isSubAdmin = computed(() => subAdminRoles.includes(currentRole.value))
+const isVendor = computed(() => currentUser.value?.role === 'vendor')
 
-const canUpload = computed(
-  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
-)
-const canManageUsers = computed(
-  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
+// Config capabilities
+const canCreateOrganizations = computed(() =>
+  hasAnyPermission(['ORG:CREATE:SUB', 'ORG:CREATE:GROUP', 'ORG:ADMIN']),
 )
 
-function canUploadToTenant(tenantId) {
-  if (!canUpload.value) return false
-  if (isVendor.value) return true
-  return currentTenantId.value && currentTenantId.value === tenantId
-}
+const canCreateCollections = computed(() =>
+  hasPermission('COLLECTION:CREATE'),
+)
 
-function canManageUsersForTenant(tenantId) {
-  if (isVendor.value) return true
-  if (!canManageUsers.value) return false
-  return currentTenantId.value && currentTenantId.value === tenantId
-}
+const canUpload = computed(() =>
+  hasPermission('DOC:UPLOAD'),
+)
 
-function formatDate(value) {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString()
-}
+// --- Collections / config state ---
+const collections = ref<string[]>([])
+const tenantId = ref('') // used by vendor when creating/configuring a tenant
+const tenantName = ref('')
+const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>(
+  'free_trial',
+)
+const tenantSubscriptionStatus = ref<
+  'trialing' | 'active' | 'expired' | 'cancelled'
+>('trialing')
 
-function planBadgeClass(plan) {
-  switch (plan) {
-    case 'free_trial':
-      return 'bg-amber-100 text-amber-800'
-    case 'starter':
-      return 'bg-sky-100 text-sky-800'
-    case 'pro':
-      return 'bg-indigo-100 text-indigo-800'
-    case 'enterprise':
-      return 'bg-emerald-100 text-emerald-800'
-    default:
-      return 'bg-slate-100 text-slate-700'
-  }
-}
+const tenantCollectionName = ref('')
+const activeCollectionName = ref('')
 
-function statusBadgeClass(status) {
-  switch (status) {
-    case 'trialing':
-      return 'bg-amber-100 text-amber-800'
-    case 'active':
-      return 'bg-emerald-100 text-emerald-800'
-    case 'expired':
-      return 'bg-rose-100 text-rose-800'
-    case 'cancelled':
-      return 'bg-slate-200 text-slate-700'
-    default:
-      return 'bg-slate-100 text-slate-700'
-  }
-}
-
-function collectionsForOrg(company, orgId) {
-  const cols = company.collections || []
-  return cols.filter(c => c.organization_id === orgId)
-}
-
-async function loadCompanies() {
-  loading.value = true
-  error.value = ''
-  try {
-    const res = await listCompanies()
-    console.log(res)
-    const payload = Array.isArray(res) ? res : res?.data
-    companies.value = (payload || []).map(c => ({
-      ...c,
-      organizations: c.organizations || [],
-      collections: c.collections || [],
-    }))
-    lastLoadedAt.value = new Date().toLocaleTimeString()
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('loadCompanies error:', e)
-    error.value = e?.response?.data?.detail || 'Failed to load companies.'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadCollectionsAndOrgs(tenantId) {
-  loadingCollections.value = tenantId
-  try {
-    const res = await listCollections(tenantId)
-    const payload = Array.isArray(res) ? res : res?.data
-    const cols = payload || []
-    companies.value = companies.value.map(c =>
-      c.tenant_id === tenantId ? { ...c, collections: cols } : c,
-    )
-    // organizations assumed to be in listCompanies payload; if you have a listOrgs endpoint, call it here too
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('loadCollections error:', e)
-    error.value = e?.response?.data?.detail || 'Failed to load collections.'
-  } finally {
-    loadingCollections.value = ''
-  }
-}
-
-/**
- * Organizations modal state/handlers
- */
-const showOrgsModal = ref(false)
-const orgTenantId = ref('')
-const orgsForTenant = ref([])
-const orgName = ref('')
-const orgType = ref('umbrella')
-const orgSaving = ref(false)
-const orgMessage = ref('')
-const orgError = ref('')
-
-function openOrganizationsModal(company) {
-  orgTenantId.value = company.tenant_id
-  orgsForTenant.value = company.organizations || []
-  orgName.value = ''
-  orgType.value = 'umbrella'
-  orgMessage.value = ''
-  orgError.value = ''
-  showOrgsModal.value = true
-}
-
-function closeOrganizationsModal() {
-  showOrgsModal.value = false
-}
-
-async function onCreateOrganizationForTenant() {
-  orgMessage.value = ''
-  orgError.value = ''
-
-  const name = orgName.value.trim()
-  if (!orgTenantId.value) {
-    orgError.value = 'Tenant is missing.'
-    return
-  }
-  if (!name) {
-    orgError.value = 'Organization name is required.'
-    return
-  }
-
-  orgSaving.value = true
-  try {
-    const { data } = await createOrganizationForTenant(orgTenantId.value, {
-      name,
-      type: orgType.value,
-    })
-    orgsForTenant.value = [...orgsForTenant.value, data]
-    companies.value = companies.value.map(c =>
-      c.tenant_id === orgTenantId.value
-        ? { ...c, organizations: [...(c.organizations || []), data] }
-        : c,
-    )
-    orgName.value = ''
-    orgType.value = 'umbrella'
-    orgMessage.value = 'Organization created.'
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('create org error:', e)
-    orgError.value =
-      e?.response?.data?.detail || 'Failed to create organization.'
-  } finally {
-    orgSaving.value = false
-  }
-}
-
-/**
- * Collection modal state/handlers
- */
-const showCollectionModal = ref(false)
-const collectionTenantId = ref('')
-const collectionOrgId = ref('')
-const collectionName = ref('')
-const collectionLoading = ref(false)
-const collectionMessage = ref('')
-const collectionError = ref('')
-
-const organizationsForCollectionTenant = computed(() => {
-  if (!collectionTenantId.value) return []
-  const company = companies.value.find(
-    c => c.tenant_id === collectionTenantId.value,
-  )
-  return company?.organizations || []
-})
-
-function openCollectionModal(company) {
-  if (!canUploadToTenant(company.tenant_id)) return
-  if (!company.organizations || !company.organizations.length) return
-
-  collectionTenantId.value = company.tenant_id
-  collectionOrgId.value = String(company.organizations[0].id)
-  collectionName.value = ''
-  collectionMessage.value = ''
-  collectionError.value = ''
-  showCollectionModal.value = true
-}
-
-function closeCollectionModal() {
-  showCollectionModal.value = false
-}
-
-async function onCreateCollectionForOrg() {
-  collectionMessage.value = ''
-  collectionError.value = ''
-
-  const name = collectionName.value.trim()
-  if (!collectionTenantId.value || !collectionOrgId.value) {
-    collectionError.value = 'Organization is required.'
-    return
-  }
-  if (!name) {
-    collectionError.value = 'Collection name is required.'
-    return
-  }
-
-  collectionLoading.value = true
-  try {
-    const { data } = await createCollectionForOrganization(
-      collectionTenantId.value,
-      collectionOrgId.value,
-      { name },
-    )
-    companies.value = companies.value.map(c =>
-      c.tenant_id === collectionTenantId.value
-        ? {
-            ...c,
-            collections: [...(c.collections || []), data],
-          }
-        : c,
-    )
-    collectionName.value = ''
-    collectionMessage.value = 'Collection created.'
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('create collection error:', e)
-    collectionError.value =
-      e?.response?.data?.detail || 'Failed to create collection.'
-  } finally {
-    collectionLoading.value = false
-  }
-}
-
-/**
- * Upload modal state/handlers
- */
-const showUploadModal = ref(false)
-const activeTenantId = ref('')
-const selectedCollectionName = ref('')
 const docTitle = ref('')
-const file = ref(null)
+const file = ref<File | null>(null)
+const dragOver = ref(false)
+
+const configureLoading = ref(false)
+const configureMessage = ref('')
+const configureError = ref('')
+
+const createCollectionLoading = ref(false)
+const createCollectionMessage = ref('')
+const createCollectionError = ref('')
+
 const uploadLoading = ref(false)
 const uploadMessage = ref('')
 const uploadError = ref('')
-const fileInput = ref(null)
 
-const activeCollections = computed(() => {
-  if (!activeTenantId.value) return []
-  const company = companies.value.find(
-    c => c.tenant_id === activeTenantId.value,
-  )
-  return company?.collections || []
+const fileInput = ref<HTMLInputElement | null>(null)
+
+// --- Organizations for tenant ---
+const organizations = ref<OrganizationOut[]>([])
+const orgLoading = ref(false)
+const orgCreating = ref(false)
+const orgName = ref('')
+const orgError = ref('')
+const orgMessage = ref('')
+
+// If vendor, allow them to type a tenantId to view orgs; otherwise use current tenant.
+const currentTenantScopeId = computed(() => {
+  if (isVendor.value) {
+    return tenantId.value || (currentTenantId.value?.toString() ?? '')
+  }
+  return currentTenantId.value?.toString() ?? ''
 })
 
-function openUploadModal(company) {
-  if (!canUploadToTenant(company.tenant_id)) return
+async function loadOrganizationsForTenant() {
+  orgError.value = ''
+  orgMessage.value = ''
 
-  activeTenantId.value = company.tenant_id
-  const firstCol =
-    company.collections && company.collections.length
-      ? company.collections[0]
-      : null
-  selectedCollectionName.value =
-    firstCol?.name || firstCol?.collection_name || ''
-  docTitle.value = ''
-  file.value = null
+  const tid = currentTenantScopeId.value
+  if (!tid) {
+    organizations.value = []
+    return
+  }
+
+  orgLoading.value = true
+  try {
+    // backend returns organizations for current tenant from token
+    const data = await fetchOrganizations()
+    organizations.value = data || []
+  } catch (e: any) {
+    orgError.value =
+      e?.response?.data?.detail || 'Failed to load organizations.'
+  } finally {
+    orgLoading.value = false
+  }
+}
+
+async function onCreateOrganization() {
+  orgError.value = ''
+  orgMessage.value = ''
+
+  const tid = currentTenantScopeId.value
+  const trimmed = orgName.value.trim()
+
+  if (!tid) {
+    orgError.value = 'No tenant selected for organizations.'
+    return
+  }
+  if (!trimmed) {
+    orgError.value = 'Organization name is required.'
+    return
+  }
+  if (!canCreateOrganizations.value) {
+    orgError.value = 'You are not allowed to create organizations.'
+    return
+  }
+
+  orgCreating.value = true
+  try {
+    // backend infers tenant from token
+    await createOrganization({ name: trimmed })
+    orgName.value = ''
+    orgMessage.value = 'Organization created.'
+    await loadOrganizationsForTenant()
+  } catch (e: any) {
+    orgError.value =
+      e?.response?.data?.detail || 'Could not create organization.'
+  } finally {
+    orgCreating.value = false
+  }
+}
+
+// --- Collections helpers ---
+async function loadCollections() {
+  if (!currentTenantId.value) {
+    collections.value = []
+    return
+  }
+  try {
+    const resp = await listCollections()
+    const rows = resp.data || []
+    collections.value = rows.map((row: any) => row.collection_name)
+    if (!activeCollectionName.value && collections.value.length) {
+      activeCollectionName.value = collections.value[0]
+    }
+  } catch (e) {
+    console.error('Failed to load collections:', e)
+    collections.value = []
+  }
+}
+
+// Vendor: configure tenant (plan/status)
+async function onConfigure() {
+  if (!isVendor.value) return
+
+  configureMessage.value = ''
+  configureError.value = ''
+  configureLoading.value = true
+  try {
+    await configureTenantPayload({
+      tenant_id: Number(tenantId.value),
+      plan: tenantPlan.value,
+      subscription_status: tenantSubscriptionStatus.value,
+    })
+    configureMessage.value = `Tenant "${tenantId.value}" configured.`
+    tenantId.value = ''
+    tenantName.value = ''
+    tenantPlan.value = 'free_trial'
+    tenantSubscriptionStatus.value = 'trialing'
+  } catch (e: any) {
+    configureError.value =
+      e?.response?.data?.detail || 'Failed to configure tenant'
+  } finally {
+    configureLoading.value = false
+  }
+}
+
+// Group/Sub admins (by permission): create collection
+async function onCreateCollection() {
+  createCollectionMessage.value = ''
+  createCollectionError.value = ''
+
+  if (!canCreateCollections.value) {
+    createCollectionError.value =
+      'Only authorized admins can create collections.'
+    return
+  }
+
+  const name = tenantCollectionName.value.trim()
+  if (!name) {
+    createCollectionError.value = 'Collection name is required.'
+    return
+  }
+
+  createCollectionLoading.value = true
+  try {
+    await createCollection({ name }) // backend uses current tenant from token
+    createCollectionMessage.value = `Collection "${name}" created for your company.`
+    activeCollectionName.value = name
+    if (!collections.value.includes(name)) {
+      collections.value.push(name)
+    }
+  } catch (e: any) {
+    createCollectionError.value =
+      e?.response?.data?.detail || 'Failed to create collection.'
+  } finally {
+    createCollectionLoading.value = false
+  }
+}
+
+// --- Local file upload ---
+function onFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const picked = target.files?.[0] || null
+  file.value = picked || null
+}
+
+function onClickDropzone() {
+  fileInput.value?.click()
+}
+
+function onDragEnter() {
+  dragOver.value = true
+}
+function onDragOver() {
+  dragOver.value = true
+}
+function onDragLeave() {
+  dragOver.value = false
+}
+function onDrop(event: DragEvent) {
+  dragOver.value = false
+  const dropped = event.dataTransfer?.files?.[0] || null
+  if (!dropped) return
+  file.value = dropped
+}
+
+// Upload into current tenant + chosen collection
+async function onUpload() {
   uploadMessage.value = ''
   uploadError.value = ''
-  if (fileInput.value) fileInput.value.value = ''
-  showUploadModal.value = true
-}
 
-function closeUploadModal() {
-  showUploadModal.value = false
-}
+  if (!canUpload.value) {
+    uploadError.value = 'Your role is not allowed to upload documents.'
+    return
+  }
+  if (!currentTenantId.value) {
+    uploadError.value = 'No tenant is associated with your account.'
+    return
+  }
 
-function onFileChange(event) {
-  file.value = event.target.files?.[0] || null
-}
-
-async function onUploadFromAdmin() {
-  uploadMessage.value = ''
-  uploadError.value = ''
-
-  if (!activeTenantId.value || !selectedCollectionName.value) {
-    uploadError.value = 'Select tenant and collection.'
+  const name = activeCollectionName.value.trim()
+  if (!name) {
+    uploadError.value = 'Collection name is required.'
     return
   }
   if (!file.value) {
@@ -1065,17 +1006,15 @@ async function onUploadFromAdmin() {
   uploadLoading.value = true
   try {
     await uploadDocument({
-      tenant_id: activeTenantId.value,
-      collectionName: selectedCollectionName.value,
+      collectionName: name,
       title: docTitle.value,
       file: file.value,
+      doc_id: '',
     })
     uploadMessage.value = 'Document uploaded and indexed successfully.'
     if (fileInput.value) fileInput.value.value = ''
     file.value = null
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('upload error:', e)
+  } catch (e: any) {
     uploadError.value =
       e?.response?.data?.detail || 'Failed to upload document.'
   } finally {
@@ -1083,101 +1022,222 @@ async function onUploadFromAdmin() {
   }
 }
 
-/**
- * User modal state/handlers
- */
-const showUserModal = ref(false)
-const userTenantId = ref('')
-const userOrganizationId = ref('')
-const userEmail = ref('')
-const userPassword = ref('')
-const userFirstName = ref('')
-const userLastName = ref('')
-const userDob = ref('')
-const userPhone = ref('')
-const userRole = ref('')
-const userLoading = ref(false)
-const userMessage = ref('')
-const userError = ref('')
+// --- Google Drive connection ---
+const googleDriveStatus = ref<'connected' | 'disconnected'>('disconnected')
+const googleDriveEmail = ref('')
+const connectingDrive = ref(false)
 
-const organizationsForUserTenant = computed(() => {
-  if (!userTenantId.value) return []
-  const company = companies.value.find(
-    c => c.tenant_id === userTenantId.value,
-  )
-  return company?.organizations || []
-})
-
-function openUserModal(company) {
-  if (!canManageUsersForTenant(company.tenant_id)) return
-  if (!company.organizations || !company.organizations.length) return
-   console.log('Company object is Org what? ', company.organizations[0])
-  userTenantId.value = company.tenant_id
-  userOrganizationId.value = company.organizations[0].id
-  userEmail.value = ''
-  userPassword.value = ''
-  userFirstName.value = ''
-  userLastName.value = ''
-  userDob.value = ''
-  userPhone.value = ''
-  userRole.value = ''
-  userMessage.value = ''
-  userError.value = ''
-  showUserModal.value = true
+async function connectGoogleDrive() {
+  if (connectingDrive.value) return
+  connectingDrive.value = true
+  try {
+    const { data } = await getGoogleDriveAuthUrl()
+    window.location.href = data.auth_url
+  } catch (e) {
+    console.error('Failed to start Google Drive auth', e)
+    googleDriveStatus.value = 'disconnected'
+    googleDriveEmail.value = ''
+  } finally {
+    connectingDrive.value = false
+  }
 }
 
-function closeUserModal() {
-  showUserModal.value = false
+async function loadGoogleDriveStatus() {
+  try {
+    const { data } = await getGoogleDriveStatus()
+    googleDriveStatus.value = data.connected ? 'connected' : 'disconnected'
+    googleDriveEmail.value = data.account_email || ''
+  } catch (e) {
+    console.error('Failed to load Google Drive status', e)
+    googleDriveStatus.value = 'disconnected'
+    googleDriveEmail.value = ''
+  }
 }
 
-async function onCreateUser() {
-  userMessage.value = ''
-  userError.value = ''
+async function disconnectGoogleDrive() {
+  try {
+    await disconnectGoogleDriveApi()
+  } finally {
+    await loadGoogleDriveStatus()
+  }
+}
 
+// --- Google Drive selection helpers ---
+const driveLoading = ref(false)
+const driveError = ref('')
+const driveIngestMessage = ref('')
+const currentFolderId = ref<string | null>(null)
+const driveFiles = ref<DriveFileOut[]>([])
+const selectedDriveFileIds = ref<Set<string>>(new Set<string>())
+const ingestStatusById = ref<Record<string, IngestStatus>>({})
+const ingesting = ref(false)
 
-  if (!userTenantId.value || !userOrganizationId.value) {
-    userError.value = 'Tenant and organization are required.'
+const selectableDriveFiles = computed<DriveFileOut[]>(() =>
+  (driveFiles.value || []).filter(
+    f => !f.is_folder && !f.already_ingested && f.is_supported,
+  ),
+)
+
+const allSelected = computed(
+  () =>
+    selectableDriveFiles.value.length > 0 &&
+    selectableDriveFiles.value.every(f =>
+      selectedDriveFileIds.value.has(f.id),
+    ),
+)
+
+const someSelected = computed(
+  () =>
+    selectableDriveFiles.value.some(f =>
+      selectedDriveFileIds.value.has(f.id),
+    ) && !allSelected.value,
+)
+
+function toggleSelectAllDrive() {
+  const next = new Set<string>(selectedDriveFileIds.value)
+  if (allSelected.value) {
+    selectableDriveFiles.value.forEach(f => next.delete(f.id))
+  } else {
+    selectableDriveFiles.value.forEach(f => next.add(f.id))
+  }
+  selectedDriveFileIds.value = next
+}
+
+function toggleDriveFileSelection(fileId: string) {
+  const next = new Set<string>(selectedDriveFileIds.value)
+  if (next.has(fileId)) next.delete(fileId)
+  else next.add(fileId)
+  selectedDriveFileIds.value = next
+}
+
+// --- Google Drive files navigation + ingest ---
+async function loadDriveFiles(folderId: string | null = null) {
+  currentFolderId.value = folderId
+  driveLoading.value = true
+  driveError.value = ''
+  driveIngestMessage.value = ''
+  selectedDriveFileIds.value = new Set<string>()
+  try {
+    const resp = await listDriveFiles(folderId ? { folder_id: folderId } : {})
+    const files: DriveFileOut[] = resp.data || []
+    driveFiles.value = files
+
+    const initial = new Set<string>(
+      files
+        .filter(
+          f => !f.is_folder && !f.already_ingested && f.is_supported,
+        )
+        .map(f => f.id),
+    )
+    selectedDriveFileIds.value = initial
+  } catch (e) {
+    console.error('Failed to load Drive files', e)
+    driveError.value = 'Failed to load Google Drive files.'
+    driveFiles.value = []
+  } finally {
+    driveLoading.value = false
+  }
+}
+
+function onDriveItemClick(fileObj: DriveFileOut) {
+  if (fileObj.is_folder) {
+    loadDriveFiles(fileObj.id)
+  }
+}
+
+async function ingestSelectedDriveFiles() {
+  driveError.value = ''
+  driveIngestMessage.value = ''
+
+  if (!canUpload.value) {
+    driveError.value = 'Your role is not allowed to ingest from Drive.'
+    return
+  }
+  if (!currentTenantId.value) {
+    driveError.value = 'No tenant is associated with your account.'
+    return
+  }
+  if (!activeCollectionName.value) {
+    driveError.value = 'Select a collection before ingesting from Drive.'
     return
   }
 
-  userLoading.value = true
-  try {
-    const payload = {
-      email: userEmail.value,
-      password: userPassword.value,
-      tenant_id: userTenantId.value,
-      organization_id: userOrganizationId.value,
-      first_name: userFirstName.value,
-      last_name: userLastName.value,
-      date_of_birth: userDob.value || undefined,
-      phone: userPhone.value || undefined,
-      role: userRole.value,
-    }
-    console.log('signup payload', payload) // keep while debugging
-
-    await signup(payload)
-
-    userMessage.value = 'User created successfully.'
-    userEmail.value = ''
-    userPassword.value = ''
-    userFirstName.value = ''
-    userLastName.value = ''
-    userDob.value = ''
-    userPhone.value = ''
-    userRole.value = ''
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('signup error:', e)
-    userError.value =
-      e?.response?.data?.detail || 'Failed to create user.'
-  } finally {
-    userLoading.value = false
+  const ids = Array.from(selectedDriveFileIds.value)
+  if (!ids.length) {
+    driveError.value = 'No files selected for ingestion.'
+    return
   }
+
+  ingesting.value = true
+  driveIngestMessage.value = ''
+  const statusMap: Record<string, IngestStatus> = {}
+  ids.forEach(id => {
+    statusMap[id] = 'idle'
+  })
+  ingestStatusById.value = statusMap
+
+  let successCount = 0
+  let errorCount = 0
+
+  for (const id of ids) {
+    const fileObj = driveFiles.value.find(f => f.id === id)
+    if (!fileObj) continue
+
+    ingestStatusById.value = {
+      ...ingestStatusById.value,
+      [id]: 'running',
+    }
+
+    try {
+      await ingestDriveFile({
+        fileId: fileObj.id,
+        collectionName: activeCollectionName.value,
+        title: fileObj.name,
+      })
+
+      ingestStatusById.value = {
+        ...ingestStatusById.value,
+        [id]: 'success',
+      }
+      successCount += 1
+    } catch (e) {
+      console.error('Failed to ingest Drive file', fileObj.name, e)
+      ingestStatusById.value = {
+        ...ingestStatusById.value,
+        [id]: 'error',
+      }
+      errorCount += 1
+    }
+  }
+
+  if (successCount > 0) {
+    driveIngestMessage.value = `Ingested ${successCount} file(s) from Google Drive.${
+      errorCount ? ' Some files failed.' : ''
+    }`
+  } else if (errorCount > 0) {
+    driveError.value = 'Failed to ingest the selected files from Google Drive.'
+  }
+
+  await loadDriveFiles(currentFolderId.value)
+  selectedDriveFileIds.value = new Set<string>()
+  ingesting.value = false
 }
 
+// --- Lifecycle ---
+onMounted(() => {
+  loadCollections()
+  loadGoogleDriveStatus()
+  if (currentTenantScopeId.value) {
+    loadOrganizationsForTenant()
+  }
+})
 
-onMounted(loadCompanies)
+// If vendor edits tenantId manually, reload org list for that tenant
+watch(currentTenantScopeId, () => {
+  loadOrganizationsForTenant()
+})
 </script>
+
 
 <style scoped>
 .fade-enter-active,

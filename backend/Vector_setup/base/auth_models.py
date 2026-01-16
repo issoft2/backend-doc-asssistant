@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class UserCreate(BaseModel):
@@ -31,10 +31,14 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
     role: Optional[str] = None
     is_active: bool = True
-    create_at: Optional[str] = None
+    created_at: Optional[str] = None
     is_online: bool = False
     last_login_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
+    roles: List[str] = []
+    permissions: List[str] = []
+    organization_id: Optional[str] = None
+    
     
     class Config:
         from_attributes = True

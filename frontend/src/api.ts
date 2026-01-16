@@ -11,22 +11,33 @@ console.log('Axios baseURL:', api.defaults.baseURL)
 
 // ---- Types ----
 export interface MeResponse {
-  id: string
+  id: number
   email: string
   role: string
-  tenant_id?: string | null
+  tenant_id: number
+  organization_id: number | null
+  roles: string[]
+  permissions: string[]
+  first_name?: string | null
+  last_name?: string | null
+  date_of_birth?: string | null
+  phone?: string | null
+  is_active?: boolean
+  created_at?: string
+  is_online?: boolean
+  last_login_at?: string | null
+  last_seen_at?: string | null
   [key: string]: unknown
 }
 
+
 export interface ConfigureCompanyPayload {
   tenant_id: string
-  collectionName?: string
   plan: 'free_trial' | 'starter' | 'pro' | 'enterprise'
   subscription_status: 'trialing' | 'active' | 'expired' | 'cancelled'
 }
 
 export interface UploadDocumentPayload {
-  tenant_id: string
   collectionName: string
   title?: string
   file: File
@@ -36,13 +47,13 @@ export interface UploadDocumentPayload {
 export interface SignupPayload {
   email: string
   password: string
-  tenant_id: string
+  tenant_id?: number          // optional if BE infers from token
   first_name?: string
   last_name?: string
   date_of_birth?: string
   phone?: string
   role?: string
-  organization_id: string | number
+  organization_id: number
   
 }
 
@@ -71,8 +82,6 @@ export interface OrganizationOut {
   id: string
   tenant_id: string
   name: string
-  type: 'umbrella' | 'subsidiary'
-  parent_id: string | null
 }
 
 // ---- Basic helpers ----
@@ -118,11 +127,10 @@ export function removeAuthToken() {
 }
 
 // ---- Companies / collections ----
-export function configureCompanyAndCollection(payload: ConfigureCompanyPayload) {
-  const { tenant_id, collectionName, plan, subscription_status } = payload
+export function configureTenantPayload(payload: ConfigureCompanyPayload) {
+  const { tenant_id, plan, subscription_status } = payload
   return api.post('/companies/configure', {
     tenant_id: tenant_id,
-    collection_name: collectionName,
     plan,
     subscription_status,
   })
@@ -134,9 +142,8 @@ export function listCompanies() {
 }
 
 // List collections for a company (admin listing page or tenant scoped)
-export function listCollections(tenant_id: string) {
+export function listCollections() {
   return api.get('/collections')
-  // return api.get(`/companies/${tenant_id}/collections`)
 }
 
 // Tenant-scoped collection creation (backend infers tenant from token)
@@ -166,14 +173,12 @@ export function toggleCompanyUserActive(userId: string) {
 
 // ---- Documents ----
 export function uploadDocument({
-  tenant_id,
   collectionName,
   title,
   file,
   doc_id,
 }: UploadDocumentPayload) {
   const formData = new FormData()
-  formData.append('tenant_id', tenant_id)
   formData.append('collection_name', collectionName)
   if (title) formData.append('title', title)
   if (doc_id) formData.append('doc_id', doc_id)
@@ -199,7 +204,7 @@ export function signup({
   return api.post('/auth/signup', {
     email,
     password,
-    tenant_id: tenant_id,
+    ...(tenant_id != null ? { tenant_id } : {}),
     first_name,
     last_name,
     date_of_birth,
@@ -294,7 +299,6 @@ export function createOrganizationForTenant(
   tenant_id: string,
   payload: {
     name: string
-    type: 'umbrella' | 'subsidiary'
   },
 ) {
   return api.post<OrganizationOut>('/organizations', {
@@ -307,8 +311,6 @@ export function createOrganizationForTenant(
 
 export interface CreateOrganizationPayload {
   name: string
-  type: 'umbrella' | 'subsidiary'
-  parent_id?: string | null
 }
 
 export function createOrganization(payload: CreateOrganizationPayload) {
@@ -316,14 +318,13 @@ export function createOrganization(payload: CreateOrganizationPayload) {
 }
 
 export function createCollectionForOrganization(
-  tenant_id: string,
   organizationId: string | number,
   payload: {
     name: string
   },
 ) {
   return api.post(
-    `/tenants/${tenant_id}/organizations/${organizationId}/collections`,
+    `/organizations/${organizationId}/collections`,
     payload,
   )
 }
