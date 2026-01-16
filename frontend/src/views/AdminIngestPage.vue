@@ -17,7 +17,7 @@
           Configure company / tenant
         </h2>
         <p class="text-xs text-slate-500">
-          Only vendor can provision a new company/tenant, Organization is created with the tenant
+          Only vendor can provision or configure a company/tenant.
         </p>
       </header>
 
@@ -106,7 +106,7 @@
             class="btn-primary"
             :disabled="configureLoading"
           >
-            <span v-if="!configureLoading">Create company / tenant</span>
+            <span v-if="!configureLoading">Create / update tenant</span>
             <span v-else>Saving…</span>
           </button>
         </div>
@@ -129,8 +129,8 @@
         Company configuration
       </h2>
       <p class="text-xs text-slate-500">
-        Company creation is managed by the vendor. You can create collections
-        and upload documents for your assigned company if your role allows it.
+        Company creation is managed by the vendor. You can upload documents into
+        existing collections for your company if your role allows it.
       </p>
       <p class="text-xs text-slate-600" v-if="currentTenantId">
         Your company / tenant:
@@ -138,180 +138,14 @@
       </p>
     </section>
 
-        <!-- Organizations for this tenant (vendor + admins) -->
-    <section
-      v-if="currentTenantScopeId"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header class="flex items-center justify-between gap-2">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">
-            Organizations for this tenant
-          </h2>
-          <p class="text-xs text-slate-500">
-            Define organizations under Tenant
-            <span class="font-semibold">{{ currentTenantScopeId }}</span>.
-          </p>
-        </div>
-      </header>
-
-      <!-- Create organization inline form -->
-      <form
-        class="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] items-end"
-        @submit.prevent="onCreateOrganization"
-      >
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Organization name
-          </label>
-          <input
-            v-model="orgName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. Helium Group, Lagos Clinic"
-            required
-          />
-        </div>
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="orgCreating || !currentTenantScopeId"
-          >
-            <span v-if="!orgCreating">Create org</span>
-            <span v-else>Creating…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="orgError" class="text-xs text-red-600">
-        {{ orgError }}
-      </p>
-      <p v-if="orgMessage" class="text-xs text-emerald-600">
-        {{ orgMessage }}
-      </p>
-
-      <!-- Organizations list -->
-      <div class="space-y-2">
-        <h3 class="text-xs font-semibold text-slate-700">
-          Existing organizations
-        </h3>
-
-        <p v-if="orgLoading" class="text-[11px] text-slate-500">
-          Loading organizations…
-        </p>
-        <p
-          v-else-if="!organizations.length"
-          class="text-[11px] text-slate-500"
-        >
-          No organizations defined yet for this tenant.
-        </p>
-
-        <div
-          v-else
-          class="overflow-x-auto rounded-lg border border-slate-200"
-        >
-          <table class="min-w-full text-[11px]">
-            <thead class="bg-slate-50">
-              <tr>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  ID
-                </th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  Name
-                </th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  Type
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="org in organizations"
-                :key="org.id"
-                class="border-t border-slate-100"
-              >
-                <td class="px-3 py-2 font-mono text-[10px] text-slate-700">
-                  {{ org.id }}
-                </td>
-                <td class="px-3 py-2 text-slate-800">
-                  {{ org.name }}
-                </td>
-                <td class="px-3 py-2 text-slate-500 capitalize">
-                  {{ org.type }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- Tenant-scoped collection creation (group/sub admins only) -->
-    <section
-      v-if="canCreateCollections"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Create collection for your company
-        </h2>
-        <p class="text-xs text-slate-500">
-          Collections are created within your own tenant. You cannot create
-          collections for other companies.
-        </p>
-        <p class="text-[11px] text-slate-600" v-if="currentTenantId">
-          Tenant:
-          <span class="font-semibold">{{ currentTenantId }}</span>
-        </p>
-      </header>
-
-      <form
-        class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] items-end"
-        @submit.prevent="onCreateCollection"
-      >
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Collection name
-          </label>
-          <input
-            v-model="tenantCollectionName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. hr_policies"
-            required
-          />
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="createCollectionLoading"
-          >
-            <span v-if="!createCollectionLoading">Create collection</span>
-            <span v-else>Creating…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="createCollectionMessage" class="text-xs text-emerald-600">
-        {{ createCollectionMessage }}
-      </p>
-      <p v-if="createCollectionError" class="text-xs text-red-600">
-        {{ createCollectionError }}
-      </p>
-    </section>
-
-    <!-- Document upload (group/sub admins only; employees see info) -->
+    <!-- Document upload into existing collections -->
     <section class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4">
       <header>
         <h2 class="text-sm font-semibold text-slate-900">
           Upload policy documents
         </h2>
         <p class="text-xs text-slate-500">
-          Upload policy files to index them into a collection in your company.
+          Upload policy files to index them into an existing collection in your company.
         </p>
 
         <p
@@ -333,7 +167,7 @@
           v-else-if="canUpload"
           class="text-[11px] text-red-600"
         >
-          You must have a collection selected or created before uploading.
+          You must select an existing collection before uploading.
         </p>
       </header>
 
@@ -364,7 +198,7 @@
             v-if="!collections.length"
             class="text-[11px] text-slate-400"
           >
-            No collections found yet. Create a collection above before uploading.
+            No collections found for your tenant. Ask an admin to create one on the admin page.
           </p>
           <p
             v-else
@@ -512,7 +346,7 @@
       </div>
     </section>
 
-    <!-- Drive import (only useful for upload-capable roles) -->
+    <!-- Drive import (into selected collection) -->
     <section
       v-if="googleDriveStatus === 'connected'"
       class="mt-4 border rounded-lg p-4"
@@ -565,7 +399,7 @@
           <button
             type="button"
             class="btn-primary text-[11px]"
-            :disabled="ingesting || selectableDriveFiles.length === 0 || !canUpload"
+            :disabled="ingesting || selectableDriveFiles.length === 0 || !canUpload || !activeCollectionName"
             @click="ingestSelectedDriveFiles"
           >
             {{ ingesting ? 'Ingesting…' : 'Ingest selected' }}
@@ -665,12 +499,12 @@
     </section>
   </div>
 </template>
+
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { authState } from '../authStore'
 import {
   configureTenantPayload,
-  createCollection,
   uploadDocument,
   listCollections,
   getGoogleDriveAuthUrl,
@@ -678,9 +512,6 @@ import {
   listDriveFiles,
   ingestDriveFile,
   disconnectGoogleDriveApi,
-  fetchOrganizations,
-  createOrganization,
-  type OrganizationOut,
 } from '../api'
 
 interface DriveFileOut {
@@ -702,27 +533,14 @@ const currentTenantId = computed(() => currentUser.value?.tenant_id ?? null)
 
 const permissions = computed(() => currentUser.value?.permissions || [])
 const hasPermission = (p: string) => permissions.value.includes(p)
-const hasAnyPermission = (ps: string[]) =>
-  ps.some(p => permissions.value.includes(p))
-
 const isVendor = computed(() => currentUser.value?.role === 'vendor')
 
-// Config capabilities
-const canCreateOrganizations = computed(() =>
-  hasAnyPermission(['ORG:CREATE:SUB', 'ORG:CREATE:GROUP', 'ORG:ADMIN']),
-)
-
-const canCreateCollections = computed(() =>
-  hasPermission('COLLECTION:CREATE'),
-)
-
-const canUpload = computed(() =>
-  hasPermission('DOC:UPLOAD'),
-)
+// Upload capability (no creation here)
+const canUpload = computed(() => hasPermission('DOC:UPLOAD'))
 
 // --- Collections / config state ---
 const collections = ref<string[]>([])
-const tenantId = ref('') // used by vendor when creating/configuring a tenant
+const tenantId = ref('') // used by vendor when configuring a tenant
 const tenantName = ref('')
 const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>(
   'free_trial',
@@ -731,9 +549,7 @@ const tenantSubscriptionStatus = ref<
   'trialing' | 'active' | 'expired' | 'cancelled'
 >('trialing')
 
-const tenantCollectionName = ref('')
 const activeCollectionName = ref('')
-
 const docTitle = ref('')
 const file = ref<File | null>(null)
 const dragOver = ref(false)
@@ -742,91 +558,13 @@ const configureLoading = ref(false)
 const configureMessage = ref('')
 const configureError = ref('')
 
-const createCollectionLoading = ref(false)
-const createCollectionMessage = ref('')
-const createCollectionError = ref('')
-
 const uploadLoading = ref(false)
 const uploadMessage = ref('')
 const uploadError = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-// --- Organizations for tenant ---
-const organizations = ref<OrganizationOut[]>([])
-const orgLoading = ref(false)
-const orgCreating = ref(false)
-const orgName = ref('')
-const orgError = ref('')
-const orgMessage = ref('')
-
-// If vendor, allow them to type a tenantId to view orgs; otherwise use current tenant.
-const currentTenantScopeId = computed(() => {
-  if (isVendor.value) {
-    return tenantId.value || (currentTenantId.value?.toString() ?? '')
-  }
-  return currentTenantId.value?.toString() ?? ''
-})
-
-async function loadOrganizationsForTenant() {
-  orgError.value = ''
-  orgMessage.value = ''
-
-  const tid = currentTenantScopeId.value
-  if (!tid) {
-    organizations.value = []
-    return
-  }
-
-  orgLoading.value = true
-  try {
-    // backend returns organizations for current tenant from token
-    const data = await fetchOrganizations()
-    organizations.value = data || []
-  } catch (e: any) {
-    orgError.value =
-      e?.response?.data?.detail || 'Failed to load organizations.'
-  } finally {
-    orgLoading.value = false
-  }
-}
-
-async function onCreateOrganization() {
-  orgError.value = ''
-  orgMessage.value = ''
-
-  const tid = currentTenantScopeId.value
-  const trimmed = orgName.value.trim()
-
-  if (!tid) {
-    orgError.value = 'No tenant selected for organizations.'
-    return
-  }
-  if (!trimmed) {
-    orgError.value = 'Organization name is required.'
-    return
-  }
-  if (!canCreateOrganizations.value) {
-    orgError.value = 'You are not allowed to create organizations.'
-    return
-  }
-
-  orgCreating.value = true
-  try {
-    // backend infers tenant from token
-    await createOrganization({ name: trimmed })
-    orgName.value = ''
-    orgMessage.value = 'Organization created.'
-    await loadOrganizationsForTenant()
-  } catch (e: any) {
-    orgError.value =
-      e?.response?.data?.detail || 'Could not create organization.'
-  } finally {
-    orgCreating.value = false
-  }
-}
-
-// --- Collections helpers ---
+// --- Collections helpers (read-only) ---
 async function loadCollections() {
   if (!currentTenantId.value) {
     collections.value = []
@@ -868,39 +606,6 @@ async function onConfigure() {
       e?.response?.data?.detail || 'Failed to configure tenant'
   } finally {
     configureLoading.value = false
-  }
-}
-
-// Group/Sub admins (by permission): create collection
-async function onCreateCollection() {
-  createCollectionMessage.value = ''
-  createCollectionError.value = ''
-
-  if (!canCreateCollections.value) {
-    createCollectionError.value =
-      'Only authorized admins can create collections.'
-    return
-  }
-
-  const name = tenantCollectionName.value.trim()
-  if (!name) {
-    createCollectionError.value = 'Collection name is required.'
-    return
-  }
-
-  createCollectionLoading.value = true
-  try {
-    await createCollection({ name }) // backend uses current tenant from token
-    createCollectionMessage.value = `Collection "${name}" created for your company.`
-    activeCollectionName.value = name
-    if (!collections.value.includes(name)) {
-      collections.value.push(name)
-    }
-  } catch (e: any) {
-    createCollectionError.value =
-      e?.response?.data?.detail || 'Failed to create collection.'
-  } finally {
-    createCollectionLoading.value = false
   }
 }
 
@@ -1179,13 +884,5 @@ async function ingestSelectedDriveFiles() {
 onMounted(() => {
   loadCollections()
   loadGoogleDriveStatus()
-  if (currentTenantScopeId.value) {
-    loadOrganizationsForTenant()
-  }
-})
-
-// If vendor edits tenantId manually, reload org list for that tenant
-watch(currentTenantScopeId, () => {
-  loadOrganizationsForTenant()
 })
 </script>

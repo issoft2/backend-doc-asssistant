@@ -1,685 +1,1014 @@
 <template>
-  <div class="space-y-6 max-w-5xl mx-auto">
-    <h1 class="text-xl font-semibold text-slate-900">
-      Ingestion & Configuration
-    </h1>
-    <p class="text-sm text-slate-500">
-      Use this page to configure companies and ingest policy documents.
-    </p>
-
-    <!-- Vendor-only: configure company / tenant -->
-    <section
-      v-if="isVendor"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Configure company / tenant
-        </h2>
-        <p class="text-xs text-slate-500">
-          Only vendor can provision a new company/tenant. Organization is created with the tenant.
+  <div class="space-y-6 max-w-6xl mx-auto py-6">
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-slate-900">
+          Companies & Hierarchy
+        </h1>
+        <p class="text-sm text-slate-500">
+          Manage tenants, organizations, collections, and users in a tenant-first flow.
         </p>
-      </header>
-
-      <form
-        class="grid gap-3 md:grid-cols-4 items-end"
-        @submit.prevent="onConfigure"
-      >
-        <!-- Tenant ID -->
-        <div class="space-y-1 md:col-span-2">
-          <label class="block text-xs font-medium text-slate-700">
-            Company / Tenant ID
-          </label>
-          <input
-            v-model="tenantId"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. acme_corp"
-            required
-          />
-          <p class="text-[11px] text-slate-400">
-            Stable identifier used in API calls and routing.
-          </p>
-        </div>
-
-        <!-- Display name -->
-        <div class="space-y-1 md:col-span-2">
-          <label class="block text-xs font-medium text-slate-700">
-            Company name (display)
-          </label>
-          <input
-            v-model="tenantName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. Acme Corporation"
-          />
-          <p class="text-[11px] text-slate-400">
-            Optional friendly name shown in the UI.
-          </p>
-        </div>
-
-        <!-- Plan -->
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Plan
-          </label>
-          <select
-            v-model="tenantPlan"
-            class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-          >
-            <option value="free_trial">Free trial</option>
-            <option value="starter">Starter</option>
-            <option value="pro">Pro</option>
-            <option value="enterprise">Enterprise</option>
-          </select>
-        </div>
-
-        <!-- Subscription status -->
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Subscription status
-          </label>
-          <select
-            v-model="tenantSubscriptionStatus"
-            class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-          >
-            <option value="trialing">Trialing</option>
-            <option value="active">Active</option>
-            <option value="expired">Expired</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-
-        <!-- Trial info hint -->
-        <div class="space-y-1 md:col-span-2">
-          <p class="text-[11px] text-slate-500">
-            For <span class="font-semibold">free_trial</span> tenants with status
-            <span class="font-semibold">trialing</span>, the backend computes and stores
-            the trial end date.
-          </p>
-        </div>
-
-        <!-- Submit -->
-        <div class="flex justify-end md:col-span-4">
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="configureLoading"
-          >
-            <span v-if="!configureLoading">Create company / tenant</span>
-            <span v-else>Saving…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="configureMessage" class="text-xs text-emerald-600">
-        {{ configureMessage }}
-      </p>
-      <p v-if="configureError" class="text-xs text-red-600">
-        {{ configureError }}
-      </p>
-    </section>
-
-    <!-- Non-vendor info -->
-    <section
-      v-else
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-2"
-    >
-      <h2 class="text-sm font-semibold text-slate-900">
-        Company configuration
-      </h2>
-      <p class="text-xs text-slate-500">
-        Company creation is managed by the vendor. You can create collections
-        and upload documents for your assigned company if your role allows it.
-      </p>
-      <p class="text-xs text-slate-600" v-if="currentTenantId">
-        Your company / tenant:
-        <span class="font-semibold">{{ currentTenantId }}</span>
-      </p>
-    </section>
-
-    <!-- Organizations for this tenant (vendor + admins) -->
-    <section
-      v-if="currentTenantScopeId"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header class="flex items-center justify-between gap-2">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">
-            Organizations for this tenant
-          </h2>
-          <p class="text-xs text-slate-500">
-            Define organizations under tenant
-            <span class="font-semibold">{{ currentTenantScopeId }}</span>.
-          </p>
-          <p
-            v-if="isVendor"
-            class="text-[11px] text-slate-500 mt-1"
-          >
-            As vendor, type a tenant ID above to manage its organizations.
-          </p>
-        </div>
-      </header>
-
-      <!-- Create organization inline form -->
-      <form
-        class="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_auto] items-end"
-        @submit.prevent="onCreateOrganization"
-      >
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Organization name
-          </label>
-          <input
-            v-model="orgName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. Helium Group, Lagos Clinic"
-            required
-          />
-        </div>
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="orgCreating || !currentTenantScopeId"
-          >
-            <span v-if="!orgCreating">Create org</span>
-            <span v-else>Creating…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="orgError" class="text-xs text-red-600">
-        {{ orgError }}
-      </p>
-      <p v-if="orgMessage" class="text-xs text-emerald-600">
-        {{ orgMessage }}
-      </p>
-
-      <!-- Organizations list -->
-      <div class="space-y-2">
-        <h3 class="text-xs font-semibold text-slate-700">
-          Existing organizations
-        </h3>
-
-        <p v-if="orgLoading" class="text-[11px] text-slate-500">
-          Loading organizations…
-        </p>
-        <p
-          v-else-if="!organizations.length"
-          class="text-[11px] text-slate-500"
-        >
-          No organizations defined yet for this tenant.
-        </p>
-
-        <div
-          v-else
-          class="overflow-x-auto rounded-lg border border-slate-200"
-        >
-          <table class="min-w-full text-[11px]">
-            <thead class="bg-slate-50">
-              <tr>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  ID
-                </th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  Name
-                </th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">
-                  Type
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="org in organizations"
-                :key="org.id"
-                class="border-t border-slate-100"
-              >
-                <td class="px-3 py-2 font-mono text-[10px] text-slate-700">
-                  {{ org.id }}
-                </td>
-                <td class="px-3 py-2 text-slate-800">
-                  {{ org.name }}
-                </td>
-                <td class="px-3 py-2 text-slate-500 capitalize">
-                  {{ org.type }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
-    </section>
+      <button class="btn-primary" @click="loadCompanies" :disabled="loading">
+        <span v-if="!loading">Refresh</span>
+        <span v-else>Refreshing…</span>
+      </button>
+    </header>
 
-    <!-- Tenant-scoped collection creation (by permission) -->
-    <section
-      v-if="canCreateCollections"
-      class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4"
-    >
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Create collection for your company
-        </h2>
-        <p class="text-xs text-slate-500">
-          Collections are created within your own tenant. You cannot create
-          collections for other companies.
-        </p>
-        <p class="text-[11px] text-slate-600" v-if="currentTenantId">
-          Tenant:
-          <span class="font-semibold">{{ currentTenantId }}</span>
-        </p>
-      </header>
-
-      <form
-        class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] items-end"
-        @submit.prevent="onCreateCollection"
-      >
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Collection name
-          </label>
-          <input
-            v-model="tenantCollectionName"
-            type="text"
-            class="w-full rounded-lg border px-3 py-2 text-sm"
-            placeholder="e.g. hr_policies"
-            required
-          />
-        </div>
-
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="createCollectionLoading"
-          >
-            <span v-if="!createCollectionLoading">Create collection</span>
-            <span v-else>Creating…</span>
-          </button>
-        </div>
-      </form>
-
-      <p v-if="createCollectionMessage" class="text-xs text-emerald-600">
-        {{ createCollectionMessage }}
-      </p>
-      <p v-if="createCollectionError" class="text-xs text-red-600">
-        {{ createCollectionError }}
-      </p>
-    </section>
-
-    <!-- Document upload -->
-    <section class="bg-white border rounded-xl shadow-sm p-4 md:p-5 space-y-4">
-      <header>
-        <h2 class="text-sm font-semibold text-slate-900">
-          Upload policy documents
-        </h2>
-        <p class="text-xs text-slate-500">
-          Upload policy files to index them into a collection in your company.
-        </p>
-
-        <p
-          v-if="!canUpload"
-          class="text-[11px] text-red-600"
-        >
-          Your role is not allowed to upload documents. Contact your administrator.
-        </p>
-
-        <p
-          v-else-if="currentTenantId && activeCollectionName"
-          class="text-[11px] text-slate-600"
-        >
-          Target:
-          <span class="font-semibold">{{ currentTenantId }}</span> /
-          <span class="font-semibold">{{ activeCollectionName }}</span>
-        </p>
-        <p
-          v-else-if="canUpload"
-          class="text-[11px] text-red-600"
-        >
-          You must have a collection selected or created before uploading.
-        </p>
-      </header>
-
-      <!-- Upload form -->
-      <!-- unchanged except for minor comments -->
-      <!-- ... keep your upload block as-is ... -->
-    </section>
-
-    <!-- Google Drive connection -->
-    <section class="mt-6 border rounded-lg p-4">
-      <h2 class="text-sm font-semibold text-slate-800">
-        Google Drive
-      </h2>
-      <p class="text-xs text-slate-500 mt-1">
-        Connect your company’s Google Drive to ingest documents.
-      </p>
-
-      <div class="mt-3 flex items-center justify-between">
-        <div class="text-xs text-slate-600">
-          <span v-if="googleDriveStatus === 'connected'">
-            Connected<span v-if="googleDriveEmail"> as {{ googleDriveEmail }}</span>.
-          </span>
-          <span v-else>
-            Not connected.
-          </span>
-        </div>
-
+    <!-- Companies table -->
+    <section class="bg-white border rounded-xl shadow-sm overflow-hidden">
+      <div class="border-b px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="btn-secondary text-xs"
-            @click="connectGoogleDrive"
-          >
-            {{ googleDriveStatus === 'connected' ? 'Reconnect' : 'Connect Google Drive' }}
-          </button>
-          <button
-            v-if="googleDriveStatus === 'connected'"
-            class="px-3 py-1 text-xs rounded bg-slate-200 text-slate-800"
-            @click="disconnectGoogleDrive"
-          >
-            Disconnect
-          </button>
+          <span class="text-sm font-semibold text-slate-900">Companies</span>
+          <span class="text-[11px] text-slate-500">
+            {{ companies.length }} total
+          </span>
         </div>
+        <div class="text-[11px] text-slate-400" v-if="lastLoadedAt">
+          Last updated: {{ lastLoadedAt }}
+        </div>
+      </div>
+
+      <div v-if="error" class="px-4 py-3 text-xs text-red-600">
+        {{ error }}
+      </div>
+
+      <div
+        v-if="!companies.length && !loading && !error"
+        class="px-4 py-6 text-sm text-slate-500"
+      >
+        No companies found yet. Vendor can create tenants on the Ingestion page.
+      </div>
+
+      <div class="overflow-x-auto" v-if="companies.length">
+        <table class="min-w-full divide-y divide-slate-200 text-sm table-auto">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Company / Tenant
+              </th>
+              <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Plan & status
+              </th>
+              <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Organizations & collections
+              </th>
+              <th class="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            <tr
+              v-for="company in companies"
+              :key="company.tenant_id"
+              class="hover:bg-slate-50 align-top"
+            >
+              <!-- Company -->
+              <td class="px-4 py-3">
+                <div class="font-medium text-slate-900">
+                  {{ company.display_name || company.tenant_id }}
+                </div>
+                <div class="text-xs text-slate-500">
+                  ID: {{ company.tenant_id }}
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">
+                  Created: {{ formatDate(company.created_at) }}
+                </div>
+              </td>
+
+              <!-- Plan & status -->
+              <td class="px-4 py-3 text-xs space-y-1">
+                <div
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  :class="planBadgeClass(company.plan)"
+                >
+                  {{ company.plan || '—' }}
+                </div>
+                <div
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  :class="statusBadgeClass(company.subscription_status)"
+                >
+                  {{ company.subscription_status || 'unknown' }}
+                </div>
+                <div class="text-[11px] text-slate-500" v-if="company.trial_ends_at">
+                  Trial ends: {{ formatDate(company.trial_ends_at) }}
+                </div>
+              </td>
+
+              <!-- Organizations & collections -->
+              <td class="px-4 py-3">
+                <div
+                  v-if="company.organizations && company.organizations.length"
+                  class="space-y-2"
+                >
+                  <div
+                    v-for="org in company.organizations"
+                    :key="org.id"
+                    class="border border-slate-100 rounded-md px-2 py-1.5"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="text-xs font-semibold text-slate-800">
+                        {{ org.name }}
+                        <span class="text-[10px] text-slate-400">
+                          ({{ org.type }})
+                        </span>
+                      </div>
+                      <div class="text-[10px] text-slate-500">
+                        {{ collectionsForOrg(company, org.id).length }} collections
+                      </div>
+                    </div>
+
+                    <div class="mt-1">
+                      <div
+                        v-if="collectionsForOrg(company, org.id).length"
+                        class="space-y-0.5"
+                      >
+                        <div
+                          v-for="col in collectionsForOrg(company, org.id)"
+                          :key="col.id || col.collection_name || col.name"
+                          class="flex items-center justify-between gap-2"
+                        >
+                          <div class="text-[11px] text-slate-800">
+                            {{ col.name || col.collection_name }}
+                          </div>
+                          <div class="text-[10px] text-slate-500">
+                            {{ col.doc_count ?? 0 }} docs
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        v-else
+                        class="text-[11px] text-slate-400"
+                      >
+                        No collections yet for this organization.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-slate-400">
+                  No organizations defined yet.
+                </div>
+              </td>
+
+              <!-- Actions -->
+              <td class="px-4 py-3 space-y-2">
+                <button
+                  class="btn-primary text-[11px] w-full"
+                  @click="loadCollectionsAndOrgs(company.tenant_id)"
+                  :disabled="loadingCollections === company.tenant_id"
+                >
+                  <span v-if="loadingCollections !== company.tenant_id">
+                    Load orgs & collections
+                  </span>
+                  <span v-else>Loading…</span>
+                </button>
+
+                <button
+                  v-if="canManageOrgsForTenant(company.tenant_id)"
+                  class="btn-primary text-[11px] w-full"
+                  @click="openOrganizationsModal(company)"
+                >
+                  Manage organizations
+                </button>
+
+                <button
+                  v-if="canUploadToTenant(company.tenant_id)"
+                  class="btn-primary text-[11px] w-full"
+                  @click="openCollectionModal(company)"
+                  :disabled="!company.organizations || !company.organizations.length"
+                >
+                  Add collection
+                </button>
+                <p
+                  v-if="canUploadToTenant(company.tenant_id) && (!company.organizations || !company.organizations.length)"
+                  class="text-[11px] text-slate-500"
+                >
+                  Create an organization first.
+                </p>
+
+                <button
+                  v-if="canManageUsersForTenant(company.tenant_id)"
+                  class="btn-primary text-[11px] w-full"
+                  @click="openUserModal(company)"
+                  :disabled="!company.organizations || !company.organizations.length"
+                >
+                  Add user
+                </button>
+                <p
+                  v-if="canManageUsersForTenant(company.tenant_id) && (!company.organizations || !company.organizations.length)"
+                  class="text-[11px] text-slate-500"
+                >
+                  Create an organization to assign the user to.
+                </p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="loading" class="px-4 py-3 text-xs text-slate-500">
+        Loading companies…
       </div>
     </section>
 
-    <!-- Drive import -->
-    <!-- keep your Drive import section as-is; main change is how status is loaded -->
+    <!-- Organizations modal -->
+    <transition name="fade">
+      <div
+        v-if="showOrgsModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Organizations for {{ orgTenantId }}
+              </h2>
+              <p class="text-[11px] text-slate-500">
+                Create umbrella or subsidiary organizations under this tenant.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeOrganizationsModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <div class="space-y-1 max-h-40 overflow-auto">
+            <p
+              v-if="!orgsForTenant.length"
+              class="text-[11px] text-slate-400"
+            >
+              No organizations yet. Create one below.
+            </p>
+            <ul v-else class="space-y-1">
+              <li
+                v-for="org in orgsForTenant"
+                :key="org.id"
+                class="flex items-center justify-between px-2 py-1 rounded-md bg-slate-50"
+              >
+                <span class="text-[11px] text-slate-800">
+                  {{ org.name }} ({{ org.type }})
+                </span>
+                <span class="text-[10px] text-slate-400">
+                  ID: {{ org.id }}
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <form class="space-y-3" @submit.prevent="onCreateOrganizationForTenant">
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization name
+              </label>
+              <input
+                v-model="orgName"
+                type="text"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g. Helium Group, Lagos Clinic"
+                required
+              />
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Type
+              </label>
+              <select
+                v-model="orgType"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option value="umbrella">Umbrella (group-level)</option>
+                <option value="subsidiary">Subsidiary</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeOrganizationsModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn-primary text-[11px]"
+                :disabled="orgSaving || !orgTenantId"
+              >
+                <span v-if="!orgSaving">Create organization</span>
+                <span v-else>Creating…</span>
+              </button>
+            </div>
+          </form>
+
+          <p v-if="orgMessage" class="text-xs text-emerald-600">
+            {{ orgMessage }}
+          </p>
+          <p v-if="orgError" class="text-xs text-red-600">
+            {{ orgError }}
+          </p>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Collection modal -->
+    <transition name="fade">
+      <div
+        v-if="showCollectionModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Add collection
+              </h2>
+              <p class="text-xs text-slate-500" v-if="collectionTenantId">
+                Tenant: <span class="font-semibold">{{ collectionTenantId }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeCollectionModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <form class="space-y-3" @submit.prevent="onCreateCollectionForOrg">
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization
+              </label>
+              <select
+                v-model="collectionOrgId"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option disabled value="">Select organization</option>
+                <option
+                  v-for="org in organizationsForCollectionTenant"
+                  :key="org.id"
+                  :value="String(org.id)"
+                >
+                  {{ org.name }} ({{ org.type }})
+                </option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Collection name
+              </label>
+              <input
+                v-model="collectionName"
+                type="text"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g. hr_policies"
+                required
+              />
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeCollectionModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn-primary text-[11px]"
+                :disabled="collectionLoading || !collectionTenantId || !collectionOrgId"
+              >
+                <span v-if="!collectionLoading">Create collection</span>
+                <span v-else>Creating…</span>
+              </button>
+            </div>
+          </form>
+
+          <p v-if="collectionMessage" class="text-xs text-emerald-600">
+            {{ collectionMessage }}
+          </p>
+          <p v-if="collectionError" class="text-xs text-red-600">
+            {{ collectionError }}
+          </p>
+        </div>
+      </div>
+    </transition>
+
+    <!-- User modal (org + optional collection) -->
+    <transition name="fade">
+      <div
+        v-if="showUserModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Add user
+              </h2>
+              <p class="text-xs text-slate-500" v-if="userTenantId">
+                Tenant: <span class="font-semibold">{{ userTenantId }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeUserModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <form class="space-y-3" @submit.prevent="onCreateUser">
+            <!-- Org selection -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Organization
+              </label>
+              <select
+                v-model="userOrganizationId"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option disabled value="">Select organization</option>
+                <option
+                  v-for="org in organizationsForUserTenant"
+                  :key="org.id"
+                  :value="String(org.id)"
+                >
+                  {{ org.name }} ({{ org.type }})
+                </option>
+              </select>
+            </div>
+
+            <!-- Collection selection (optional, scoped to org) -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Collection (optional)
+              </label>
+              <select
+                v-model="userCollectionName"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+              >
+                <option value="">No specific collection</option>
+                <option
+                  v-for="col in collectionsForUserOrg"
+                  :key="col.id || col.collection_name || col.name"
+                  :value="col.name || col.collection_name"
+                >
+                  {{ col.name || col.collection_name }}
+                </option>
+              </select>
+              <p class="text-[11px] text-slate-500">
+                If selected, this user will be scoped to this collection in addition to the organization.
+              </p>
+            </div>
+
+            <!-- Names -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="block text-xs font-medium text-slate-700">
+                  First name
+                </label>
+                <input
+                  v-model="userFirstName"
+                  type="text"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-xs font-medium text-slate-700">
+                  Last name
+                </label>
+                <input
+                  v-model="userLastName"
+                  type="text"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- DOB / phone -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="block text-xs font-medium text-slate-700">
+                  Date of birth
+                </label>
+                <input
+                  v-model="userDob"
+                  type="date"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-xs font-medium text-slate-700">
+                  Phone number
+                </label>
+                <input
+                  v-model="userPhone"
+                  type="tel"
+                  class="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="+234 801 234 5678"
+                />
+              </div>
+            </div>
+
+            <!-- Email / password -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Email
+              </label>
+              <input
+                v-model="userEmail"
+                type="email"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Password
+              </label>
+              <input
+                v-model="userPassword"
+                type="password"
+                class="w-full rounded-lg border px-3 py-2 text-sm"
+                required
+              />
+            </div>
+
+            <!-- Role -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                User role
+              </label>
+              <select
+                v-model="userRole"
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                required
+              >
+                <option disabled value="">Select role</option>
+                <option value="employee">Employee</option>
+                <option value="sub_hr">Subsidiary HR</option>
+                <option value="sub_finance">Subsidiary Finance</option>
+                <option value="sub_operations">Subsidiary Operations</option>
+                <option value="sub_md">Subsidiary MD</option>
+                <option value="sub_admin">Subsidiary Admin</option>
+                <option value="group_hr">Group HR</option>
+                <option value="group_finance">Group Finance</option>
+                <option value="group_operation">Group Operations</option>
+                <option value="group_production">Group Production</option>
+                <option value="group_marketing">Group Marketing</option>
+                <option value="group_legal">Group Legal</option>
+                <option value="group_exe">Group Executive</option>
+                <option value="group_admin">Group Admin</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeUserModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn-primary text-[11px]"
+                :disabled="userLoading || !userTenantId || !userOrganizationId"
+              >
+                <span v-if="!userLoading">Create user</span>
+                <span v-else>Creating…</span>
+              </button>
+            </div>
+          </form>
+
+          <p v-if="userMessage" class="text-xs text-emerald-600">
+            {{ userMessage }}
+          </p>
+          <p v-if="userError" class="text-xs text-red-600">
+            {{ userError }}
+          </p>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+<script setup>
+import { ref, computed, onMounted } from 'vue'
 import { authState } from '../authStore'
 import {
-  configureTenantPayload,
-  createCollection,
-  uploadDocument,
+  listCompanies,
   listCollections,
-  getGoogleDriveAuthUrl,
-  getGoogleDriveStatus,
-  listDriveFiles,
-  ingestDriveFile,
-  disconnectGoogleDriveApi,
-  fetchOrganizations,
-  createOrganization,
-  type OrganizationOut,
+  createOrganizationForTenant,
+  createCollectionForOrganization,
+  signup,
 } from '../api'
 
-// types and Drive-related interfaces unchanged...
+// core state
+const companies = ref([])
+const loading = ref(false)
+const loadingCollections = ref('')
+const error = ref('')
+const lastLoadedAt = ref('')
 
-// --- Auth / permission state ---
 const currentUser = computed(() => authState.user)
-const currentTenantId = computed(() => currentUser.value?.tenant_id ?? null)
+const currentRole = computed(() => currentUser.value?.role || '')
+const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
 
-const permissions = computed(() => currentUser.value?.permissions || [])
-const hasPermission = (p: string) => permissions.value.includes(p)
-const hasAnyPermission = (ps: string[]) =>
-  ps.some(p => permissions.value.includes(p))
+const vendorRoles = ['vendor']
+const groupAdminRoles = [
+  'group_admin',
+  'group_exe',
+  'group_hr',
+  'group_finance',
+  'group_operation',
+  'group_production',
+  'group_marketing',
+  'group_legal',
+]
+const subAdminRoles = [
+  'sub_admin',
+  'sub_md',
+  'sub_hr',
+  'sub_finance',
+  'sub_operations',
+]
 
-const isVendor = computed(() => currentUser.value?.role === 'vendor')
+const isVendor = computed(() => vendorRoles.includes(currentRole.value))
+const isGroupAdmin = computed(() => groupAdminRoles.includes(currentRole.value))
+const isSubAdmin = computed(() => subAdminRoles.includes(currentRole.value))
 
-const canCreateOrganizations = computed(() =>
-  hasAnyPermission(['ORG:CREATE:SUB', 'ORG:CREATE:GROUP', 'ORG:ADMIN']),
+const canUpload = computed(
+  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
 )
-const canCreateCollections = computed(() =>
-  hasPermission('COLLECTION:CREATE'),
+const canManageUsers = computed(
+  () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
 )
-const canUpload = computed(() =>
-  hasPermission('DOC:UPLOAD'),
-)
+const canManageOrgs = canManageUsers
 
-// --- Collections / config state ---
-const collections = ref<string[]>([])
-const tenantId = ref('') // vendor-selected tenant ID for config + org scope
-const tenantName = ref('')
-const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>(
-  'free_trial',
-)
-const tenantSubscriptionStatus = ref<
-  'trialing' | 'active' | 'expired' | 'cancelled'
->('trialing')
+function canUploadToTenant(tenantId) {
+  if (!canUpload.value) return false
+  if (isVendor.value) return true
+  return currentTenantId.value && currentTenantId.value === tenantId
+}
 
-const tenantCollectionName = ref('')
-const activeCollectionName = ref('')
+function canManageUsersForTenant(tenantId) {
+  if (isVendor.value) return true
+  if (!canManageUsers.value) return false
+  return currentTenantId.value && currentTenantId.value === tenantId
+}
 
-const docTitle = ref('')
-const file = ref<File | null>(null)
-const dragOver = ref(false)
+function canManageOrgsForTenant(tenantId) {
+  if (isVendor.value) return true
+  if (!canManageOrgs.value) return false
+  return currentTenantId.value && currentTenantId.value === tenantId
+}
 
-const configureLoading = ref(false)
-const configureMessage = ref('')
-const configureError = ref('')
+function formatDate(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString()
+}
 
-const createCollectionLoading = ref(false)
-const createCollectionMessage = ref('')
-const createCollectionError = ref('')
-
-const uploadLoading = ref(false)
-const uploadMessage = ref('')
-const uploadError = ref('')
-
-const fileInput = ref<HTMLInputElement | null>(null)
-
-// --- Organizations for tenant ---
-const organizations = ref<OrganizationOut[]>([])
-const orgLoading = ref(false)
-const orgCreating = ref(false)
-const orgName = ref('')
-const orgError = ref('')
-const orgMessage = ref('')
-
-// Vendor can override tenant scope; others use their own tenant
-const currentTenantScopeId = computed(() => {
-  if (isVendor.value && tenantId.value.trim()) {
-    return tenantId.value.trim()
-  }
-  return currentTenantId.value?.toString() ?? ''
-})
-
-async function loadOrganizationsForTenant() {
-  orgError.value = ''
-  orgMessage.value = ''
-
-  const tid = currentTenantScopeId.value
-  if (!tid) {
-    organizations.value = []
-    return
-  }
-
-  orgLoading.value = true
-  try {
-    // For vendors, pass tenant_id; for others, backend infers from token
-    const params = isVendor.value ? { tenant_id: tid } : {}
-    const data = await fetchOrganizations(params)
-    organizations.value = data || []
-  } catch (e: any) {
-    orgError.value =
-      e?.response?.data?.detail || 'Failed to load organizations.'
-    organizations.value = []
-  } finally {
-    orgLoading.value = false
+function planBadgeClass(plan) {
+  switch (plan) {
+    case 'free_trial':
+      return 'bg-amber-100 text-amber-800'
+    case 'starter':
+      return 'bg-sky-100 text-sky-800'
+    case 'pro':
+      return 'bg-indigo-100 text-indigo-800'
+    case 'enterprise':
+      return 'bg-emerald-100 text-emerald-800'
+    default:
+      return 'bg-slate-100 text-slate-700'
   }
 }
 
-async function onCreateOrganization() {
-  orgError.value = ''
+function statusBadgeClass(status) {
+  switch (status) {
+    case 'trialing':
+      return 'bg-amber-100 text-amber-800'
+    case 'active':
+      return 'bg-emerald-100 text-emerald-800'
+    case 'expired':
+      return 'bg-rose-100 text-rose-800'
+    case 'cancelled':
+      return 'bg-slate-200 text-slate-700'
+    default:
+      return 'bg-slate-100 text-slate-700'
+  }
+}
+
+function collectionsForOrg(company, orgId) {
+  const cols = company.collections || []
+  return cols.filter(c => c.organization_id === orgId)
+}
+
+async function loadCompanies() {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await listCompanies()
+    const payload = Array.isArray(res) ? res : res?.data
+    companies.value = (payload || []).map(c => ({
+      ...c,
+      organizations: c.organizations || [],
+      collections: c.collections || [],
+    }))
+    lastLoadedAt.value = new Date().toLocaleTimeString()
+  } catch (e) {
+    console.error('loadCompanies error:', e)
+    error.value = e?.response?.data?.detail || 'Failed to load companies.'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadCollectionsAndOrgs(tenantId) {
+  loadingCollections.value = tenantId
+  error.value = ''
+  try {
+    const res = await listCollections(tenantId)
+    const payload = Array.isArray(res) ? res : res?.data
+    const cols = payload || []
+    companies.value = companies.value.map(c =>
+      c.tenant_id === tenantId
+        ? {
+            ...c,
+            collections: cols,
+            organizations: c.organizations || [],
+          }
+        : c,
+    )
+  } catch (e) {
+    console.error('loadCollectionsAndOrgs error:', e)
+    error.value = e?.response?.data?.detail || 'Failed to load orgs/collections.'
+  } finally {
+    loadingCollections.value = ''
+  }
+}
+
+/** Organizations modal */
+const showOrgsModal = ref(false)
+const orgTenantId = ref('')
+const orgsForTenant = ref([])
+const orgName = ref('')
+const orgType = ref('umbrella')
+const orgSaving = ref(false)
+const orgMessage = ref('')
+const orgError = ref('')
+
+function openOrganizationsModal(company) {
+  if (!canManageOrgsForTenant(company.tenant_id)) return
+  orgTenantId.value = company.tenant_id
+  orgsForTenant.value = company.organizations || []
+  orgName.value = ''
+  orgType.value = 'umbrella'
   orgMessage.value = ''
+  orgError.value = ''
+  showOrgsModal.value = true
+}
 
-  const tid = currentTenantScopeId.value
-  const trimmed = orgName.value.trim()
+function closeOrganizationsModal() {
+  showOrgsModal.value = false
+}
 
-  if (!tid) {
-    orgError.value = 'No tenant selected for organizations.'
+async function onCreateOrganizationForTenant() {
+  orgMessage.value = ''
+  orgError.value = ''
+
+  const name = orgName.value.trim()
+  if (!orgTenantId.value) {
+    orgError.value = 'Tenant is missing.'
     return
   }
-  if (!trimmed) {
+  if (!name) {
     orgError.value = 'Organization name is required.'
     return
   }
-  if (!canCreateOrganizations.value) {
-    orgError.value = 'You are not allowed to create organizations.'
+  if (!canManageOrgsForTenant(orgTenantId.value)) {
+    orgError.value = 'You are not allowed to create organizations for this tenant.'
     return
   }
 
-  orgCreating.value = true
+  orgSaving.value = true
   try {
-    const payload: any = { name: trimmed }
-    if (isVendor.value) {
-      payload.tenant_id = tid
-    }
-    await createOrganization(payload)
-    orgName.value = ''
-    orgMessage.value = 'Organization created.'
-    await loadOrganizationsForTenant()
-  } catch (e: any) {
-    orgError.value =
-      e?.response?.data?.detail || 'Could not create organization.'
-  } finally {
-    orgCreating.value = false
-  }
-}
-
-// --- Collections helpers ---
-async function loadCollections() {
-  if (!currentTenantId.value) {
-    collections.value = []
-    return
-  }
-  try {
-    const resp = await listCollections()
-    const rows = resp.data || []
-    collections.value = rows.map((row: any) => row.collection_name)
-    if (!activeCollectionName.value && collections.value.length) {
-      activeCollectionName.value = collections.value[0]
-    }
-  } catch (e) {
-    console.error('Failed to load collections:', e)
-    collections.value = []
-  }
-}
-
-// Vendor: configure tenant
-async function onConfigure() {
-  if (!isVendor.value) return
-
-  configureMessage.value = ''
-  configureError.value = ''
-  configureLoading.value = true
-  try {
-    await configureTenantPayload({
-      tenant_id: tenantId.value.trim(),
-      name: tenantName.value.trim() || tenantId.value.trim(),
-      plan: tenantPlan.value,
-      subscription_status: tenantSubscriptionStatus.value,
+    const { data: newOrg } = await createOrganizationForTenant(orgTenantId.value, {
+      name,
+      type: orgType.value,
     })
-    configureMessage.value = `Tenant "${tenantId.value}" configured.`
-    tenantId.value = ''
-    tenantName.value = ''
-    tenantPlan.value = 'free_trial'
-    tenantSubscriptionStatus.value = 'trialing'
-    await loadOrganizationsForTenant()
-  } catch (e: any) {
-    configureError.value =
-      e?.response?.data?.detail || 'Failed to configure tenant.'
+    orgsForTenant.value = [...orgsForTenant.value, newOrg]
+    companies.value = companies.value.map(c =>
+      c.tenant_id === orgTenantId.value
+        ? { ...c, organizations: [...(c.organizations || []), newOrg] }
+        : c,
+    )
+    orgName.value = ''
+    orgType.value = 'umbrella'
+    orgMessage.value = 'Organization created.'
+  } catch (e) {
+    console.error('create org error:', e)
+    orgError.value =
+      e?.response?.data?.detail || 'Failed to create organization.'
   } finally {
-    configureLoading.value = false
+    orgSaving.value = false
   }
 }
 
-// Group/Sub admins: create collection
-async function onCreateCollection() {
-  createCollectionMessage.value = ''
-  createCollectionError.value = ''
+/** Collection modal */
+const showCollectionModal = ref(false)
+const collectionTenantId = ref('')
+const collectionOrgId = ref('')
+const collectionName = ref('')
+const collectionLoading = ref(false)
+const collectionMessage = ref('')
+const collectionError = ref('')
 
-  if (!canCreateCollections.value) {
-    createCollectionError.value =
-      'Only authorized admins can create collections.'
+const organizationsForCollectionTenant = computed(() => {
+  if (!collectionTenantId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === collectionTenantId.value,
+  )
+  return company?.organizations || []
+})
+
+function openCollectionModal(company) {
+  if (!canUploadToTenant(company.tenant_id)) return
+  if (!company.organizations || !company.organizations.length) return
+
+  collectionTenantId.value = company.tenant_id
+  collectionOrgId.value = String(company.organizations[0].id)
+  collectionName.value = ''
+  collectionMessage.value = ''
+  collectionError.value = ''
+  showCollectionModal.value = true
+}
+
+function closeCollectionModal() {
+  showCollectionModal.value = false
+}
+
+async function onCreateCollectionForOrg() {
+  collectionMessage.value = ''
+  collectionError.value = ''
+
+  const name = collectionName.value.trim()
+  if (!collectionTenantId.value || !collectionOrgId.value) {
+    collectionError.value = 'Organization is required.'
     return
   }
-
-  const name = tenantCollectionName.value.trim()
   if (!name) {
-    createCollectionError.value = 'Collection name is required.'
+    collectionError.value = 'Collection name is required.'
+    return
+  }
+  if (!canUploadToTenant(collectionTenantId.value)) {
+    collectionError.value = 'You are not allowed to create collections for this tenant.'
     return
   }
 
-  createCollectionLoading.value = true
+  collectionLoading.value = true
   try {
-    await createCollection({ name })
-    createCollectionMessage.value = `Collection "${name}" created for your company.`
-    activeCollectionName.value = name
-    if (!collections.value.includes(name)) {
-      collections.value.push(name)
-    }
-  } catch (e: any) {
-    createCollectionError.value =
+    const { data: newCol } = await createCollectionForOrganization(
+      collectionTenantId.value,
+      collectionOrgId.value,
+      { name },
+    )
+    companies.value = companies.value.map(c =>
+      c.tenant_id === collectionTenantId.value
+        ? { ...c, collections: [...(c.collections || []), newCol] }
+        : c,
+    )
+    collectionName.value = ''
+    collectionMessage.value = 'Collection created.'
+  } catch (e) {
+    console.error('create collection error:', e)
+    collectionError.value =
       e?.response?.data?.detail || 'Failed to create collection.'
   } finally {
-    createCollectionLoading.value = false
+    collectionLoading.value = false
   }
 }
 
-// --- Local file upload ---
-// keep your existing dropzone / onUpload implementation
+/** User modal */
+const showUserModal = ref(false)
+const userTenantId = ref('')
+const userOrganizationId = ref('')
+const userCollectionName = ref('')
+const userEmail = ref('')
+const userPassword = ref('')
+const userFirstName = ref('')
+const userLastName = ref('')
+const userDob = ref('')
+const userPhone = ref('')
+const userRole = ref('')
+const userLoading = ref(false)
+const userMessage = ref('')
+const userError = ref('')
 
-// --- Google Drive connection ---
-const googleDriveStatus = ref<'connected' | 'disconnected'>('disconnected')
-const googleDriveEmail = ref('')
-const connectingDrive = ref(false)
+const organizationsForUserTenant = computed(() => {
+  if (!userTenantId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === userTenantId.value,
+  )
+  return company?.organizations || []
+})
 
-async function connectGoogleDrive() {
-  if (connectingDrive.value) return
-  connectingDrive.value = true
-  try {
-    const { data } = await getGoogleDriveAuthUrl()
-    window.location.href = data.auth_url
-  } catch (e: any) {
-    console.error('Failed to start Google Drive auth', e)
-    googleDriveStatus.value = 'disconnected'
-    googleDriveEmail.value = ''
-  } finally {
-    connectingDrive.value = false
-  }
+const collectionsForUserOrg = computed(() => {
+  if (!userTenantId.value || !userOrganizationId.value) return []
+  const company = companies.value.find(
+    c => c.tenant_id === userTenantId.value,
+  )
+  if (!company) return []
+  return (company.collections || []).filter(
+    c => String(c.organization_id) === String(userOrganizationId.value),
+  )
+})
+
+function openUserModal(company) {
+  if (!canManageUsersForTenant(company.tenant_id)) return
+  if (!company.organizations || !company.organizations.length) return
+
+  userTenantId.value = company.tenant_id
+  userOrganizationId.value = String(company.organizations[0].id)
+  userCollectionName.value = ''
+  userEmail.value = ''
+  userPassword.value = ''
+  userFirstName.value = ''
+  userLastName.value = ''
+  userDob.value = ''
+  userPhone.value = ''
+  userRole.value = ''
+  userMessage.value = ''
+  userError.value = ''
+  showUserModal.value = true
 }
 
-async function loadGoogleDriveStatus() {
-  try {
-    const { data } = await getGoogleDriveStatus()
-    googleDriveStatus.value = data.connected ? 'connected' : 'disconnected'
-    googleDriveEmail.value = data.account_email || ''
-  } catch (e: any) {
-    console.error('Failed to load Google Drive status', e)
-    googleDriveStatus.value = 'disconnected'
-    googleDriveEmail.value = ''
-  }
+function closeUserModal() {
+  showUserModal.value = false
 }
 
-async function disconnectGoogleDrive() {
+async function onCreateUser() {
+  userMessage.value = ''
+  userError.value = ''
+
+  if (!userTenantId.value || !userOrganizationId.value) {
+    userError.value = 'Tenant and organization are required.'
+    return
+  }
+
+  userLoading.value = true
   try {
-    await disconnectGoogleDriveApi()
+    const payload = {
+      email: userEmail.value,
+      password: userPassword.value,
+      tenant_id: userTenantId.value,
+      organization_id: userOrganizationId.value,
+      collection_name: userCollectionName.value || undefined,
+      first_name: userFirstName.value,
+      last_name: userLastName.value,
+      date_of_birth: userDob.value || undefined,
+      phone: userPhone.value || undefined,
+      role: userRole.value,
+    }
+
+    await signup(payload)
+
+    userMessage.value = 'User created successfully.'
+    userEmail.value = ''
+    userPassword.value = ''
+    userFirstName.value = ''
+    userLastName.value = ''
+    userDob.value = ''
+    userPhone.value = ''
+    userRole.value = ''
+    userCollectionName.value = ''
   } catch (e) {
-    console.error('Failed to disconnect Google Drive', e)
+    console.error('signup error:', e)
+    userError.value =
+      e?.response?.data?.detail || 'Failed to create user.'
   } finally {
-    await loadGoogleDriveStatus()
+    userLoading.value = false
   }
 }
 
-// --- Drive files + ingest ---
-// keep your existing implementation; no tenant changes needed there
-
-// --- Lifecycle ---
-onMounted(async () => {
-  await loadCollections()
-  await loadGoogleDriveStatus()
-  if (currentTenantScopeId.value) {
-    await loadOrganizationsForTenant()
-  }
-})
-
-watch(currentTenantScopeId, () => {
-  loadOrganizationsForTenant()
-})
+onMounted(loadCompanies)
 </script>

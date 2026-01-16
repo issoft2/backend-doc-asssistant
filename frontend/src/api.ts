@@ -289,7 +289,6 @@ export function sendContact(payload: Record<string, unknown>) {
 }
 
 // ---- Organizations (new backend) ----
-// ---- Organizations (new backend) ----
 export async function fetchOrganizations(params?: { tenant_id?: string }) {
   const { data } = await api.get<OrganizationOut[]>('/organizations', {
     params: params && params.tenant_id ? { tenant_id: params.tenant_id } : {},
