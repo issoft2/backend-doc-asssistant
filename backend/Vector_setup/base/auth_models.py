@@ -31,7 +31,7 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
     role: Optional[str] = None
     is_active: bool = True
-    created_at: Optional[str] = None
+    created_at: Optional[datetime] = None
     is_online: bool = False
     last_login_at: Optional[datetime] = None
     last_seen_at: Optional[datetime] = None
