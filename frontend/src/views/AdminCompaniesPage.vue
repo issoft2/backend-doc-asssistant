@@ -644,7 +644,10 @@ const canUpload = computed(
 const canManageUsers = computed(
   () => isVendor.value || isGroupAdmin.value || isSubAdmin.value,
 )
-const canManageOrgs = canManageUsers
+
+const canManageOrgs = computed(() => isVendor.value || isGroupAdmin.value,
+)
+
 
 function canUploadToTenant(tenantId) {
   if (!canUpload.value) return false
