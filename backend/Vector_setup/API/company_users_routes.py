@@ -6,6 +6,11 @@ from Vector_setup.base.auth_models import UserOut, UserUpdate
 from Vector_setup.API.admin_permission import require_user_admin
 from Vector_setup.user.auth_jwt import ensure_tenant_active
 
+from Vector_setup.user.roles import USER_CREATOR_ROLES, VENDOR_ROLES
+from Vector_setup.user.permissions import is_sub_role
+from sqlmodel import select
+
+
 
 
 router = APIRouter(prefix="/company/users", tags=["company_users"])
@@ -16,8 +21,22 @@ def list_users(
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(require_user_admin)  # ✅ DBUser, not UserOut
 ):
-    users = db.query(DBUser).filter(DBUser.role != 'vendor').filter(DBUser.tenant_id == current_user.tenant_id).all()
+    stmt = select(DBUser).where(
+        DBUser.tenant_id == current_user.tenant_id,
+        DBUser.role != "vendor",
+    )
+    
+    if is_sub_role(current_user.role):
+        # Subsidiary roles only see THEIR org
+        if current_user.organization_id is None:
+            # no org -> no visibility
+            stmt = stmt.where(DBUser.id == current_user.id)
+        else:
+            stmt = stmt.where(DBUser.organization_id == current_user.organization_id)
+            
+    users = db.exec(stmt).all()       
     return [UserOut.from_orm(user) for user in users]  # ✅ Convert to Pydantic for frontend
+
 
 @router.get("/{user_id}", response_model=UserOut)  # ✅ UserOut, not DBUser
 def get_user(
