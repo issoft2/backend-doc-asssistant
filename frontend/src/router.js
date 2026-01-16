@@ -11,7 +11,6 @@ import HomePage from './views/HomePage.vue'
 import CompanyUsersPage from './views/CompanyUsersPage.vue'
 import NotAllowedPage from './views/NotAllowedPage.vue'
 import FirstLogin from './views/FirstLoginPage.vue'
-import OrganizationPage from './views/OrganizationsAdminPage.vue'
 
 const adminRoles = [
   'vendor',
