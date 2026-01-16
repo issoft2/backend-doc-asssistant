@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel,  Field, validator
-from Vector_setup.user.db import CollectionVisibility, OrganizationType # or re-declare enum
+from Vector_setup.user.db import CollectionVisibility # or re-declare enum
 
 
 
