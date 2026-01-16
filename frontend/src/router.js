@@ -75,14 +75,6 @@ const routes = [
     ],
   },
 
-  // Organizations admin (also restricted to adminRoles; adjust if you want stricter)
-  {
-    path: '/admin/organizations',
-    name: 'OrganizationsAdmin',
-    component: OrganizationPage,
-    meta: { requiresAuth: true, roles: adminRoles },
-  },
-
   // Employee/chat area (any adminRoles user)
   {
     path: '/chat',
