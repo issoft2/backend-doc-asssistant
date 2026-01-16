@@ -728,22 +728,33 @@ async function loadCompanies() {
 async function loadCollectionsAndOrgs(tenantId) {
   loadingCollections.value = tenantId
   error.value = ''
+
   try {
-    const res = await listCollections(tenantId)
-    const payload = Array.isArray(res) ? res : res?.data
-    const cols = payload || []
+    // fetch orgs + collections concurrently
+    const [orgRes, colRes] = await Promise.all([
+      listOrganizationsForTenant(tenantId),
+      listCollections(tenantId),
+    ])
+
+    const orgPayload = Array.isArray(orgRes) ? orgRes : orgRes?.data
+    const colPayload = Array.isArray(colRes) ? colRes : colRes?.data
+
+    const orgs = orgPayload || []
+    const cols = colPayload || []
+
     companies.value = companies.value.map(c =>
       c.tenant_id === tenantId
         ? {
             ...c,
+            organizations: orgs,
             collections: cols,
-            organizations: c.organizations || [],
           }
         : c,
     )
   } catch (e) {
     console.error('loadCollectionsAndOrgs error:', e)
-    error.value = e?.response?.data?.detail || 'Failed to load orgs/collections.'
+    error.value =
+      e?.response?.data?.detail || 'Failed to load orgs/collections.'
   } finally {
     loadingCollections.value = ''
   }
@@ -923,7 +934,7 @@ const organizationsForUserTenant = computed(() => {
   return company?.organizations || []
 })
 
-const collectionsForUserOrg = computed(() => {
+const collectionsForUserOrg = computed(() => {π
   if (!userTenantId.value || !userOrganizationId.value) return []
   const company = companies.value.find(
     c => c.tenant_id === userTenantId.value,
