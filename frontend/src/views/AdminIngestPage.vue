@@ -869,7 +869,7 @@ async function onConfigure() {
   configureLoading.value = true
   try {
     await configureTenantPayload({
-      tenant_id: Number(tenantId.value),
+      tenant_id: tenantId.value,
       plan: tenantPlan.value,
       subscription_status: tenantSubscriptionStatus.value,
     })
