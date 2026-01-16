@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 
 from Vector_setup.user.db import DBUser, Tenant, Organization, get_db
@@ -66,15 +66,32 @@ def create_organization(
     )
 
 
+
 @router.get("", response_model=List[OrganizationOut])
-def list_organizations_for_current_tenant(
+def list_organizations(
+    tenant_id: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: DBUser = Depends(get_current_db_user),
 ):
     """
-    List all organizations for the current user's tenant.
+    List organizations.
+
+    - Non-vendor: always scoped to their own tenant; ignores tenant_id param.
+    - Vendor: can pass tenant_id to view orgs for that tenant.
     """
-    stmt = select(Organization).where(Organization.tenant_id == current_user.tenant_id)
+    # non‑vendor: always own tenant
+    if current_user.role != "vendor":
+      effective_tenant_id = current_user.tenant_id
+    else:
+      # vendor: must specify tenant_id
+      if not tenant_id:
+          raise HTTPException(
+              status_code=status.HTTP_400_BAD_REQUEST,
+              detail="tenant_id is required for vendor.",
+          )
+      effective_tenant_id = tenant_id
+
+    stmt = select(Organization).where(Organization.tenant_id == effective_tenant_id)
     rows = db.exec(stmt).all()
 
     return [
