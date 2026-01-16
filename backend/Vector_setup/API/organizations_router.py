@@ -46,10 +46,6 @@ def create_organization(
     if not tenant_row:
         raise HTTPException(status_code=404, detail="Tenant not found.")
 
-    if body.parent_id:
-        parent = db.get(Organization, body.parent_id)
-        if not parent or parent.tenant_id != body.tenant_id:
-            raise HTTPException(status_code=400, detail="Invalid parent_id for tenant.")
 
     org_id = str(uuid.uuid4())
     org = Organization(
