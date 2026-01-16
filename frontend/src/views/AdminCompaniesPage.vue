@@ -889,7 +889,7 @@ async function onCreateCollectionForOrg() {
     )
     collectionName.value = ''
     collectionMessage.value = 'Collection created.'
-  } catch (e: any) {
+  } catch (e) {
     console.error('create collection error:', e)
     collectionError.value =
       e?.response?.data?.detail || 'Failed to create collection.'
