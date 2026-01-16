@@ -598,6 +598,7 @@ import { authState } from '../authStore'
 import {
   listCompanies,
   listCollections,
+  fetchOrganizations,
   createOrganizationForTenant,
   createCollectionForOrganization,
   signup,
@@ -732,7 +733,7 @@ async function loadCollectionsAndOrgs(tenantId) {
   try {
     // fetch orgs + collections concurrently
     const [orgRes, colRes] = await Promise.all([
-      listOrganizationsForTenant(tenantId),
+      fetchOrganizations(tenantId),
       listCollections(tenantId),
     ])
 

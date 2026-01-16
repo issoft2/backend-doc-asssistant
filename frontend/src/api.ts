@@ -146,6 +146,8 @@ export function listCollections() {
   return api.get('/collections')
 }
 
+
+
 // Tenant-scoped collection creation (backend infers tenant from token)
 export function createCollection({ name }: { name: string }) {
   return api.post('/collections', { name })
@@ -293,9 +295,9 @@ export async function fetchOrganizations(params?: { tenant_id?: string }) {
   const { data } = await api.get<OrganizationOut[]>('/organizations', {
     params: params && params.tenant_id ? { tenant_id: params.tenant_id } : {},
   })
+
   return data
 }
-
 
 
 export function createOrganizationForTenant(
