@@ -108,5 +108,13 @@ USER_CREATOR_ROLES: set[str] = {
     "vendor",
 }
 
+
+COLLECTION_CREATOR_ROLES = {
+    "group_hr",
+    "group_admin",
+    "sub_hr",  # allow HR subsidiary admins
+    "sub_md",
+    "sub_admin",
+}
     
         

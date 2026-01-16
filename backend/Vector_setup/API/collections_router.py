@@ -12,7 +12,7 @@ from Vector_setup.schema.schema_signature import (
     CollectionUpdateIn,
 )
 from Vector_setup.user.audit import write_audit_log
-from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES
+from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES, COLLECTION_CREATOR_ROLES
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.auth_store import get_current_db_user
 
@@ -28,7 +28,7 @@ def get_store() -> MultiTenantChromaStoreManager:
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 def _ensure_collection_admin(user: DBUser) -> None:
-    if user.role not in COLLECTION_ADMIN_ROLES:
+    if user.role not in COLLECTION_ADMIN_ROLES and user.role not in COLLECTION_CREATOR_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to manage collections.",
@@ -153,11 +153,7 @@ def update_collection(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found.")
 
     # Tenant isolation: user must be allowed to manage this tenant
-    if db_collection.tenant_id != current_user.tenant_id and current_user.role not in {
-        "vendor",
-        "group_admin",
-        "group_exec",
-    }:
+    if db_collection.tenant_id != current_user.tenant_id and db.organization_id != current_user.organization_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to update collections for this tenant.",
