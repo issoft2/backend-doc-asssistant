@@ -12,6 +12,9 @@ from Vector_setup.services.email_service import send_first_login_email  # your e
 from Vector_setup.user.password import verify_password, get_password_hash
 from Vector_setup.schema.schema_signature import UserCreateIn
 
+from Vector_setup.user.roles import USER_CREATOR_ROLES, VENDOR_ROLES
+
+
 
 
 
