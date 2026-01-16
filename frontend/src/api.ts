@@ -141,9 +141,21 @@ export function listCompanies() {
   return api.get('/companies')
 }
 
+// List Organization---
+export async function fetchOrganizations(
+  tenant_id: string,
+): Promise<OrganizationOut[]> {
+  const { data } = await api.get<OrganizationOut[]>('/organizations', {
+    params: { tenant_id },
+  })
+
+  return data
+}
+
+
 // List collections for a company (admin listing page or tenant scoped)
-export function listCollections() {
-  return api.get('/collections')
+export function listCollections(tenant_id: string) {
+  return api.get(`/collections/${tenant_id}`)
 }
 
 
@@ -288,15 +300,6 @@ export function disconnectGoogleDriveApi() {
 // ---- Misc ----
 export function sendContact(payload: Record<string, unknown>) {
   return api.post('/contact', payload)
-}
-
-// ---- Organizations (new backend) ----
-export async function fetchOrganizations(params?: { tenant_id?: string }) {
-  const { data } = await api.get<OrganizationOut[]>('/organizations', {
-    params: params && params.tenant_id ? { tenant_id: params.tenant_id } : {},
-  })
-
-  return data
 }
 
 

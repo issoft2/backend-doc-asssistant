@@ -727,6 +727,7 @@ async function loadCompanies() {
 }
 
 async function loadCollectionsAndOrgs(tenantId) {
+  console.log("Tenant Id here::: ", tenantId)
   loadingCollections.value = tenantId
   error.value = ''
 
