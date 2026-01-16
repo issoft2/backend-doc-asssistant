@@ -17,7 +17,7 @@
           Configure company / tenant
         </h2>
         <p class="text-xs text-slate-500">
-          Only vendor can provision a new company/tenant. Collections are created separately within the tenant.
+          Only vendor can provision a new company/tenant, Organization is created with the tenant
         </p>
       </header>
 
@@ -149,7 +149,7 @@
             Organizations for this tenant
           </h2>
           <p class="text-xs text-slate-500">
-            Define umbrella and subsidiary organizations under
+            Define organizations under Tenant
             <span class="font-semibold">{{ currentTenantScopeId }}</span>.
           </p>
         </div>
@@ -172,21 +172,6 @@
             required
           />
         </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-medium text-slate-700">
-            Type
-          </label>
-          <select
-            v-model="orgType"
-            class="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-            required
-          >
-            <option value="umbrella">Umbrella (group-level)</option>
-            <option value="subsidiary">Subsidiary</option>
-          </select>
-        </div>
-
         <div class="flex justify-end">
           <button
             type="submit"

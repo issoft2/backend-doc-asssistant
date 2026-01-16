@@ -228,7 +228,7 @@ def list_companies(
         for t in rows
     ]
 
-@router.get("/companies/{tenant_id}/collections", response_model=List[CollectionOut])
+@router.get("/companies/{tenant_id}/organization", response_model=List[OrganizationOut])
 def list_company_collections(
     tenant_id: str,
     store: MultiTenantChromaStoreManager = Depends(get_store),
