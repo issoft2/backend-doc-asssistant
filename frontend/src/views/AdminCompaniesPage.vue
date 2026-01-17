@@ -722,7 +722,7 @@ import {
   createOrganizationForTenant,
   createCollectionForOrganization,
   signup,
-  listUsersForTenant,
+  listCompanyUsers,
   getCollectionAccess,
   updateCollectionAccess,
 } from '../api'
@@ -832,7 +832,7 @@ async function loadCollectionAccess() {
   accessLoading.value = true
   try {
     const [usersRes, aclRes] = await Promise.all([
-      listUsersForTenant(accessTenantId.value),
+      listCompanyUsers,
       getCollectionAccess(accessCollection.value.id),
     ])
 

@@ -357,17 +357,6 @@ export function createCollectionForOrganization(payload: {
   return api.post('/collections/create', payload)
 }
 
-
-/** List users for a tenant (admin view) */
-export async function listUsersForTenant(tenantId: string) {
-  // If your backend ignores tenant_id for non-vendor and scopes by current user,
-  // you can still pass it for vendor; otherwise you can drop the param.
-  const res = await api.get('/api/users', {
-    params: { tenant_id: tenantId },
-  })
-  return res
-}
-
 /** Get collection ACL (allowed_user_ids + allowed_roles) */
 export async function getCollectionAccess(collectionId: string | number) {
   const res = await api.get(`/collections/${collectionId}/access`)
