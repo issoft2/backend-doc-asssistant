@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel,  Field, validator
+from pydantic import BaseModel,  Field, validator, field_validator, model_validator
+
 from Vector_setup.user.db import CollectionVisibility # or re-declare enum
 
 
@@ -88,4 +89,21 @@ class UserCreateIn(BaseModel):
     phone: Optional[str] = None
     # ... other fields ...
 
-        
+class CollectionAccessUpdate(BaseModel):
+    allowed_roles: list[str] = []
+    allowed_user_ids: list[str] = []
+
+class CollectionAccessOut(BaseModel):
+    allowed_roles: list[str] = []
+    allowed_user_ids: list[str] = []
+    
+    @field_validator("allowed_user_ids", "allowed_roles", mode="before")
+    @classmethod
+    def default_lists(cls, v):
+        return v or []
+    
+    @model_validator(mode="after")
+    def check_not_both(self):
+        if not self.allowed_user_ids and not self.allowed_roles:
+            raise ValueError("Either allowed_user_ids or allowed_roles must be non-empty.")
+        return self        

@@ -28,6 +28,32 @@ logger.setLevel(logging.INFO)
 
 router = APIRouter()
 
+import json
+
+def collection_allows_user(user: DBUser, col: Collection) -> bool:
+    # Tenant and org checks already applied earlier in your queries
+    # Decode JSON fields safely
+    roles = json.loads(col.allowed_roles) if col.allowed_roles else []
+    users = json.loads(col.allowed_user_ids) if col.allowed_user_ids else []
+
+    # Role-based access
+    if roles and user.role in roles:
+        return True
+
+    # Direct user assignment
+    if users and str(user.id) in users:
+        return True
+
+    # Visibility policies
+    if col.visibility == "tenant":
+        return True
+
+    if col.visibility == "org":
+        return col.organization_id == user.organization_id
+
+    return False
+
+
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,

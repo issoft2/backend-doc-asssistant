@@ -130,9 +130,16 @@
                           <div class="text-[11px] text-slate-800">
                             {{ col.name || col.collection_name }}
                           </div>
-                          <div class="text-[10px] text-slate-500">
+                          <span class="text-[10px] text-slate-500">
                             {{ col.doc_count ?? 0 }} docs
-                          </div>
+                          </span>
+                          <button
+                            v-if="canManageUsersForTenant(company.tenant_id)"
+                            class="text-[10px] text-sky-700 hover:underline"
+                            @click="openCollectionAccessModal(company, org, col)"
+                          >
+                            Manage access
+                          </button>
                         </div>
                       </div>
                       <div
@@ -385,6 +392,122 @@
       </div>
     </transition>
 
+    <!-- Add roles and access to Collection -->
+    <!-- Collection access modal -->
+      
+    <transition name="fade">
+      <div
+        v-if="showCollectionAccessModal"
+        class="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      >
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full mx-4 p-4 md:p-5 space-y-4">
+          <header class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">
+                Collection access
+              </h2>
+              <p class="text-[11px] text-slate-500" v-if="accessCollection">
+                {{ accessCollection.name || accessCollection.collection_name }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-slate-500 hover:text-slate-700"
+              @click="closeCollectionAccessModal"
+            >
+              Close
+            </button>
+          </header>
+
+          <div v-if="accessLoading" class="text-xs text-slate-500">
+            Loading users and access…
+          </div>
+
+          <div v-else class="space-y-3">
+            <!-- Users -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Users with access
+              </label>
+              <select
+                v-model="accessSelectedUserIds"
+                multiple
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white h-32"
+              >
+                <option
+                  v-for="u in accessUsersForTenant"
+                  :key="u.id"
+                  :value="String(u.id)"
+                >
+                  {{ u.email }} ({{ u.role }})
+                </option>
+              </select>
+              <p class="text-[11px] text-slate-500">
+                Selected users will be able to query this collection.
+              </p>
+            </div>
+
+            <!-- Roles -->
+            <div class="space-y-1">
+              <label class="block text-xs font-medium text-slate-700">
+                Roles with access
+              </label>
+              <select
+                v-model="accessSelectedRoles"
+                multiple
+                class="w-full rounded-lg border px-3 py-2 text-sm bg-white h-24"
+              >
+                <option
+                  v-for="role in allAssignableRoles"
+                  :key="role"
+                  :value="role"
+                >
+                  {{ role }}
+                </option>
+              </select>
+              <p class="text-[11px] text-slate-500">
+                Users with any of these roles will also be able to query this collection.
+              </p>
+            </div>
+
+            <p
+              v-if="accessValidationError"
+              class="text-[11px] text-red-600"
+            >
+              At least one user or one role must be selected.
+            </p>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                class="text-xs px-3 py-2 rounded-lg border text-slate-600"
+                @click="closeCollectionAccessModal"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn-primary text-[11px]"
+                :disabled="accessLoading || !accessCollection"
+                @click="saveCollectionAccess"
+              >
+                Save access
+              </button>
+            </div>
+
+            <p v-if="accessMessage" class="text-xs text-emerald-600">
+              {{ accessMessage }}
+            </p>
+            <p v-if="accessError" class="text-xs text-red-600">
+              {{ accessError }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+
+
     <!-- User modal (org + optional collection) -->
     <transition name="fade">
       <div
@@ -599,7 +722,44 @@ import {
   createOrganizationForTenant,
   createCollectionForOrganization,
   signup,
+  listUsersForTenant,
+  getCollectionAccess,
+  updateCollectionAccess,
 } from '../api'
+
+// Access level
+const showCollectionAccessModal = ref(false)
+const accessTenantId = ref('')
+const accessOrgId = ref('')
+const accessCollection: any = ref(null)
+
+const accessUsersForTenant = ref<any[]>([])
+const accessSelectedUserIds = ref<string[]>([])
+const accessSelectedRoles = ref<string[]>([])
+const accessLoading = ref(false)
+const accessError = ref('')
+const accessMessage = ref('')
+const accessValidationError = ref(false)
+
+
+// All roles you allow at collection level
+const allAssignableRoles = [
+  'employee',
+  'sub_hr',
+  'sub_finance',
+  'sub_operations',
+  'sub_md',
+  'sub_admin',
+  'group_hr',
+  'group_finance',
+  'group_operation',
+  'group_production',
+  'group_marketing',
+  'group_legal',
+  'group_exe',
+  'group_admin',
+  'group_gmd',
+]
 
 // core state
 const companies = ref([])
@@ -611,6 +771,9 @@ const lastLoadedAt = ref('')
 const currentUser = computed(() => authState.user)
 const currentRole = computed(() => currentUser.value?.role || '')
 const currentTenantId = computed(() => currentUser.value?.tenant_id || '')
+
+
+
 
 const vendorRoles = ['vendor']
 const groupAdminRoles = [
@@ -645,6 +808,85 @@ const canManageUsers = computed(
 const canManageOrgs = computed(() => isVendor.value || isGroupAdmin.value,
 )
 
+
+// access to collection
+function openCollectionAccessModal(company, org, col) {
+  if (!canManageUsersForTenant(Company.tenant_id)) return
+
+  accessTenantId.value = company.tenant_id
+  accessOrgId.value = org.id
+  accessCollection.value = col
+  accessError.value = ''
+  accessMessage.value = ''
+  accessValidationError.value = false
+  accessUsersForTenant.value = []
+  accessSelectedUserIds.value = []
+  showCollectionAccessModal.value = true
+
+  loadCollectionAccess()
+}
+
+
+async function loadCollectionAccess() {
+  if (!accessTenantId.value || !accessCollection.value) return
+  accessLoading.value = true
+  try {
+    const [usersRes, aclRes] = await Promise.all([
+      listUsersForTenant(accessTenantId.value),
+      getCollectionAccess(accessCollection.value.id),
+    ])
+
+    const usersPayload = Array.isArray(usersRes) ? usersRes : usersRes?.data
+    const aclPayload = Array.isArray(aclRes) ? aclRes : aclRes?.data
+
+    accessUsersForTenant.value = usersPayload || []
+    accessSelectedUserIds.value = (aclPayload?.allowed_user_ids || []).map(String)
+    accessSelectedRoles.value = (aclPayload?.allowed_roles || []).map(String)
+  }catch(e) {
+    console.error('LoadCollectionAccess error:', e)
+    accessError.value = e?.response?.data?.detail || 'Failed to load collection access.'
+  } finally {
+    accessLoading.value = false
+  }
+}
+
+function closeCollectionAccessModal() {
+  showCollectionAccessModal.value = false
+}
+
+async function saveCollectionAccess() {
+  accessMessage.value = ''
+  accessError.value = ''
+  accessValidationError.value = false
+
+  if (!accessCollection.value) {
+    accessError.value = 'Collection is missing.'
+    return 
+  }
+
+  // Validate: both cannot be empty
+  if (
+    (!accessSelectedUserIds.value || accessSelectedUserIds.value.length == 0) &&
+    (!accessSelectedRoles.value || accessSelectedRoles.value.length == 0)
+  ) {
+    accessValidationError.value = true
+    return 
+  }
+
+  accessLoading.value = true
+  try {
+    await updateCollectionAccess(accessCollection.value.id, {
+      allowed_user_ids: accessSelectedUserIds.value,
+      allowed_roles: accessSelectedRoles.value,
+    })
+    accessMessage.value = 'Access updated.'
+  }catch(e) {
+    console.error('SaveCollectionAccess error:', e)
+    accessError.value = e?.response?.data?.detail || 'Failed to update collection access.'
+  } finally {
+    accessLoading.value = false
+  }
+}
 
 function canUploadToTenant(tenantId) {
   if (!canUpload.value) return false
