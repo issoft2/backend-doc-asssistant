@@ -669,6 +669,8 @@ async function onUpload() {
 
   uploadLoading.value = true
   try {
+    console.log('currentTenantId in onUpload:', currentTenantId.value)
+
     await uploadDocument({
       collectionName: name,
       title: docTitle.value,
