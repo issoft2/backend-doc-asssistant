@@ -111,9 +111,6 @@
                     <div class="flex items-center justify-between gap-2">
                       <div class="text-xs font-semibold text-slate-800">
                         {{ org.name }}
-                        <span class="text-[10px] text-slate-400">
-                          ({{ org.type }})
-                        </span>
                       </div>
                       <div class="text-[10px] text-slate-500">
                         {{ collectionsForOrg(company, org.id).length }} collections
@@ -430,7 +427,7 @@
                   :key="org.id"
                   :value="String(org.id)"
                 >
-                  {{ org.name }} ({{ org.type }})
+                  {{ org.name }} 
                 </option>
               </select>
             </div>
@@ -888,7 +885,7 @@ async function onCreateCollectionForOrg() {
   // build payload matching CollectionCreateIn
   const payload = {
     tenant_id: collectionTenantId.value,
-    organization_id: Number(collectionOrgId.value),
+    organization_id: collectionOrgId.value,
     name,
     visibility: 'org',        // or 'tenant', 'private' – align with your enum
     allowed_roles: [],                 // or a default, e.g. ['employee']
