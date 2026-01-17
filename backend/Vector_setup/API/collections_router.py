@@ -227,6 +227,8 @@ def list_collections(
 
     result: List[CollectionOut] = []
     for c in visible:
+        roles = json.loads(c.allowed_roles) if c.allowed_roles else []
+        user_ids = json.loads(c.allowed_user_ids) if c.allowed_user_ids else []
         result.append(
             CollectionOut(
                 id=c.id,
@@ -235,8 +237,8 @@ def list_collections(
                 name=c.name,
                 doc_count=0,
                 visibility=c.visibility,
-                allowed_roles=c.allowed_roles,
-                allowed_user_ids=c.allowed_user_ids,
+                allowed_roles=roles,
+                allowed_user_ids=user_ids,
                 created_at=c.created_at,
             )
         )
