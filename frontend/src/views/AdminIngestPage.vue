@@ -674,6 +674,7 @@ async function onUpload() {
       title: docTitle.value,
       file: file.value,
       doc_id: '',
+      tenant_id: tenantId.value
     })
     uploadMessage.value = 'Document uploaded and indexed successfully.'
     if (fileInput.value) fileInput.value.value = ''
