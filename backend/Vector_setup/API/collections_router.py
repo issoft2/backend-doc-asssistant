@@ -91,8 +91,8 @@ def create_collection(
         organization_id=body.organization_id,
         name=body.name,
         visibility=body.visibility,
-        allowed_roles=json.dumps(body.allowed_roles or ''),
-        allowed_user_ids=json.dumps(body.allowed_user_ids or ''),
+        allowed_roles=body.allowed_roles,
+        allowed_user_ids=body.allowed_user_ids,
     )
     db.add(db_collection)
     db.commit()

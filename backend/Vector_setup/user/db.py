@@ -28,7 +28,7 @@ class CollectionVisibility(str, Enum):
         
     
 class Collection(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+    id: str = Field(default=None, primary_key=True)
     tenant_id: str = Field(index=True, foreign_key="tenant.id")
     organization_id: Optional[str] = Field(default=None, index=True) # Fk to Organization.id
     name: str = Field(index=True)
@@ -36,11 +36,11 @@ class Collection(SQLModel, table=True):
     
    # Store JSON as TEXT, handle encoding/decoding manually
     allowed_roles: Optional[str] = Field(
-        sa_column=Column(Text),
+        sa_column=Column(JSON),
         default=None,
     )
     allowed_user_ids: Optional[str] = Field(
-        sa_column=Column(Text),
+        sa_column=Column(JSON),
         default=None,
     )
     
