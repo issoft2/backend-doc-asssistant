@@ -670,13 +670,13 @@ async function onUpload() {
   uploadLoading.value = true
   try {
     console.log('currentTenantId in onUpload:', currentTenantId.value)
-
+    const tenantIdStr = String(currentTenantId.value)
     await uploadDocument({
       collectionName: name,
       title: docTitle.value,
       file: file.value,
       doc_id: '',
-      tenant_id: String(currentTenantId.value || ''),
+      tenant_id: tenantIdStr,
     })
     uploadMessage.value = 'Document uploaded and indexed successfully.'
     if (fileInput.value) fileInput.value.value = ''
