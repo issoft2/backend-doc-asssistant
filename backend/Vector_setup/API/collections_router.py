@@ -12,7 +12,7 @@ from Vector_setup.schema.schema_signature import (
     CollectionUpdateIn,
 )
 from Vector_setup.user.audit import write_audit_log
-from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES, COLLECTION_CREATOR_ROLES
+from Vector_setup.user.roles import COLLECTION_MANAGE_ROLES
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.auth_store import get_current_db_user
 
@@ -28,14 +28,14 @@ def get_store() -> MultiTenantChromaStoreManager:
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 def _ensure_collection_admin(user: DBUser) -> None:
-    if user.role not in COLLECTION_ADMIN_ROLES and user.role not in COLLECTION_CREATOR_ROLES:
+    if user.role not in COLLECTION_MANAGE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to manage collections.",
         )
 
 
-@router.post("", response_model=CollectionOut, status_code=status.HTTP_201_CREATED)
+@router.post("/create", response_model=CollectionOut, status_code=status.HTTP_201_CREATED)
 def create_collection(
     body: CollectionCreateIn,
     db: Session = Depends(get_db),

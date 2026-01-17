@@ -354,6 +354,6 @@ export function createCollectionForOrganization(payload: {
   allowed_roles: string[]
   allowed_user_ids: string[]
 }) {
-  return api.post('/collections', payload)
+  return api.post('/collections/create', payload)
 }
 

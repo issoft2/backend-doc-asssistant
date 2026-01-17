@@ -54,7 +54,7 @@ def map_role_to_permissions(role: str) -> list[str]:
   elif role == "sub_hr":
       perms.extend([
           "USER:CREATE", "USER:UPDATE", "USER:DEACTIVATE",
-          "DOC:UPLOAD",
+          "DOC:UPLOAD", "COLLECTION:CREATE", "COLLECTION:UPDATE",
       ])
   elif role in {
       "sub_finance", "sub_operations", "sub_production",

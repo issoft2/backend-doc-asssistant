@@ -72,11 +72,18 @@ UPLOAD_ROLES: Set[str] = {
     "sub_operations",
 }
 
-COLLECTION_ADMIN_ROLES: Set[str] = {
+COLLECTION_MANAGE_ROLES: Set[str] = {
     "group_admin",
     "group_exe",
     "sub_admin",
     "sub_md",
+    "sub_hr", 
+    "group_hr",
+    "sub_finance",
+    "sub_operations",
+    "group_legal",
+    "sub_marketing",
+    "sub_production",
 }
 
 ORG_ADMIN_ROLES: Set[str] = {
@@ -108,13 +115,4 @@ USER_CREATOR_ROLES: set[str] = {
     "vendor",
 }
 
-
-COLLECTION_CREATOR_ROLES = {
-    "group_hr",
-    "group_admin",
-    "sub_hr",  # allow HR subsidiary admins
-    "sub_md",
-    "sub_admin",
-}
-    
         
