@@ -674,7 +674,7 @@ async function onUpload() {
       title: docTitle.value,
       file: file.value,
       doc_id: '',
-      tenant_id: tenantId.value
+      tenant_id: String(currentTenantId.value || ''),
     })
     uploadMessage.value = 'Document uploaded and indexed successfully.'
     if (fileInput.value) fileInput.value.value = ''
@@ -858,7 +858,7 @@ async function ingestSelectedDriveFiles() {
         fileId: fileObj.id,
         collectionName: activeCollectionName.value,
         title: fileObj.name,
-        tenant_id: tenantId.value
+        tenant_id: String(currentTenantId.value || ''),
       })
 
       ingestStatusById.value = {
