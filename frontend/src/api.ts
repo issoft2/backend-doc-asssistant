@@ -179,7 +179,7 @@ export  async function listCollectionsForTenant(
 
 
 export async function ListCollectionForOrg() {
-  return api.get('/collection/by_org')
+  return api.get('/collections/by_org')
 }
 
 
