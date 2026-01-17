@@ -187,23 +187,20 @@
             <option value="" disabled>Select a collection</option>
             <option
               v-for="col in collections"
-              :key="col"
-              :value="col"
+              :key="col.id"
+              :value="col.name"
             >
-              {{ col }}
+              {{ col.name }}
             </option>
           </select>
 
-          <p
-            v-if="!collections.length"
-            class="text-[11px] text-slate-400"
-          >
-            No collections found for your tenant. Ask an admin to create one on the admin page.
+          <p v-if="collectionsError" class="text-[11px] text-red-600">
+            {{ collectionsError }}
           </p>
-          <p
-            v-else
-            class="text-[11px] text-slate-400"
-          >
+          <p v-else-if="!collections.length && !collectionsLoading" class="text-[11px] text-slate-400">
+            No collections found for your organization. Ask an admin to create one.
+          </p>
+          <p v-else class="text-[11px] text-slate-400">
             Choose one of your existing collections to receive this document.
           </p>
         </div>
@@ -511,6 +508,7 @@ import {
   listDriveFiles,
   ingestDriveFile,
   disconnectGoogleDriveApi,
+  ListCollectionForOrg,
 } from '../api'
 
 interface DriveFileOut {
@@ -538,8 +536,16 @@ const isVendor = computed(() => currentUser.value?.role === 'vendor')
 const canUpload = computed(() => hasPermission('DOC:UPLOAD'))
 
 // --- Collections / config state ---
-const collections = ref<string[]>([])
-const tenantId = ref('') // used by vendor when configuring a tenant
+type CollectionForOrg = {
+  id: string
+  name: string
+}
+
+const collections = ref<CollectionForOrg[]>([])
+const collectionsLoading = ref(false)
+const collectionsError = ref('')
+
+const tenantId = ref('') // vendor config
 const tenantName = ref('')
 const tenantPlan = ref<'free_trial' | 'starter' | 'pro' | 'enterprise'>(
   'free_trial',
@@ -563,10 +569,28 @@ const uploadError = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
-// --- Collections helpers (read-only) ---
+// Load collections for current org (/collections/by-org)
+async function loadCollectionsForOrg() {
+  collectionsLoading.value = true
+  collectionsError.value = ''
+  try {
+    const res = await ListCollectionForOrg()
+    const data = Array.isArray(res) ? res : res?.data
+    collections.value = (data || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+    }))
+  } catch (e: any) {
+    console.error('Failed to load collections for org', e)
+    collectionsError.value =
+      e?.response?.data?.detail || 'Failed to load collections.'
+    collections.value = []
+  } finally {
+    collectionsLoading.value = false
+  }
+}
 
-
-// Vendor: configure tenant (plan/status)
+// Vendor: configure tenant
 async function onConfigure() {
   if (!isVendor.value) return
 
@@ -592,7 +616,7 @@ async function onConfigure() {
   }
 }
 
-// --- Local file upload ---
+// Local file upload
 function onFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   const picked = target.files?.[0] || null
@@ -662,7 +686,7 @@ async function onUpload() {
   }
 }
 
-// --- Google Drive connection ---
+// Google Drive connection
 const googleDriveStatus = ref<'connected' | 'disconnected'>('disconnected')
 const googleDriveEmail = ref('')
 const connectingDrive = ref(false)
@@ -702,7 +726,7 @@ async function disconnectGoogleDrive() {
   }
 }
 
-// --- Google Drive selection helpers ---
+// Google Drive selection helpers
 const driveLoading = ref(false)
 const driveError = ref('')
 const driveIngestMessage = ref('')
@@ -750,7 +774,7 @@ function toggleDriveFileSelection(fileId: string) {
   selectedDriveFileIds.value = next
 }
 
-// --- Google Drive files navigation + ingest ---
+// Google Drive files navigation + ingest
 async function loadDriveFiles(folderId: string | null = null) {
   currentFolderId.value = folderId
   driveLoading.value = true
@@ -863,8 +887,9 @@ async function ingestSelectedDriveFiles() {
   ingesting.value = false
 }
 
-// --- Lifecycle ---
+// Lifecycle
 onMounted(() => {
   loadGoogleDriveStatus()
+  loadCollectionsForOrg()
 })
 </script>

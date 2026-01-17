@@ -178,6 +178,9 @@ export  async function listCollectionsForTenant(
 }
 
 
+export async function ListCollectionForOrg() {
+  return api.get('/collection/by_org')
+}
 
 
 // Tenant-scoped collection creation (backend infers tenant from token)

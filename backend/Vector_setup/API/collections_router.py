@@ -131,73 +131,6 @@ def create_collection(
     )
 
 
-@router.patch("/{collection_id}", response_model=CollectionOut)
-def update_collection(
-    collection_id: str,
-    body: CollectionUpdateIn,
-    db: Session = Depends(get_db),
-    current_user: DBUser = Depends(_ensure_collection_admin),
-    tenant: Tenant = Depends(ensure_tenant_active),
-):
-    """
-    Update ACL and org fields of a collection.
-    Only collection admins can update.
-    """
-
-    db_collection = db.get(Collection, collection_id)
-    if not db_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found.")
-
-    if db_collection.tenant_id != current_user.tenant_id and db_collection.organization_id != current_user.organization_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not allowed to update collections for this tenant.",
-        )
-
-    if body.organization_id is not None:
-        org = db.get(Organization, body.organization_id)
-        if not org or org.tenant_id != db_collection.tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid organization_id for this tenant.",
-            )
-
-    update_data = body.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_collection, field, value)
-
-    db.add(db_collection)
-    db.commit()
-    db.refresh(db_collection)
-
-    write_audit_log(
-        db=db,
-        user=current_user,
-        action="collection_update",
-        resource_type="collection",
-        resource_id=db_collection.id,
-        metadata={
-            "tenant_id": db_collection.tenant_id,
-            "name": db_collection.name,
-            "visibility": str(db_collection.visibility),
-            "organization_id": db_collection.organization_id,
-        },
-    )
-
-    return CollectionOut(
-        id=db_collection.id,
-        tenant_id=db_collection.tenant_id,
-        organization_id=db_collection.organization_id,
-        name=db_collection.name,
-        doc_count=0,
-        visibility=db_collection.visibility,
-        allowed_roles=db_collection.allowed_roles,
-        allowed_user_ids=db_collection.allowed_user_ids,
-        created_at=db_collection.created_at,
-        updated_at=db_collection.updated_at,
-    )
-
-
 @router.get("", response_model=List[CollectionOut])
 def list_collections(
     tenant_id: Optional[str] = Query(default=None),
@@ -278,4 +211,46 @@ def update_collection_access(
     col.allowed_roles = json.dumps([str(role) for role in body.allowed_roles])
     db.add(col)
     db.commit()
+    write_audit_log(
+        db=db,
+        user=current_user,
+        action="collection_access_update",
+        resource_type="collection",
+        resource_id=db.id,
+        metadata={
+            "tenant_id": db.tenant_id,
+            "name": db.name,
+            "visibility": str(db.visibility),
+            "organization_id": db.organization_id,
+        },
+    )
     return
+
+
+@router.get("/by-org", response_model=list[CollectionOut])
+def list_collections_for_org(
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_db_user),
+):
+    stmt = (
+        select(Collection)
+        .where(Collection.tenant_id == current_user.tenant_id)
+        .where(Collection.organization_id == current_user.organization_id)
+    )
+    rows = db.exec(stmt).all()
+    return [
+        CollectionOut(
+            id=c.id,
+            tenant_id=c.tenant_id,
+            organization_id=c.organization_id,
+            name=c.name,
+            doc_count=c.doc_count,
+            visibility=c.visibility,
+            allowed_roles=json.loads(c.allowed_roles) if c.allowed_roles else [],
+            allowed_user_ids=json.loads(c.allowed_user_ids) if c.allowed_user_ids else [],
+            created_at=c.created_at,
+        )
+        for c in rows
+    ]
+
+
