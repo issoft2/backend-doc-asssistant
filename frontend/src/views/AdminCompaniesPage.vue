@@ -832,7 +832,7 @@ async function loadCollectionAccess() {
   accessLoading.value = true
   try {
     const [usersRes, aclRes] = await Promise.all([
-      listOrgTenantUsers,
+      listOrgTenantUsers(),
       getCollectionAccess(accessCollection.value.id),
     ])
 
