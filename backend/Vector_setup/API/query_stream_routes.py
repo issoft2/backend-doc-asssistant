@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session
+from sqlmodel import Session, select 
 from typing import Optional, AsyncGenerator, List,  Dict, Any
 import json
 
@@ -8,7 +8,7 @@ from LLM_Config.system_user_prompt import create_suggestion_prompt
 from LLM_Config.llm_setup import suggestion_llm_client
 
 
-from Vector_setup.user.db import get_db, Tenant
+from Vector_setup.user.db import get_db, Tenant, DBUser, Collection
 from Vector_setup.API.ingest_routes import get_store
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 from Vector_setup.user.auth_jwt import (
@@ -54,6 +54,26 @@ def collection_allows_user(user: DBUser, col: Collection) -> bool:
     return False
 
 
+def get_allowed_collections_for_user(
+    db: Session,
+    user: DBUser,
+    requested_names: Optional[str] = None,
+) -> List[Collection]:
+    """
+    Resolve the list of collections the user is allowed to query.
+    - If requested_names is provided, restrict to those names.
+    - Always enforce tenant + org + per-collection ACL.
+    """
+    # Base: same tenant
+    stmt = select(Collection).where(Collection.tenant_id == user.tenant_id)
+
+    # Optional: filter by requested collection name (single string here)
+    if requested_names:
+        stmt = stmt.where(Collection.name == requested_names)
+
+    collections = db.exec(stmt).all()
+    return [c for c in collections if collection_allows_user(user, c)]
+
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,
@@ -73,13 +93,15 @@ async def query_knowledge_stream(
       - event: status       data: <human-readable pipeline stage>
       - event: token        data: <partial answer tokens, with '\\n' encoded as '<|n|>'>
       - event: suggestions  data: JSON list of follow-up question strings
+      - event: chart        data: JSON chart specs
       - event: done         data: END
     """
     if not conversation_id:
         raise HTTPException(status_code=403, detail="Session has expired!")
 
-    tenant_id = current_user.tenant_id
     
+    # ------- resolve allowed collections for this query ---
+        
     # -- resolve allowed collections for this query ---
     allowed_collections = get_allowed_collections_for_user(
         db=db,
@@ -90,10 +112,11 @@ async def query_knowledge_stream(
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
-            detail="No accessible collections available for this query.",
+            detail="You are not given permission to query this system.",
         )
         
-    collection_names = [c.name for c in allowed_collections]    
+    collection_names = [c.name for c in allowed_collections]  
+    collection_ids = [str(c.id) for c in allowed_collections]  
 
     #  conversation history for RAG + intent
     history_turns = get_last_n_turns(
@@ -113,7 +136,6 @@ async def query_knowledge_stream(
     )
 
     def send_status(msg: str) -> str:
-        """Format a status event for SSE."""
         return f"event: status\ndata: {msg}\n\n"
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -151,8 +173,6 @@ async def query_knowledge_stream(
                     continue
 
                 full_answer.append(chunk)
-
-                # Encode newlines for SSE clients that treat lines as records
                 safe_chunk = chunk.replace("\n", "<|n|>")
                 yield f"event: token\ndata: {safe_chunk}\n\n"
         except Exception as e:
@@ -164,6 +184,7 @@ async def query_knowledge_stream(
                 "data: An error occurred while generating the answer.\n\n"
             )
            yield "event: done\ndata: END\n\n"
+           return 
 
 
         # Reconstruct final answer exactly as produced
@@ -220,15 +241,16 @@ async def query_knowledge_stream(
                     yield f"event: chart\ndata: {chart_payload}\n\n"
                     
                 except Exception:
-                    logger.warning("Failed to serialize chart_spec for SSE")    
-                # Audit the query once per request
+                    logger.warning("Failed to serialize chart_spec for SSE") 
+                       
+        # Audit the query once per request
         try:
            write_audit_log(
                 db=db,
                 user=current_user,
                 action="query",
                 resource_type="collection_query",
-                resource_id=",".join(str(c.id) for c in collection_names),  # primary IDs, not names
+                resource_id=",".join(collection_ids),  # primary IDs, not names
                 metadata={
                     "question": question,
                     "top_k": top_k,
@@ -237,8 +259,8 @@ async def query_knowledge_stream(
                     "user_id": current_user.id,
                     "user_role": current_user.role,
                     "conversation_id": conversation_id,
-                    "collection_ids": [c.id for c in collection_names],
-                    "collection_names": [c.name for c in collection_names],
+                    "collection_ids": collection_ids,
+                    "collection_names": collection_names,
                     "client_ip": request.client.host,
                 },
             )
