@@ -24,7 +24,7 @@ from Vector_setup.base.db_setup_management import (
 from Vector_setup.user.auth_store import  get_current_db_user
 from Vector_setup.base.auth_models import UserOut
 from Vector_setup.services.extraction_documents_service import extract_text_from_upload
-from Vector_setup.user.roles import COLLECTION_ADMIN_ROLES, UPLOAD_ROLES, VENDOR_ROLES
+from Vector_setup.user.roles import COLLECTION_MANAGE_ROLES, UPLOAD_ROLES, VENDOR_ROLES
 
 router = APIRouter()
 
@@ -54,7 +54,7 @@ def require_collection_creator(
     Users allowed to create collections: .
     Vendor is explicitly blocked here (even though vendor is 'super' elsewhere).
     """
-    if current_user.role in COLLECTION_ADMIN_ROLES:
+    if current_user.role in COLLECTION_MANAGE_ROLES:
         return current_user
 
     if current_user.role in  VENDOR_ROLES:
@@ -243,7 +243,7 @@ def list_company_collections(
     - Other users can only list their own tenant.
     """
     # Tenant-level access check
-    if tenant_id != current_user.tenant_id and current_user.role not in  COLLECTION_ADMIN_ROLES:
+    if tenant_id != current_user.tenant_id and current_user.role not in  COLLECTION_MANAGE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed to access this tenant",
