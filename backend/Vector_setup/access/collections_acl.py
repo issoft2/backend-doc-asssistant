@@ -34,6 +34,18 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
+    print("DBG user_can_access_collection", {
+        "user_id": user.id,
+        "user_role": user.role,
+        "user_tenant": user.tenant_id,
+        "user_org": user.organization_id,
+        "col_id": collection.id,
+        "col_tenant": collection.tenant_id,
+        "col_org": collection.organization_id,
+        "col_visibility": collection.visibility,
+        "col_allowed_roles": collection.allowed_roles,
+        "col_allowed_user_ids": collection.allowed_user_ids,
+    })
     # Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
         return False

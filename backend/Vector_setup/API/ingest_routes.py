@@ -8,6 +8,7 @@ from Vector_setup.user.db import get_db, Tenant, Collection
 from Vector_setup.user.auth_jwt import ensure_tenant_active, get_current_user
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.db import DBUser, Collection
+from Vector_setup.API.collections_router import _ensure_collection_admin
 from Vector_setup.schema.schema_signature import CollectionOut, CompanyOut, OrganizationOut
 
 
