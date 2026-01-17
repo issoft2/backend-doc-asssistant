@@ -97,13 +97,13 @@ class CollectionAccessOut(BaseModel):
     allowed_roles: list[str] = []
     allowed_user_ids: list[str] = []
     
-    @field_validator("allowed_user_ids", "allowed_roles", mode="before")
-    @classmethod
-    def default_lists(cls, v):
-        return v or []
+    # @field_validator("allowed_user_ids", "allowed_roles", mode="before")
+    # @classmethod
+    # def default_lists(cls, v):
+    #     return v or []
     
-    @model_validator(mode="after")
-    def check_not_both(self):
-        if not self.allowed_user_ids and not self.allowed_roles:
-            raise ValueError("Either allowed_user_ids or allowed_roles must be non-empty.")
-        return self        
+    # @model_validator(mode="after")
+    # def check_not_both(self):
+    #     if not self.allowed_user_ids and not self.allowed_roles:
+    #         raise ValueError("Either allowed_user_ids or allowed_roles must be non-empty.")
+    #     return self        

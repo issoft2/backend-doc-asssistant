@@ -135,7 +135,7 @@
                           </span>
                           <button
                             v-if="canManageUsersForTenant(company.tenant_id)"
-                            class="text-[10px] text-sky-700 hover:underline"
+                            class="text-[10px] text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2 py-1 rounded hover:underline"
                             @click="openCollectionAccessModal(company, org, col)"
                           >
                             Manage access
