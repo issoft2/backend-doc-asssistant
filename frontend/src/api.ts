@@ -42,6 +42,7 @@ export interface UploadDocumentPayload {
   title?: string
   file: File
   doc_id?: string
+  tenant_id: string
 }
 
 export interface SignupPayload {
