@@ -11,6 +11,8 @@ from Vector_setup.schema.schema_signature import (
     CollectionCreateIn,
     CollectionOut,
     CollectionUpdateIn,
+    CollectionAccessOut,
+    CollectionAccessUpdate
 )
 from Vector_setup.user.audit import write_audit_log
 from Vector_setup.user.roles import COLLECTION_MANAGE_ROLES
@@ -252,3 +254,33 @@ def list_collections(
             )
         )
     return result
+
+@router.get("/{collection_id}/access", response_model=CollectionAccessOut)
+def get_collection_access(
+    collection_id: str,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(_ensure_collection_admin),
+):
+    col = db.get(Collection, collection_id)
+    if not col or col.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    
+    user_ids = json.loads(col.allowed_user_ids) if col.allowed_user_ids else []
+    user_roles = json.load(col.allowed_roles) if col.allowed_roles else []
+    return CollectionAccessOut(allowed_user_ids=user_ids, allowed_roles=user_roles)
+
+@router.put("/{collection_id}/access", status_code=204)
+def update_collection_access(
+    collection_id: str,
+    body: CollectionAccessUpdate,
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(_ensure_collection_admin),
+):
+    col = db.get(Collection, collection_id)
+    if not col or col.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    col.allowed_user_ids = json.dumps([str(uid) for uid in body.allowed_user_ids])
+    col.allowed_roles = json.dumps([str(role) for role in body.allowed_roles])
+    db.add(col)
+    db.commit()
+    return
