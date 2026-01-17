@@ -1,5 +1,5 @@
 # db.py
-from sqlmodel import SQLModel, Field, create_engine, Session, UniqueConstraint, Column, JSON
+from sqlmodel import SQLModel, Field, create_engine, Session, UniqueConstraint, Column, JSON, Text
 from typing import Optional, Dict, Any
 import os
 from datetime import datetime
@@ -34,9 +34,15 @@ class Collection(SQLModel, table=True):
     name: str = Field(index=True)
     visibility: CollectionVisibility = Field(default=CollectionVisibility.tenant)
     
-    # Simple JSON fields for now; can normalize later if needed.
-    allowed_roles: Optional[list[str]] = Field(sa_column=Column(JSON), default=None)
-    allowed_user_ids: Optional[list[str]] = Field(sa_column=Column(JSON), default=None)
+   # Store JSON as TEXT, handle encoding/decoding manually
+    allowed_roles: Optional[str] = Field(
+        sa_column=Column(Text),
+        default=None,
+    )
+    allowed_user_ids: Optional[str] = Field(
+        sa_column=Column(Text),
+        default=None,
+    )
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     doc_count: int = Field(default=0)

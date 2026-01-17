@@ -2,6 +2,7 @@ from typing import List, Optional
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
+import json
 
 from Vector_setup.user.db import DBUser, Tenant, Collection, Organization,  get_db
 from Vector_setup.user.auth_jwt import ensure_tenant_active
@@ -90,8 +91,8 @@ def create_collection(
         organization_id=body.organization_id,
         name=body.name,
         visibility=body.visibility,
-        allowed_roles=body.allowed_roles,
-        allowed_user_ids=body.allowed_user_ids,
+        allowed_roles=json.dumps(body.allowed_roles or []),
+        allowed_user_ids=json.dumps(body.allowed_user_ids or []),
     )
     db.add(db_collection)
     db.commit()
