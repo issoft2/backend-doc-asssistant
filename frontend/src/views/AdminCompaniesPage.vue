@@ -725,6 +725,7 @@ import {
   listOrgTenantUsers,
   getCollectionAccess,
   updateCollectionAccess,
+  ListCollectionForOrg
 } from '../api'
 
 // Access level
@@ -977,7 +978,8 @@ async function loadCollectionsAndOrgs(tenantId) {
     // fetch orgs + collections concurrently
     const [orgRes, colRes] = await Promise.all([
       fetchOrganizations(tenantId),
-      listCollectionsForTenant(tenantId),
+      ListCollectionForOrg(),
+      // listCollectionsForTenant(tenantId),
     ])
 
     const orgPayload = Array.isArray(orgRes) ? orgRes : orgRes?.data
