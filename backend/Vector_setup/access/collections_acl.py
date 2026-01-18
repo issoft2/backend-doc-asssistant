@@ -110,7 +110,80 @@ def get_allowed_collections_for_user(
     ]
     
 
-        
+def user_query_access_collection(
+    user: DBUser,
+    collection: Collection,
+) -> bool:
+    print("DBG user_can_access_collection", {
+        "user_id": user.id,
+        "user_role": user.role,
+        "user_tenant": user.tenant_id,
+        "user_org": user.organization_id,
+        "col_id": collection.id,
+        "col_tenant": collection.tenant_id,
+        "col_org": collection.organization_id,
+        "col_visibility": collection.visibility,
+        "col_allowed_roles": collection.allowed_roles,
+        "col_allowed_user_ids": collection.allowed_user_ids,
+    })
+
+    # 1) Tenant isolation
+    if collection.tenant_id != user.tenant_id:
+        return False
+
+    # Normalize allowed_roles / allowed_user_ids to Python lists
+    allowed_roles = collection.allowed_roles or []
+    allowed_user_ids = collection.allowed_user_ids or []
+
+    # 2) Group-wide roles (group_*)
+    if user.role in GROUP_ROLES:
+        # Must always be explicitly listed as allowed user
+        if str(user.id) not in allowed_user_ids:
+            return False
+
+        # Additional visibility/role constraints
+        if collection.visibility == CollectionVisibility.role:
+            return user.role in allowed_roles
+
+        if collection.visibility == CollectionVisibility.user:
+            # already checked allowed_user_ids above
+            return True
+
+        if collection.visibility in (
+            CollectionVisibility.tenant,
+            CollectionVisibility.org,
+        ):
+            return True
+
+        return False
+
+    # 3) Subsidiary / normal users (sub_*)
+    if user.role in SUB_ROLES:
+        # Must always be explicitly listed as allowed user
+        if str(user.id) not in allowed_user_ids:
+            return False
+
+        if collection.visibility == CollectionVisibility.tenant:
+            return True
+
+        if collection.visibility == CollectionVisibility.org:
+            return (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+            )
+
+        if collection.visibility == CollectionVisibility.role:
+            if user.organization_id != collection.organization_id:
+                return False
+            return user.role in allowed_roles
+
+        if collection.visibility == CollectionVisibility.user:
+            # already checked allowed_user_ids above
+            return True
+
+    # 4) Other roles denied
+    return False
+       
     
   
     

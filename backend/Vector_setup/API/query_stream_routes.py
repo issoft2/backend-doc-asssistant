@@ -18,7 +18,7 @@ from Vector_setup.user.auth_jwt import (
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn, get_last_doc_id
 from LLM_Config.llm_pipeline import llm_pipeline_stream
 from Vector_setup.user.auth_jwt import ensure_tenant_active
-from Vector_setup.access.collections_acl import get_allowed_collections_for_user
+from Vector_setup.access.collections_acl import user_query_access_collection
 from Vector_setup.user.audit import write_audit_log
 
 import logging
@@ -29,50 +29,6 @@ logger.setLevel(logging.INFO)
 router = APIRouter()
 
 import json
-
-def collection_allows_user(user: DBUser, col: Collection) -> bool:
-    # Tenant and org checks already applied earlier in your queries
-    # Decode JSON fields safely
-    roles = json.loads(col.allowed_roles) if col.allowed_roles else []
-    users = json.loads(col.allowed_user_ids) if col.allowed_user_ids else []
-
-    # Role-based access
-    if roles and user.role in roles:
-        return True
-
-    # Direct user assignment
-    if users and str(user.id) in users:
-        return True
-
-    # Visibility policies
-    if col.visibility == "tenant":
-        return True
-
-    if col.visibility == "org":
-        return col.organization_id == user.organization_id
-
-    return False
-
-
-def get_allowed_collections_for_user(
-    db: Session,
-    user: DBUser,
-    requested_names: Optional[str] = None,
-) -> List[Collection]:
-    """
-    Resolve the list of collections the user is allowed to query.
-    - If requested_names is provided, restrict to those names.
-    - Always enforce tenant + org + per-collection ACL.
-    """
-    # Base: same tenant
-    stmt = select(Collection).where(Collection.tenant_id == user.tenant_id)
-
-    # Optional: filter by requested collection name (single string here)
-    if requested_names:
-        stmt = stmt.where(Collection.name == requested_names)
-
-    collections = db.exec(stmt).all()
-    return [c for c in collections if collection_allows_user(user, c)]
 
 @router.get("/query/stream")
 async def query_knowledge_stream(
@@ -103,8 +59,7 @@ async def query_knowledge_stream(
     # ------- resolve allowed collections for this query ---
         
     # -- resolve allowed collections for this query ---
-    allowed_collections = get_allowed_collections_for_user(
-        db=db,
+    allowed_collections = user_query_access_collection(
         user=current_user,
         requested_names=collection_name,
     )
@@ -112,7 +67,7 @@ async def query_knowledge_stream(
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
-            detail="You are not given permission to query this system.",
+            detail=f"You are not given permission to query on this {collection_name} .",
         )
         
     collection_names = [c.name for c in allowed_collections]  
