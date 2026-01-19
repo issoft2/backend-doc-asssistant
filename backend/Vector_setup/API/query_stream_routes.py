@@ -18,7 +18,7 @@ from Vector_setup.user.auth_jwt import (
 from Vector_setup.chat_history.chat_store import get_last_n_turns, save_chat_turn, get_last_doc_id
 from LLM_Config.llm_pipeline import llm_pipeline_stream
 from Vector_setup.user.auth_jwt import ensure_tenant_active
-from Vector_setup.access.collections_acl import user_query_access_collection
+from Vector_setup.access.collections_acl import get_allowed_collections_for_user
 from Vector_setup.user.audit import write_audit_log
 
 import logging
@@ -55,19 +55,21 @@ async def query_knowledge_stream(
     if not conversation_id:
         raise HTTPException(status_code=403, detail="Session has expired!")
 
+    # Build requested_names. from query param [optional]
+    requested_names = [collection_name] if collection_name else None
     
-    # ------- resolve allowed collections for this query ---
         
     # -- resolve allowed collections for this query ---
-    allowed_collections = user_query_access_collection(
+    allowed_collections = get_allowed_collections_for_user(
+        db=db,
         user=current_user,
-        collection=collection_name,
+        requested_names=requested_names,
     )
     
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
-            detail=f"You are not given permission to query on this {collection_name} .",
+            detail=f"You are not given permission to query this system.",
         )
         
     collection_names = [c.name for c in allowed_collections]  
