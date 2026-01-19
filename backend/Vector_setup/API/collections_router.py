@@ -209,8 +209,11 @@ def update_collection_access(
 
     col.allowed_user_ids = json.dumps([str(uid) for uid in body.allowed_user_ids])
     col.allowed_roles = json.dumps([str(role) for role in body.allowed_roles])
+
     db.add(col)
     db.commit()
+    db.refresh(col)
+
     write_audit_log(
         db=db,
         user=current_user,
@@ -218,13 +221,14 @@ def update_collection_access(
         resource_type="collection",
         resource_id=collection_id,
         metadata={
-            "tenant_id": db.tenant_id,
-            "name": db.name,
-            "visibility": str(db.visibility),
-            "organization_id": db.organization_id,
+            "tenant_id": col.tenant_id,
+            "name": col.name,
+            "visibility": str(col.visibility),
+            "organization_id": col.organization_id,
         },
     )
     return
+
 
 
 @router.get("/by-org", response_model=list[CollectionOut])
