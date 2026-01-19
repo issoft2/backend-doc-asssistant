@@ -63,7 +63,7 @@ async def query_knowledge_stream(
     allowed_collections = get_allowed_collections_for_user(
         db=db,
         user=current_user,
-        requested_names=requested_names,
+        requested_name=requested_names,
     )
     
     if not allowed_collections:
