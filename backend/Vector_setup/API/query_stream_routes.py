@@ -66,6 +66,9 @@ async def query_knowledge_stream(
         requested_name=requested_names,
     )
     
+    print("Allowed collection here here:::: ", allowed_collections)
+    logger.info(f"What are the collections this user has access to? {allowed_collections}")
+    
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
