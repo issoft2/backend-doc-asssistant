@@ -216,7 +216,7 @@ def update_collection_access(
         user=current_user,
         action="collection_access_update",
         resource_type="collection",
-        resource_id=db.id,
+        resource_id=collection_id,
         metadata={
             "tenant_id": db.tenant_id,
             "name": db.name,
