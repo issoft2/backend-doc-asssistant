@@ -743,27 +743,32 @@ async def llm_pipeline_stream(
     )
 
     if not hits:
+        # No documents returned for this tenant + allowed collections.
+        # Make it explicit that the answer cannot be given from internal data.
         if intent == "NEW_QUESTION":
             msg = (
-                "I could not find relevant information in the current knowledge base for this question. "
-                "I am best at questions about the documents and data that have been ingested here. "
-                "Could you rephrase or specify the document, topic, or area you’re interested in?"
+                "I could not find any documents you have access to that answer this question. "
+                "I can only answer using the policies and data available in your workspace. "
+                "Please contact your administrator if you believe additional HR policies "
+                "should be visible to you."
             )
-            
         elif intent == "EXPORT_TABLE":
             msg = (
-                "I could not find any visible data rows to export as a table for this question. "
-                "This may mean that data for the requested year or period is not present in the current workspace."
+                "I could not find any data you have access to that can be exported as a table "
+                "for this question. This may mean the relevant data is either missing or not "
+                "visible to your account."
             )
         else:
             msg = (
-                "The information visible in the current context is not sufficient to answer this question. "
-                "You may want to rephrase with more detail or specify a particular document or topic."
+                "There is not enough information in the documents you can access to answer this question. "
+                "Try rephrasing, or specify a particular document or topic, or ask your administrator "
+                "to grant you access to the relevant policies."
             )
 
         _store(msg, [])
         yield msg
         return
+
 
     # 4) BUILD CONTEXT (no titles injected into content)
     context_chunks: list[str] = []
