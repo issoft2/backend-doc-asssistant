@@ -93,38 +93,6 @@ async def query_knowledge_stream(
         # 2) Retrieve docs BEFORE calling the LLM
         yield send_status("Retrieving relevant information…")
 
-        # Example retrieval: adapt to your actual store API
-        try:
-            retrieved_docs = await store.retrieve(
-                tenant_id=current_user.tenant_id,
-                collection_names=collection_names,
-                query=question,
-                top_k=top_k,
-            )
-        except Exception:
-            logger.exception("Retrieval error")
-            yield send_status(
-                "I could not access your documents at this time. Please try again later."
-            )
-            yield "event: done\ndata: END\n\n"
-            return
-
-        # Guardrail: if no docs, do NOT call the LLM
-        if not retrieved_docs:
-            yield send_status(
-                "No relevant documents were found that you have access to."
-            )
-            # Optional: send an explicit “no-answer” token to the UI
-            msg = (
-                "I’m unable to answer this question from the available documents you "
-                "have access to. Please contact your administrator if you believe you "
-                "should see more HR policies."
-            )
-            safe_msg = msg.replace("\n", "<|n|>")
-            yield f"event: token\ndata: {safe_msg}\n\n"
-            yield "event: done\ndata: END\n\n"
-            return
-
         yield send_status("Ranking and summarizing retrieved information…")
         yield send_status("Generating final answer…")
 
@@ -138,7 +106,7 @@ async def query_knowledge_stream(
                 top_k=top_k,
                 result_holder=result_holder,
                 last_doc_id=last_doc_id,
-                collection_names=collection_names,               
+                collection_names=collection_names,
             ):
                 if await request.is_disconnected():
                     break
