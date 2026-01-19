@@ -138,9 +138,7 @@ async def query_knowledge_stream(
                 top_k=top_k,
                 result_holder=result_holder,
                 last_doc_id=last_doc_id,
-                collection_names=collection_names,
-                # Add this param if your pipeline can accept it:
-                retrieved_docs=retrieved_docs,
+                collection_names=collection_names,               
             ):
                 if await request.is_disconnected():
                     break
