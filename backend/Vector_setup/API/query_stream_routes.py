@@ -36,48 +36,35 @@ async def query_knowledge_stream(
     question: str,
     conversation_id: str,
     top_k: int = 100,
-    collection_name: Optional[str] = None,  # currently unused, kept for compatibility
+    collection_name: Optional[str] = None,
     current_user: TokenUser = Depends(get_current_db_user_from_header_or_query),
     store: MultiTenantChromaStoreManager = Depends(get_store),
     db: Session = Depends(get_db),
-
 ) -> StreamingResponse:
-    """
-    Streaming RAG query endpoint using Server-Sent Events (SSE).
-
-    Events:
-      - event: status       data: <human-readable pipeline stage>
-      - event: token        data: <partial answer tokens, with '\\n' encoded as '<|n|>'>
-      - event: suggestions  data: JSON list of follow-up question strings
-      - event: chart        data: JSON chart specs
-      - event: done         data: END
-    """
     if not conversation_id:
         raise HTTPException(status_code=403, detail="Session has expired!")
 
-    # Build requested_names. from query param [optional]
     requested_names = [collection_name] if collection_name else None
-    
-        
-    # -- resolve allowed collections for this query ---
+
+    # --- ACL: which collections can this user query? ---
     allowed_collections = get_allowed_collections_for_user(
         db=db,
         user=current_user,
         requested_name=requested_names,
     )
-    
+
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
-            detail=f"You are not given permission to query this system.",
+            detail="You are not given permission to query this system.",
         )
-        
-    collection_names = [c.name for c in allowed_collections]  
-    collection_ids = [str(c.id) for c in allowed_collections]  
-    
-    logger.info(f"Collection names here::::{collection_name} ")
 
-    #  conversation history for RAG + intent
+    collection_names = [c.name for c in allowed_collections]
+    collection_ids = [str(c.id) for c in allowed_collections]
+
+    logger.info(f"Collection names for query: {collection_names}")
+
+    # --- conversation history + last doc ---
     history_turns = get_last_n_turns(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -86,7 +73,6 @@ async def query_knowledge_stream(
         conversation_id=conversation_id,
     )
 
-    # last primary document id (for FOLLOWUP_ELABORATE)
     last_doc_id = get_last_doc_id(
         db=db,
         tenant_id=current_user.tenant_id,
@@ -101,19 +87,48 @@ async def query_knowledge_stream(
         full_answer: List[str] = []
         result_holder: Dict[str, Any] = {}
 
-        # --- high-level pipeline steps ---
-        
         # 1) Understand question
         yield send_status("Analyzing your question…")
 
-        # 2) Retrieve & rank docs for RAG
+        # 2) Retrieve docs BEFORE calling the LLM
         yield send_status("Retrieving relevant information…")
-        yield send_status("Ranking and summarizing retrieved information…")
 
-        # 3) Generate answer (streaming tokens)
+        # Example retrieval: adapt to your actual store API
+        try:
+            retrieved_docs = await store.retrieve(
+                tenant_id=current_user.tenant_id,
+                collection_names=collection_names,
+                query=question,
+                top_k=top_k,
+            )
+        except Exception:
+            logger.exception("Retrieval error")
+            yield send_status(
+                "I could not access your documents at this time. Please try again later."
+            )
+            yield "event: done\ndata: END\n\n"
+            return
+
+        # Guardrail: if no docs, do NOT call the LLM
+        if not retrieved_docs:
+            yield send_status(
+                "No relevant documents were found that you have access to."
+            )
+            # Optional: send an explicit “no-answer” token to the UI
+            msg = (
+                "I’m unable to answer this question from the available documents you "
+                "have access to. Please contact your administrator if you believe you "
+                "should see more HR policies."
+            )
+            safe_msg = msg.replace("\n", "<|n|>")
+            yield f"event: token\ndata: {safe_msg}\n\n"
+            yield "event: done\ndata: END\n\n"
+            return
+
+        yield send_status("Ranking and summarizing retrieved information…")
         yield send_status("Generating final answer…")
 
-        # --- main answer streaming ---
+        # 3) Main answer streaming
         try:
             async for chunk in llm_pipeline_stream(
                 store=store,
@@ -121,11 +136,12 @@ async def query_knowledge_stream(
                 question=question,
                 history=history_turns,
                 top_k=top_k,
-                result_holder=result_holder,   # will contain sources, primary_doc_id, etc.
-                last_doc_id=last_doc_id,       # helps keep follow-ups on same doc
+                result_holder=result_holder,
+                last_doc_id=last_doc_id,
                 collection_names=collection_names,
+                # Add this param if your pipeline can accept it:
+                retrieved_docs=retrieved_docs,
             ):
-                # Stop if client disconnects
                 if await request.is_disconnected():
                     break
                 if not chunk:
@@ -134,24 +150,18 @@ async def query_knowledge_stream(
                 full_answer.append(chunk)
                 safe_chunk = chunk.replace("\n", "<|n|>")
                 yield f"event: token\ndata: {safe_chunk}\n\n"
-        except Exception as e:
-            # Optional: send an error event (or just log and fall through)
-           logger.exception("Pipeline error in /api/query/stream")
-           # keep message generic to client
-           yield (
-                "event: status\n"
-                "data: An error occurred while generating the answer.\n\n"
+        except Exception:
+            logger.exception("Pipeline error in /api/query/stream")
+            yield send_status(
+                "An error occurred while generating the answer."
             )
-           yield "event: done\ndata: END\n\n"
-           return 
+            yield "event: done\ndata: END\n\n"
+            return
 
-
-        # Reconstruct final answer exactly as produced
         answer_str = "".join(full_answer)
 
-        # --- persistence + suggestions ---
+        # 4) Save conversation turn only if there is an answer
         if answer_str:
-            # 4) Save conversation turn
             yield send_status("Saving this conversation…")
 
             primary_doc_id = result_holder.get("primary_doc_id")
@@ -166,7 +176,7 @@ async def query_knowledge_stream(
                 primary_doc_id=primary_doc_id,
             )
 
-            # 5) Generate follow-up suggestions
+            # 5) Follow-up suggestions
             yield send_status("Generating related follow-up questions…")
 
             suggestions_list: List[str] = []
@@ -175,12 +185,12 @@ async def query_knowledge_stream(
                 raw = suggestion_llm_client.invoke(suggestion_messages)
                 raw_content = getattr(raw, "content", None) or str(raw)
                 suggestions_list = json.loads(raw_content)
-                # Be defensive: ensure it is a list of strings
                 if not isinstance(suggestions_list, list):
                     suggestions_list = []
                 else:
                     suggestions_list = [
-                        s for s in suggestions_list if isinstance(s, str) and s.strip()
+                        s for s in suggestions_list
+                        if isinstance(s, str) and s.strip()
                     ]
             except Exception:
                 suggestions_list = []
@@ -188,28 +198,25 @@ async def query_knowledge_stream(
             if suggestions_list:
                 payload = json.dumps(suggestions_list)
                 yield f"event: suggestions\ndata: {payload}\n\n"
-                
-            # ... Chart spec event ---
+
+            # 6) Chart event (optional)
             chart_spec = result_holder.get("chart_specs")
             if chart_spec:
                 try:
-                    chart_payload = json.dumps({"charts": result_holder["chart_specs"]})
-                    
+                    chart_payload = json.dumps({"charts": chart_spec})
                     logger.info("CHART_DEBUG emitting chart SSE: %s", chart_payload)
-
                     yield f"event: chart\ndata: {chart_payload}\n\n"
-                    
                 except Exception:
-                    logger.warning("Failed to serialize chart_spec for SSE") 
-                       
-        # Audit the query once per request
+                    logger.warning("Failed to serialize chart_spec for SSE")
+
+        # 7) Audit log (once per request)
         try:
-           write_audit_log(
+            write_audit_log(
                 db=db,
                 user=current_user,
                 action="query",
                 resource_type="collection_query",
-                resource_id=",".join(collection_ids),  # primary IDs, not names
+                resource_id=",".join(collection_ids),
                 metadata={
                     "question": question,
                     "top_k": top_k,
@@ -223,11 +230,9 @@ async def query_knowledge_stream(
                     "client_ip": request.client.host,
                 },
             )
-
         except Exception:
             logger.warning("Failed to write audit log for query", exc_info=True)
 
-        # 6) Finalize
         yield send_status("Finalizing…")
         yield "event: done\ndata: END\n\n"
 
