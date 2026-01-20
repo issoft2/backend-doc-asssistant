@@ -1,5 +1,7 @@
 import { ref, watch } from 'vue'
 import { logout } from '../authStore'
+const streamError = ref<string | null>(null);
+
 
 export type ChartSpec = {
   chart_type: 'line' | 'bar' | 'area'
@@ -98,12 +100,14 @@ const startStream = async (payload: {
 
     if (response.status === 403) {
         // Auth is fine, but no permission for this query
-        let message = "You don't have permission to run this query."
-
+        streamError.value = "You don't have permission to run this query."
+        const message = "You don't have permission to run this query."
         try {
+          console.log(response.json())
           const data = await response.json()
           if (data?.detail && typeof data.detail === 'string') {
-            message = data.detail
+            console.error(data?.detail)
+            streamError.value = data.detail
           }
         } catch {
           // ignore JSON parse errors, keep default message
@@ -254,6 +258,7 @@ const startStream = async (payload: {
     startStream,
     stopStream,
     logout,
+    streamError,
   }
 
 

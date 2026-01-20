@@ -475,7 +475,18 @@ const {
   chartSpec,
   startStream,
   stopStream,
+  streamError,
 } = useQueryStream();
+
+watch(streamStatus, (val) => {
+  if (!val) return;
+  if (
+    val.startsWith("You don't have access") ||
+    val.startsWith("You don't have permission")
+  ) {
+    error.value = val;
+  }
+});
 
 // ----- Form + UI state -----
 const question = ref("");
