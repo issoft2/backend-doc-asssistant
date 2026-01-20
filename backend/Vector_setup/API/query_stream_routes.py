@@ -29,7 +29,6 @@ logger.setLevel(logging.INFO)
 router = APIRouter()
 
 import json
-
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,
@@ -44,15 +43,25 @@ async def query_knowledge_stream(
     if not conversation_id:
         raise HTTPException(status_code=403, detail="Session has expired!")
 
+    # Optional FE filter
     requested_names = [collection_name] if collection_name else None
 
     # --- ACL: which collections can this user query? ---
     allowed_collections = get_allowed_collections_for_user(
         db=db,
-        user=current_user,
+        user=current_user,         # make sure this is the same shape your ACL expects
         requested_name=requested_names,
     )
 
+    logger.info(
+        "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",
+        current_user.id,
+        current_user.role,
+        current_user.organization_id,
+        [(c.id, c.name, c.organization_id) for c in allowed_collections],
+    )
+
+    # Hard stop: no allowed collections => no LLM, no stream
     if not allowed_collections:
         raise HTTPException(
             status_code=403,
@@ -62,7 +71,7 @@ async def query_knowledge_stream(
     collection_names = [c.name for c in allowed_collections]
     collection_ids = [str(c.id) for c in allowed_collections]
 
-    logger.info(f"Collection names for query: {collection_names}")
+    logger.info("Collection names for query: %s", collection_names)
 
     # --- conversation history + last doc ---
     history_turns = get_last_n_turns(
@@ -90,13 +99,13 @@ async def query_knowledge_stream(
         # 1) Understand question
         yield send_status("Analyzing your question…")
 
-        # 2) Retrieve docs BEFORE calling the LLM
+        # 2) Retrieval + ranking (done inside llm_pipeline_stream)
         yield send_status("Retrieving relevant information…")
-
         yield send_status("Ranking and summarizing retrieved information…")
+
+        # 3) Generate answer (streaming tokens)
         yield send_status("Generating final answer…")
 
-        # 3) Main answer streaming
         try:
             async for chunk in llm_pipeline_stream(
                 store=store,
@@ -118,9 +127,7 @@ async def query_knowledge_stream(
                 yield f"event: token\ndata: {safe_chunk}\n\n"
         except Exception:
             logger.exception("Pipeline error in /api/query/stream")
-            yield send_status(
-                "An error occurred while generating the answer."
-            )
+            yield send_status("An error occurred while generating the answer.")
             yield "event: done\ndata: END\n\n"
             return
 
@@ -202,5 +209,5 @@ async def query_knowledge_stream(
         yield send_status("Finalizing…")
         yield "event: done\ndata: END\n\n"
 
+    # Only users with allowed_collections ever get here; SSE/LLM never start otherwise
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
