@@ -103,10 +103,9 @@ const startStream = async (payload: {
         streamError.value = "You don't have permission to run this query."
         const message = "You don't have permission to run this query."
         try {
-          console.log(response.json())
           const data = await response.json()
           if (data?.detail && typeof data.detail === 'string') {
-            console.error(data?.detail)
+            console.log(data?.detail)
             streamError.value = data.detail
           }
         } catch {
