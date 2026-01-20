@@ -89,11 +89,31 @@ const startStream = async (payload: {
       signal: controller.signal,
     })
 
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       logout()
       isStreaming.value = false
       abortController.value = null
       return
+    }
+
+    if (response.status === 403) {
+        // Auth is fine, but no permission for this query
+        let message = "You don't have permission to run this query."
+
+        try {
+          const data = await response.json()
+          if (data?.detail && typeof data.detail === 'string') {
+            message = data.detail
+          }
+        } catch {
+          // ignore JSON parse errors, keep default message
+        }
+
+        status.value = message
+        statuses.value.push(message)
+        isStreaming.value = false
+        abortController.value = null
+        return
     }
 
     if (!response.ok || !response.body) {

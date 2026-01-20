@@ -64,9 +64,15 @@ async def query_knowledge_stream(
 
     # Hard stop: no allowed collections => no LLM, no stream
     if not allowed_collections:
+        detail = (
+        "You don't have access to the documents needed to answer this question. "
+        f"Your current role is '{current_user.role}'. "
+        "You can ask questions related to the areas your role is allowed to access "
+        "(for example, finance collections if you are in a finance role)."
+         )
         raise HTTPException(
             status_code=403,
-            detail="You are not given permission to query this system.",
+            detail=detail,
         )
 
     collection_names = [c.name for c in allowed_collections]
