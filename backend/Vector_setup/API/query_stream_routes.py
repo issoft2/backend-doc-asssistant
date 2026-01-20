@@ -52,6 +52,7 @@ async def query_knowledge_stream(
         user=current_user,         # make sure this is the same shape your ACL expects
         requested_name=requested_names,
     )
+    
 
     logger.info(
         "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",

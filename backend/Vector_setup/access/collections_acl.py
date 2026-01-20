@@ -1,5 +1,5 @@
 from Vector_setup.user.db import DBUser, Collection, CollectionVisibility
-from Vector_setup.user.roles import GROUP_ROLES, SUB_ROLES
+from Vector_setup.user.roles import GROUP_ROLES, SUB_ROLES, SUPER_ROLES
 
 from sqlmodel import Session, select
 from typing import List, Optional  
@@ -57,58 +57,70 @@ def user_can_access_collection(
     # 2) Normalize ACL fields once
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
-
-    # If you want "explicit user list wins" behaviour, uncomment this block:
-    #
-    # if user_ids:
-    #     # Collection has explicit user list: require membership.
-    #     if str(user.id) not in user_ids:
-    #         return False
-
-    # 3) Group-wide roles (umbrella)
+    
+    # 3 User-coped collections: private to specific users, regardles of role bucket
+    if collection.visibility == CollectionVisibility.user:
+        return str(user.id) in user_ids
+    
+    # 4 Highest, Unbrella Company-wide roles
+    if user.role in SUPER_ROLES:
+        # Supper ROLES can see all collections in their tenant
+        # It can be tightened late if required
+        return True
+    
+    # 5 Group-role (org-scoped, role-based), have oversight of what is happening in the
+    # sub company wide.
     if user.role in GROUP_ROLES:
-        if collection.visibility == CollectionVisibility.role:
-            return user.role in roles
-
-        if collection.visibility == CollectionVisibility.user:
-            return str(user.id) in user_ids
-
-        # tenant/org visibilities are fine for group roles
-        if collection.visibility in (
-            CollectionVisibility.tenant,
-            CollectionVisibility.org,
-        ):
-            return True
-
-        return False  # defensive fallback
-
-    # 4) Subsidiary / normal users
-    if user.role in SUB_ROLES:
-        # Tenant-wide collection
-        if collection.visibility == CollectionVisibility.tenant:
-            return True
-
-        # Org-scoped collection
+        # org-scoped: same org + role allowed
         if collection.visibility == CollectionVisibility.org:
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
+                and user.role in roles
             )
-
-        # Role-scoped collection
+            
+        # Role-scoped: same org + role allowed
         if collection.visibility == CollectionVisibility.role:
-            if user.organization_id != collection.organization_id:
-                return False
+            return (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+                and user.role in roles
+            )
+            
+        
+        # Group roles do Not automatically get tenant-wide access
+        if collection.visibility == CollectionVisibility.tenant:
+            return False
+        
+        # Any other visibility value
+        return False
+    
+    # 6 subsidiary / normal users (sub-roles)
+    if user.role in SUB_ROLES:
+        # Tenant-wide: only if their role is explicitly allowed, I don't think I need this
+        if collection.visibility == CollectionVisibility.tenant:
             return user.role in roles
-
-        # User-scoped collection
-        if collection.visibility == CollectionVisibility.user:
-            return str(user.id) in user_ids
-
-        return False  # defensive fallback
-
-    # 5) Any other / unknown role -> deny by default
-    return False
+        
+        # Org-scoped: same org + allowed
+        if collection.visibility == CollectionVisibility.org:
+            return (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+                and user.role in roles
+            )
+            
+        # Role-scoped: same as org + role allowed
+        if collection.visibility == CollectionVisibility.role:
+            return (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+                and user.role in roles
+            ) 
+         
+        return False # defensive fallback
+    
+    # 7 Any other / unknown role -> deny by default
+    return False 
 
 
 

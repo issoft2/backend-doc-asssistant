@@ -13,7 +13,7 @@ def map_role_to_permissions(role: str) -> list[str]:
   perms: list[str] = []
 
   # Vendor: full control in platform/tenant scope
-  if role in {"vendor", "system_manager"}:
+  if role in VENDOR_ROLES:
       perms.extend([
           "USER:CREATE", "USER:UPDATE", "USER:DEACTIVATE",
           "DOC:UPLOAD", "DOC:DELETE",
@@ -23,7 +23,7 @@ def map_role_to_permissions(role: str) -> list[str]:
       return perms
 
   # Group-level
-  if role in {"group_admin", "group_exe", "group_gmd"}:
+  if role in GROUP_ROLES:
       perms.extend([
           "USER:CREATE", "USER:UPDATE", "USER:DEACTIVATE",
           "DOC:UPLOAD",

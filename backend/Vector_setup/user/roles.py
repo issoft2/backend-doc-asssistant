@@ -26,12 +26,14 @@ class SubsidiaryRole(str, Enum):
     sub_legal = "sub_legal"
     sub_marketing = "sub_marketing"
     
-    
+SUPER_ROLES: set[str] = {
+    "group_gmd",
+    "group_exe",
+    "vendor",
+}    
 
 
 GROUP_ROLES: Set[str] = {
-    "group_gmd",
-    "group_exe",
     "group_hr",
     "group_admin",
     "group_finance",
@@ -40,6 +42,8 @@ GROUP_ROLES: Set[str] = {
     "group_marketing",
     "group_legal",
 }
+
+
 
 SUB_ROLES: Set[str] = {
     "sub_md",
@@ -56,7 +60,7 @@ SUB_ROLES: Set[str] = {
 
 VENDOR_ROLES: Set[str] = {
     "vendor",
-    "system_manager"
+    "system_manager",
 }
 
 UPLOAD_ROLES: Set[str] = {
@@ -108,10 +112,7 @@ USER_CREATOR_ROLES: set[str] = {
 
     # Subsidiary-level
     "sub_admin",
-    "sub_md",
     "sub_hr",
-
-    # Vendor ops
     "vendor",
 }
 
