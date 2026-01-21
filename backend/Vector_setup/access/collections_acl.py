@@ -50,6 +50,8 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
+    
+    result = False  # default
     # 1) Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
         return False
@@ -61,17 +63,20 @@ def user_can_access_collection(
     # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
         return str(user.id) in user_ids
+        result = True  # default
 
     # 4) Highest, umbrella company-wide roles
     if user.role in SUPER_ROLES:
         # Super roles can see all collections in their tenant
         # (can be tightened later if required)
+        result = True  # default
         return True
 
     # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
         # Org-scoped: same org + role allowed
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
+            result = True  # default
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
@@ -80,6 +85,7 @@ def user_can_access_collection(
 
         # Group roles do NOT automatically get tenant-wide access
         if collection.visibility == CollectionVisibility.tenant:
+            result = False  # default
             return False
 
         # Any other visibility value
@@ -89,6 +95,7 @@ def user_can_access_collection(
     if user.role in SUB_ROLES:
         # Tenant-wide: only if their role is explicitly allowed
         if collection.visibility == CollectionVisibility.tenant:
+            result = True  # default
             return user.role in roles
 
         # Org-scoped or role-scoped collections:
@@ -100,6 +107,7 @@ def user_can_access_collection(
                 and user.organization_id == collection.organization_id
                 and user.role.startswith("sub_")
             ):
+                result = True  # default
                 return True
 
             # Fallback to explicit ACL (if you still want it)
@@ -108,6 +116,23 @@ def user_can_access_collection(
                 and user.organization_id == collection.organization_id
                 and user.role in roles
             )
+            
+        # DEBUG: log decision
+        print(
+            "DBG user_can_access_collection:",
+            {
+                "user_id": str(user.id),
+                "user_role": user.role,
+                "user_org": user.organization_id,
+                "collection_id": str(collection.id),
+                "collection_name": collection.name,
+                "visibility": str(collection.visibility),
+                "collection_org": collection.organization_id,
+                "allowed_roles": _to_list(collection.allowed_roles),
+                "allowed_user_ids": _to_list(collection.allowed_user_ids),
+                "result": result,
+            },
+        )        
 
         # Defensive fallback
         return False
