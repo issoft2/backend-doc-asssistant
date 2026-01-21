@@ -57,70 +57,64 @@ def user_can_access_collection(
     # 2) Normalize ACL fields once
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
-    
-    # 3 User-coped collections: private to specific users, regardles of role bucket
+
+    # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
         return str(user.id) in user_ids
-    
-    # 4 Highest, Unbrella Company-wide roles
+
+    # 4) Highest, umbrella company-wide roles
     if user.role in SUPER_ROLES:
-        # Supper ROLES can see all collections in their tenant
-        # It can be tightened late if required
+        # Super roles can see all collections in their tenant
+        # (can be tightened later if required)
         return True
-    
-    # 5 Group-role (org-scoped, role-based), have oversight of what is happening in the
-    # sub company wide.
+
+    # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
-        # org-scoped: same org + role allowed
-        if collection.visibility == CollectionVisibility.org:
+        # Org-scoped: same org + role allowed
+        if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
                 and user.role in roles
             )
-            
-        # Role-scoped: same org + role allowed
-        if collection.visibility == CollectionVisibility.role:
-            return (
-                user.organization_id is not None
-                and user.organization_id == collection.organization_id
-                and user.role in roles
-            )
-            
-        
-        # Group roles do Not automatically get tenant-wide access
+
+        # Group roles do NOT automatically get tenant-wide access
         if collection.visibility == CollectionVisibility.tenant:
             return False
-        
+
         # Any other visibility value
         return False
-    
-    # 6 subsidiary / normal users (sub-roles)
+
+    # 6) Subsidiary / normal users (sub-roles, e.g. sub_hr)
     if user.role in SUB_ROLES:
-        # Tenant-wide: only if their role is explicitly allowed, I don't think I need this
+        # Tenant-wide: only if their role is explicitly allowed
         if collection.visibility == CollectionVisibility.tenant:
             return user.role in roles
-        
-        # Org-scoped: same org + allowed
-        if collection.visibility == CollectionVisibility.org:
+
+        # Org-scoped or role-scoped collections:
+        if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
+            # Auto-allow sub_* roles in their own org,
+            # even if not explicitly listed in allowed_roles
+            if (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+                and user.role.startswith("sub_")
+            ):
+                return True
+
+            # Fallback to explicit ACL (if you still want it)
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
                 and user.role in roles
             )
-            
-        # Role-scoped: same as org + role allowed
-        if collection.visibility == CollectionVisibility.role:
-            return (
-                user.organization_id is not None
-                and user.organization_id == collection.organization_id
-                and user.role in roles
-            ) 
-         
-        return False # defensive fallback
-    
-    # 7 Any other / unknown role -> deny by default
-    return False 
+
+        # Defensive fallback
+        return False
+
+    # 7) Any other / unknown role -> deny by default
+    return False
+
 
 
 
