@@ -1,5 +1,9 @@
 from Vector_setup.user.db import DBUser, Collection, CollectionVisibility
 from Vector_setup.user.roles import GROUP_ROLES, SUB_ROLES, SUPER_ROLES
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 from sqlmodel import Session, select
 from typing import List, Optional  
@@ -118,7 +122,7 @@ def user_can_access_collection(
             )
             
         # DEBUG: log decision
-        print(
+        logger.info(
             "DBG user_can_access_collection:",
             {
                 "user_id": str(user.id),
