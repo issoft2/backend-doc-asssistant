@@ -19,6 +19,8 @@ from Vector_setup.user.roles import COLLECTION_MANAGE_ROLES
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.auth_store import get_current_db_user
 
+from Vector_setup.API.helpers.json_load_help import safe_json_loads, safe_json_dumps
+
 vector_store = MultiTenantChromaStoreManager("./chromadb_multi_tenant")
 
 def get_store() -> MultiTenantChromaStoreManager:
@@ -207,13 +209,22 @@ def update_collection_access(
     if not col or col.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Collection not found")
 
-    col.allowed_user_ids = json.dumps([str(uid) for uid in body.allowed_user_ids])
-    col.allowed_roles = json.dumps([str(role) for role in body.allowed_roles])
+    # Validate non-empty (per model validator)
+    if not body.allowed_user_ids and not body.allowed_roles:
+        raise HTTPException(
+            status_code=422, 
+            detail="Must specify users OR roles (or both)"
+        )
+
+    # Safe JSON serialization (str coercion prevents type errors)
+    col.allowed_user_ids = safe_json_dumps(body.allowed_user_ids)
+    col.allowed_roles = safe_json_dumps(body.allowed_roles)
 
     db.add(col)
     db.commit()
     db.refresh(col)
 
+    # Fixed audit log (uses col, not db)
     write_audit_log(
         db=db,
         user=current_user,
@@ -222,12 +233,15 @@ def update_collection_access(
         resource_id=collection_id,
         metadata={
             "tenant_id": col.tenant_id,
-            "name": col.name,
-            "visibility": str(col.visibility),
-            "organization_id": col.organization_id,
+            "name": col.name,  # Fixed from current_user.tenant_id
+            "visibility": col.visibility,
+            "organization_id": getattr(col, "organization_id", None),
+            "user_count": len(body.allowed_user_ids),
+            "role_count": len(body.allowed_roles),
         },
     )
     return
+
 
 
 
