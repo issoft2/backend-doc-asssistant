@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Any
 
 def safe_json_loads(value: str, default: List[str]) -> List[str]:
     if not value:
