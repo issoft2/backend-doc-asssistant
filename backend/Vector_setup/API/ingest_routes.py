@@ -299,7 +299,7 @@ def list_company_collections(
     return collections_out   
     
     
-
+from Vector_setup.access.collections_acl import _to_list
 def get_collection_for_user_or_403(
     db: Session,
     current_user: DBUser,
@@ -314,6 +314,20 @@ def get_collection_for_user_or_403(
         )
         .first()
     )
+    logger.info(
+        "DEBUG user properties ",
+        extra={
+            "user_id": str(current_user.id),
+            "user_role": current_user.role,
+            "user_org": current_user.organization_id,
+            "collection_id": str(collection.id),
+            "collection_name": collection.name,
+            "visibility": str(collection.visibility),
+            "collection_org": collection.organization_id,
+            "allowed_roles": _to_list(collection.allowed_roles),
+            "allowed_user_ids": _to_list(collection.allowed_user_ids)
+        }
+        )
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
 
