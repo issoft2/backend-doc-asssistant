@@ -315,19 +315,20 @@ def get_collection_for_user_or_403(
         .first()
     )
     logger.info(
-        "DEBUG user properties ",
-        extra={
-            "user_id": str(current_user.id),
-            "user_role": current_user.role,
-            "user_org": current_user.organization_id,
-            "collection_id": str(collection.id),
-            "collection_name": collection.name,
-            "visibility": str(collection.visibility),
-            "collection_org": collection.organization_id,
-            "allowed_roles": _to_list(collection.allowed_roles),
-            "allowed_user_ids": _to_list(collection.allowed_user_ids)
-        }
-        )
+        "DEBUG user properties "
+        "user_id=%s role=%s org=%s collection_id=%s name=%s visibility=%s coll_org=%s "
+        "allowed_roles=%s allowed_user_ids=%s",
+        str(current_user.id),
+        current_user.role,
+        current_user.organization_id,
+        str(collection.id),
+        collection.name,
+        str(collection.visibility),
+        collection.organization_id,
+        _to_list(collection.allowed_roles),
+        _to_list(collection.allowed_user_ids),
+    )
+
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
 
