@@ -123,20 +123,20 @@ def user_can_access_collection(
             
         # DEBUG: log decision
         logger.info(
-            "DBG user_can_access_collection:",
-            {
-                "user_id": str(user.id),
-                "user_role": user.role,
-                "user_org": user.organization_id,
-                "collection_id": str(collection.id),
-                "collection_name": collection.name,
-                "visibility": str(collection.visibility),
-                "collection_org": collection.organization_id,
-                "allowed_roles": _to_list(collection.allowed_roles),
-                "allowed_user_ids": _to_list(collection.allowed_user_ids),
-                "result": result,
-            },
-        )        
+                "DBG user_can_access_collection "
+                f"user_id=%s role=%s org=%s collection_id=%s name=%s visibility=%s coll_org=%s "
+                f"allowed_roles=%s allowed_user_ids=%s result=%s",
+                str(user.id),
+                user.role,
+                user.organization_id,
+                str(collection.id),
+                collection.name,
+                str(collection.visibility),
+                collection.organization_id,
+                _to_list(collection.allowed_roles),
+                _to_list(collection.allowed_user_ids),
+                result,
+            )
 
         # Defensive fallback
         return False
