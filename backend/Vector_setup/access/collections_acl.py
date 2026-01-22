@@ -54,8 +54,20 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
-    
-    result = False  # default
+    logger.info(
+        "DEBUG user properties use can process collection"
+        "user_id=%s role=%s org=%s collection_id=%s name=%s visibility=%s coll_org=%s "
+        "allowed_roles=%s allowed_user_ids=%s",
+        str(user.id),
+        user.role,
+        user.organization_id,
+        str(collection.id),
+        collection.name,
+        str(collection.visibility),
+        collection.organization_id,
+        _to_list(collection.allowed_roles),
+        _to_list(collection.allowed_user_ids),
+    )
     # 1) Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
         return False
@@ -67,20 +79,17 @@ def user_can_access_collection(
     # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
         return str(user.id) in user_ids
-        result = True  # default
 
     # 4) Highest, umbrella company-wide roles
     if user.role in SUPER_ROLES:
         # Super roles can see all collections in their tenant
         # (can be tightened later if required)
-        result = True  # default
         return True
 
     # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
         # Org-scoped: same org + role allowed
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            result = True  # default
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
@@ -89,7 +98,6 @@ def user_can_access_collection(
 
         # Group roles do NOT automatically get tenant-wide access
         if collection.visibility == CollectionVisibility.tenant:
-            result = False  # default
             return False
 
         # Any other visibility value
@@ -99,7 +107,6 @@ def user_can_access_collection(
     if user.role in SUB_ROLES:
         # Tenant-wide: only if their role is explicitly allowed
         if collection.visibility == CollectionVisibility.tenant:
-            result = True  # default
             return user.role in roles
 
         # Org-scoped or role-scoped collections:
@@ -111,7 +118,6 @@ def user_can_access_collection(
                 and user.organization_id == collection.organization_id
                 and user.role.startswith("sub_")
             ):
-                result = True  # default
                 return True
 
             # Fallback to explicit ACL (if you still want it)
@@ -135,7 +141,6 @@ def user_can_access_collection(
                 collection.organization_id,
                 _to_list(collection.allowed_roles),
                 _to_list(collection.allowed_user_ids),
-                result,
             )
 
         # Defensive fallback
