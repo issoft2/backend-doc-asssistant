@@ -776,6 +776,7 @@ async function onDeleteConversation(convId: string) {
 </script>
 
 <style scoped>
+/* Scrollbar */
 .scrollbar-thin {
   scrollbar-width: thin;
 }
@@ -793,27 +794,29 @@ async function onDeleteConversation(convId: string) {
   background: #475569;
 }
 
+/* Generic tables (outside answer-content) */
 table {
   border-collapse: collapse;
   width: 100%;
 }
-
 th,
 td {
   border: 1px solid #d4d4d4;
   padding: 4px 8px;
 }
-
 th {
   background-color: #f5f5f5;
   text-align: left;
 }
 
-
+/* =========================
+   Markdown answer content
+   ========================= */
 .answer-content {
   font-size: 0.95rem;
   line-height: 1.6;
-  color: #0f172a; /* slate-900-ish */
+  /* light text for dark background */
+  color: #e5e7eb; /* slate-200 */
 }
 
 /* Headings */
@@ -823,7 +826,7 @@ th {
 .answer-content h4 {
   font-weight: 600;
   line-height: 1.3;
-  color: #020617; /* very dark */
+  color: #f9fafb; /* near-white for dark bg */
   margin-top: 1rem;
   margin-bottom: 0.5rem;
 }
@@ -834,7 +837,7 @@ th {
 
 .answer-content h2 {
   font-size: 1.25rem;
-  border-bottom: 1px solid #e5e7eb; /* subtle underline */
+  border-bottom: 1px solid #1f2933; /* subtle line on dark bg */
   padding-bottom: 0.25rem;
 }
 
@@ -857,7 +860,6 @@ th {
   padding-left: 1.5rem;
   margin: 0.25rem 0 0.5rem;
 }
-
 .answer-content ul ul {
   list-style: circle;
 }
@@ -878,7 +880,6 @@ th {
 .answer-content b {
   font-weight: 600;
 }
-
 .answer-content em,
 .answer-content i {
   font-style: italic;
@@ -886,7 +887,7 @@ th {
 
 /* Links */
 .answer-content a {
-  color: #2563eb; /* blue-600 */
+  color: #60a5fa; /* lighter blue for dark bg */
   text-decoration: underline;
 }
 
@@ -894,14 +895,15 @@ th {
 .answer-content code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.9em;
-  background-color: #f3f4f6;
+  background-color: #020617; /* very dark */
+  color: #e5e7eb;
   padding: 0.1rem 0.25rem;
   border-radius: 3px;
 }
 
 /* Code blocks */
 .answer-content pre {
-  background-color: #0b1120;
+  background-color: #020617;
   color: #e5e7eb;
   padding: 0.75rem;
   border-radius: 6px;
@@ -909,7 +911,6 @@ th {
   font-size: 0.9em;
   margin: 0.5rem 0 0.75rem;
 }
-
 .answer-content pre code {
   background: none;
   padding: 0;
@@ -917,28 +918,27 @@ th {
 
 /* Blockquotes */
 .answer-content blockquote {
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid #475569;
   padding-left: 0.75rem;
-  color: #4b5563;
+  color: #cbd5f5; /* muted light */
   margin: 0.5rem 0;
 }
 
-/* Tables (plays nicely with your existing table styles) */
+/* Tables inside Markdown answer */
 .answer-content table {
   border-collapse: collapse;
   width: 100%;
   margin: 0.5rem 0;
 }
-
 .answer-content th,
 .answer-content td {
-  border: 1px solid #d4d4d4;
+  border: 1px solid #475569;
   padding: 4px 8px;
 }
-
 .answer-content th {
-  background-color: #f5f5f5;
+  background-color: #020617;
+  color: #e5e7eb;
   text-align: left;
 }
-
 </style>
+
