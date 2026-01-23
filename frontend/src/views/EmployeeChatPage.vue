@@ -267,7 +267,7 @@
                             ></span>
                           </h4>
 
-                          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div class="grid grid-cols-1 gap-4">
                             <ChartRenderer
                               v-for="(spec, i) in msg.chart_specs"
                               :key="i"
