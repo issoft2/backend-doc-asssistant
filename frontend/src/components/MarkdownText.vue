@@ -1,5 +1,5 @@
 <template>
-  <div :class="$attrs.class" v-html="rendered"></div>
+  <div :class="['prose prose-slate max-w-none', $attrs.class]" v-html="rendered"></div>
 </template>
 
 <script setup lang="ts">
