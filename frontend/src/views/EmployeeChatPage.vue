@@ -325,7 +325,7 @@
                               v-for="(spec, i) in msg.chart_specs"
                               :key="i"
                               :spec="spec"
-                              class="w-full bg-slate-900/80 rounded-2xl border border-slate-800/70 p-3"
+                              class="w-full bg-slate-900/80 rounded-2xl border border-slate-800/70 p-3  answer-content"
                             />
                           </div>
                         </div>

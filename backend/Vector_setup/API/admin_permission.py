@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, status
 from Vector_setup.user.auth_jwt import get_current_user
 from Vector_setup.base.auth_models import UserOut
 from typing import Annotated
-from Vector_setup.user.roles import ORG_ADMIN_ROLES, USER_CREATOR_ROLES
+from Vector_setup.user.roles import USER_CREATOR_ROLES, COLLECTION_MANAGE_ROLES
 
 # Permission/Access authentication dependencies would be defined elsewhere
 def require_user_admin(user: UserOut = Depends(get_current_user)) -> UserOut:
@@ -25,7 +25,7 @@ def require_tenant_admin(
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> UserOut:
     role = (current_user.role or "").lower()
-    if role not in USER_CREATOR_ROLES:
+    if role not in COLLECTION_MANAGE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required",
