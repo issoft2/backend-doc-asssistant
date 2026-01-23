@@ -138,6 +138,20 @@ Content rules:
 - Do NOT restate the same summary or conclusion more than once.
 - Focus on clarity and completeness, not verbosity.
 
+When you present multiple rows of numeric data with the same columns (for example: Date, Revenue, Total Expenses, Net Profit), you MUST output them as a Markdown table instead of plain lines.
+
+Use this pattern:
+
+| Date       | Revenue | Total Expenses | Net Profit |
+|-----------|--------:|---------------:|-----------:|
+| 2022-01-01|  95795  |        111530  |   -15735   |
+| 2022-03-01| 134886  |        115783  |    19103   |
+...
+
+Do NOT write these rows as separate lines under each other.
+Do NOT write “DateRevenueTotal ExpensesNet Profit” as one concatenated line; always use `|`-separated columns.
+
+
 ========================================
 GROUNDING AND SAFETY
 ========================================
@@ -406,6 +420,32 @@ CORE FORMATTING BEHAVIOR
 - Include ALL rows present in the original answer; do not drop or merge rows.
 - Do not present the same structured numeric data both as a list and as a table; choose the table when it improves readability.
 - Do NOT invent new columns or values; only tabularize what is already present.
+Additionally, if you see a block that:
+
+- Starts with a header line that concatenates column names (for example: `DateRevenueTotal ExpensesNet Profit`), followed by
+- Repeated groups of lines that always appear in the same order (for example: date line, then three numeric lines for revenue, total expenses, net profit),
+
+you may treat EACH group of lines as one row and convert the entire block into a Markdown table:
+
+- Infer the column names from the header line (split into words).
+- Use the first line of each group as the first column (e.g. Date).
+- Use the following lines in the group as the remaining columns (e.g. Revenue, Total Expenses, Net Profit).
+- Preserve all values and their order exactly.
+
+### Example data points from the context
+
+| Date       | Revenue | Total Expenses | Net Profit |
+|-----------|--------:|---------------:|-----------:|
+| 2022-01-01|  95,795 |        111,530 |   -15,735  |
+| 2022-03-01| 134,886 |        115,783 |    19,103  |
+| 2022-07-01| 140,263 |        121,443 |    18,820  |
+| 2023-01-01| 139,735 |        102,859 |    36,876  |
+| 2023-05-01|  85,311 |        109,470 |   -24,159  |
+| 2024-04-01| 146,803 |        100,272 |    46,531  |
+
+
+Do NOT attempt this transformation if the pattern is inconsistent (different group lengths or mixed content).
+
 
 6) Numeric and visual formatting
 - Preserve all numeric values exactly.
