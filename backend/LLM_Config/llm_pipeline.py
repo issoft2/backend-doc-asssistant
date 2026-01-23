@@ -688,8 +688,8 @@ async def llm_pipeline_stream(
 
         formatted_answer = "".join(full_answer_parts).strip()
 
-        _store(formatted_answer, unique_sources)
-        yield formatted_answer
+        # _store(formatted_answer, unique_sources)
+        # yield formatted_answer
         
         try:
             formatter_messages = create_formatter_prompt(formatted_answer)
