@@ -805,4 +805,137 @@ th {
   background-color: #f5f5f5;
   text-align: left;
 }
+
+
+.answer-content {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #0f172a; /* slate-900-ish */
+}
+
+/* Headings */
+.answer-content h1,
+.answer-content h2,
+.answer-content h3,
+.answer-content h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  color: #020617; /* very dark */
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.answer-content h1 {
+  font-size: 1.5rem;
+}
+
+.answer-content h2 {
+  font-size: 1.25rem;
+  border-bottom: 1px solid #e5e7eb; /* subtle underline */
+  padding-bottom: 0.25rem;
+}
+
+.answer-content h3 {
+  font-size: 1.1rem;
+}
+
+.answer-content h4 {
+  font-size: 1rem;
+}
+
+/* Paragraphs */
+.answer-content p {
+  margin-bottom: 0.5rem;
+}
+
+/* Unordered lists */
+.answer-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.answer-content ul ul {
+  list-style: circle;
+}
+
+/* Ordered lists */
+.answer-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.answer-content li {
+  margin-bottom: 0.25rem;
+}
+
+/* Strong/emphasis */
+.answer-content strong,
+.answer-content b {
+  font-weight: 600;
+}
+
+.answer-content em,
+.answer-content i {
+  font-style: italic;
+}
+
+/* Links */
+.answer-content a {
+  color: #2563eb; /* blue-600 */
+  text-decoration: underline;
+}
+
+/* Code (inline) */
+.answer-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9em;
+  background-color: #f3f4f6;
+  padding: 0.1rem 0.25rem;
+  border-radius: 3px;
+}
+
+/* Code blocks */
+.answer-content pre {
+  background-color: #0b1120;
+  color: #e5e7eb;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.9em;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.answer-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Blockquotes */
+.answer-content blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 0.75rem;
+  color: #4b5563;
+  margin: 0.5rem 0;
+}
+
+/* Tables (plays nicely with your existing table styles) */
+.answer-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.answer-content th,
+.answer-content td {
+  border: 1px solid #d4d4d4;
+  padding: 4px 8px;
+}
+
+.answer-content th {
+  background-color: #f5f5f5;
+  text-align: left;
+}
+
 </style>
