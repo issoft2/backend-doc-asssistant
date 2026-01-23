@@ -329,7 +329,7 @@ Important:
 - Your output must be a JSON object only, with no extra commentary.
 
 Respond as pure JSON:
-{{}
+{{
   "intent": "<one of: FOLLOWUP_ELABORATE | NEW_QUESTION | CHITCHAT | CAPABILITIES | UNSURE | EXPORT_TABLE | ANALYSIS>",
   "rewritten_question": "<a clear, explicit question about the last answer, or empty string if not needed>"
 }}
