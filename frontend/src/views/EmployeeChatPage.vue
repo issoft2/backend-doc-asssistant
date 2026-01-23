@@ -297,12 +297,15 @@
                         </svg>
                       </div>
 
-                      <div class="flex-1 min-w-0 space-y-4">
-                        <MarkdownText
-                          v-if="msg.text"
-                          :content="msg.text"
-                          class="prose prose-invert max-w-none text-slate-100 leading-relaxed"
-                        />
+                      <!-- <div class="flex-1 min-w-0 space-y-4"> -->
+                        <div class="flex-1 min-w-0 space-y-4">
+                          <MarkdownText
+                            v-if="msg.text"
+                            :content="msg.text"
+                            class="prose prose-invert max-w-none text-slate-100 leading-relaxed answer-content"
+                          />
+                        </div>
+
 
                         <!-- Charts -->
                         <div
@@ -326,7 +329,7 @@
                             />
                           </div>
                         </div>
-                      </div>
+                      <!-- </div> -->
 
                       <button
                         type="button"
