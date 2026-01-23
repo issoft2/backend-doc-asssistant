@@ -112,7 +112,8 @@ async def query_knowledge_stream(
 
         # 3) Generate answer (streaming tokens)
         yield send_status("Generating final answer…")
-
+        
+        disconnected = False
         try:
             async for chunk in llm_pipeline_stream(
                 store=store,
@@ -125,6 +126,7 @@ async def query_knowledge_stream(
                 collection_names=collection_names,
             ):
                 if await request.is_disconnected():
+                    disconnected = True
                     break
                 if not chunk:
                     continue
@@ -137,7 +139,10 @@ async def query_knowledge_stream(
             yield send_status("An error occurred while generating the answer.")
             yield "event: done\ndata: END\n\n"
             return
-
+        if disconnected:
+            logger.info("Client disconnected during streaming response")
+            return # Skip save_chart_turn, suggestions, charts, audit log
+        
         answer_str = "".join(full_answer)
 
         # 4) Save conversation turn only if there is an answer

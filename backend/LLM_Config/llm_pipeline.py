@@ -1,141 +1,25 @@
+"""
+
+"""
+
+
 from typing import List, Dict, Any, Tuple, Literal, Optional, AsyncGenerator
 import json
 import textwrap
 import logging
 import re
 
-from LLM_Config.llm_setup import (
-    llm_client,
-    suggestion_llm_client,
-    llm_client_streaming,
-    formatter_llm_client,
-)
+from LLM_Config.llm_setup import call_llm, stream_llm
 from LLM_Config.system_user_prompt import (
     create_context,
-    create_critique_prompt,
     FORMATTER_SYSTEM_PROMPT,
-    INTENT_PROMPT_TEMPLATE,
     RERANK_SYSTEM_PROMPT,
     create_chart_spec_prompt,
 )
 from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-
-
-def build_capabilities_message_from_store(store_summary: dict) -> str:
-    collections = store_summary.get("collections", [])
-    if not collections:
-        return (
-            "I can answer questions based on any documents you upload or connect, "
-            "including policies, technical documentation, reports, contracts, and more. "
-            "Once documents are ingested, you can ask questions directly about their content."
-        )
-
-    lines = [
-        "I can help you with questions about documents in this workspace, including:"
-    ]
-    example_qs: list[str] = []
-
-    for c in collections:
-        label = c.get("display_name") or c.get("name")
-        topics = c.get("topics") or []
-        if topics:
-            lines.append(f"- {label} ({', '.join(topics)})")
-        else:
-            lines.append(f"- {label}")
-        if c.get("example_questions"):
-            example_qs.extend(c["example_questions"])
-
-    msg = "\n".join(lines)
-
-    if example_qs:
-        preview = "\n".join(f'- "{q}"' for q in example_qs[:3])
-        msg += "\n\nYou can ask things like:\n" + preview
-
-    return msg
-
-
-YEAR_REGEX = re.compile(r"\b(20[0-4][0-9])\b")  # 2000–2049
-
-
-def extract_year_filter(user_message: str, domain: str) -> Optional[dict]:
-    """
-    Extract a simple year metadata filter for finance questions.
-
-    Expects your Chroma metadata to have something like: {"year": "2025"}
-    for each row/chunk built from the Date column.
-    """
-    if domain != "FINANCE":
-        return None
-
-    text = (user_message or "").lower()
-    match = YEAR_REGEX.search(text)
-    if not match:
-        return None
-
-    year = match.group(1)
-    return {"year": year}
-
-
-def is_year_level_question(question: str) -> bool:
-    """
-    Heuristic: user is asking about a whole year or long range.
-    """
-    q = (question or "").lower()
-    if YEAR_REGEX.search(q) and any(
-        kw in q
-        for kw in [
-            "whole year",
-            "year ",
-            "for the year",
-            "jan to dec",
-            "january to december",
-            "entire year",
-            "full year",
-        ]
-    ):
-        return True
-    return False
-
-
-def build_rerank_messages(question: str, snippets: list[str]) -> list[dict]:
-    numbered = "\n\n".join(
-        [
-            f"[{i}] {textwrap.shorten(s, width=800, placeholder='...')}"
-            for i, s in enumerate(snippets)
-        ]
-    )
-    user_content = f"""
-User question:
-{question}
-
-Snippets to rank (0-based indices in brackets):
-{numbered}
-
-Return a JSON array of indices from most relevant to least relevant.
-""".strip()
-
-    return [
-        {"role": "system", "content": RERANK_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
 
 # --- typing ---
 IntentType = Literal[
@@ -146,7 +30,6 @@ IntentType = Literal[
     "UNSURE",
     "EXPORT_TABLE",
     "ANALYSIS",
-    # rule-based extras (still typed if you like)
     "IMPLICATIONS",
     "STRATEGY",
     "NUMERIC_ANALYSIS",
@@ -156,9 +39,7 @@ IntentType = Literal[
     "CHART",
 ]
 
-
-
-
+YEAR_REGEX = re.compile(r"\b(20[0-4][0-9])\b")  # 2000–2049
 
 FINANCE_KEYWORDS = [
     "budget",
@@ -260,36 +141,155 @@ POLICY_KEYWORDS = [
     "security",
 ]
 
+# ---------- helpers ----------
 
-def _format_history_for_intent(
-    history_turns: Optional[List[Tuple[str, str]]]
+def build_capabilities_message_from_store(store_summary: dict) -> str:
+    collections = store_summary.get("collections", [])
+    if not collections:
+        return (
+            "I can answer questions based on any documents you upload or connect, "
+            "including policies, technical documentation, reports, contracts, and more. "
+            "Once documents are ingested, you can ask questions directly about their content."
+        )
+
+    lines = [
+        "I can help you with questions about documents in this workspace, including:"
+    ]
+    example_qs: list[str] = []
+
+    for c in collections:
+        label = c.get("display_name") or c.get("name")
+        topics = c.get("topics") or []
+        if topics:
+            lines.append(f"- {label} ({', '.join(topics)})")
+        else:
+            lines.append(f"- {label}")
+        if c.get("example_questions"):
+            example_qs.extend(c["example_questions"])
+
+    msg = "\n".join(lines)
+
+    if example_qs:
+        preview = "\n".join(f'- "{q}"' for q in example_qs[:3])
+        msg += "\n\nYou can ask things like:\n" + preview
+
+    return msg
+
+
+def extract_year_filter(user_message: str, domain: str) -> Optional[dict]:
+    if domain != "FINANCE":
+        return None
+    text = (user_message or "").lower()
+    match = YEAR_REGEX.search(text)
+    if not match:
+        return None
+    year = match.group(1)
+    return {"year": year}
+
+
+def is_year_level_question(question: str) -> bool:
+    q = (question or "").lower()
+    if YEAR_REGEX.search(q) and any(
+        kw in q
+        for kw in [
+            "whole year",
+            "year ",
+            "for the year",
+            "jan to dec",
+            "january to december",
+            "entire year",
+            "full year",
+        ]
+    ):
+        return True
+    return False
+
+
+def build_rerank_messages(question: str, snippets: list[str]) -> list[dict]:
+    numbered = "\n\n".join(
+        [
+            f"[{i}] {textwrap.shorten(s, width=800, placeholder='...')}"
+            for i, s in enumerate(snippets)
+        ]
+    )
+    user_content = f"""
+User question:
+{question}
+
+Snippets to rank (0-based indices in brackets):
+{numbered}
+
+Return a JSON array of indices from most relevant to least relevant.
+""".strip()
+
+    return [
+        {"role": "system", "content": RERANK_SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+
+def normalize_query(q: str) -> str:
+    q = (q or "").strip()
+    lower = q.lower()
+    prefixes = [
+        "can you please",
+        "could you please",
+        "please",
+        "i was wondering",
+        "i would like to know",
+    ]
+    for p in prefixes:
+        if lower.startswith(p):
+            q = q[len(p):].lstrip(" ,.")
+            break
+    return q
+
+
+def build_retrieval_query(
+    question: str,
+    history: Optional[List[Tuple[str, str]]] = None,
 ) -> str:
-    if not history_turns:
-        return "(no prior conversation)"
+    q = normalize_query(question)
+    if not history:
+        return q
 
-    lines: List[str] = []
-    for user_msg, assistant_msg in history_turns[-5:]:
-        lines.append(f"User: {user_msg}")
-        lines.append(f"Assistant: {assistant_msg}")
-    return "\n".join(lines)
+    last_user, last_assistant = history[-1]
+    hint = (last_assistant or "")[:300].strip()
+    if not hint:
+        return q
+
+    return (
+        "Follow-up based on the previous answer:\n"
+        f"{hint}\n\n"
+        "New question:\n"
+        f"{q}"
+    )
 
 
+def parse_raw_chart(raw: str, logger: logging.Logger) -> Any:
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        logger.warning("CHART_DEBUG JSON parse failed: %s", e)
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = raw[start: end + 1]
+            try:
+                return json.loads(candidate)
+            except Exception as e2:
+                logger.warning("CHART_DEBUG salvage parse failed: %s", e2)
+        return None
 
-def infer_intent_and_rewrite(
-    user_message: str,
-    history_turns: Optional[List[Tuple[str, str]]] = None,
-) -> Tuple[str, Optional[str], str, bool]:
+
+def infer_intent_rule_based(user_message: str) -> Tuple[IntentType, str, bool]:
     """
-    Returns:
-      - intent: one of "CHITCHAT", "CAPABILITIES", "FOLLOWUP_ELABORATE",
-                "NEW_QUESTION", "UNSURE" or a rule-based type
-      - rewritten: optional rewritten question (or None)
-      - domain: "FINANCE" | "HR" | "TECH" | "POLICY" | "GENERAL"
-      - chart_only: bool
+    Pure rule-based intent + domain + chart_only, no LLM call.
+    Call 1 (main answer) can still *use* this intent (e.g., CHANGE style, mention charts),
+    and can also *re-interpret/override* it in-text if needed.
     """
     text = (user_message or "").lower().strip()
 
-    # Flag for "charts only" style requests
     chart_only = any(
         p in text
         for p in [
@@ -304,7 +304,7 @@ def infer_intent_and_rewrite(
         ]
     )
 
-    # 1) Cheap chitchat short-circuit (greetings & pure appreciation)
+    # 1) CHITCHAT
     if any(
         x in text
         for x in [
@@ -325,9 +325,9 @@ def infer_intent_and_rewrite(
             "good evening",
         ]
     ):
-        return "CHITCHAT", None, "GENERAL", chart_only
+        return "CHITCHAT", "GENERAL", chart_only
 
-    # 2) Cheap CAPABILITIES detection
+    # 2) CAPABILITIES
     if any(
         x in text
         for x in [
@@ -342,10 +342,10 @@ def infer_intent_and_rewrite(
             "what information can you provide for me now",
         ]
     ):
-        return "CAPABILITIES", None, "GENERAL", chart_only
+        return "CAPABILITIES", "GENERAL", chart_only
 
     # 3) Domain guess
-    domain = "GENERAL"
+    domain: str = "GENERAL"
     if any(k in text for k in FINANCE_KEYWORDS):
         domain = "FINANCE"
     elif any(k in text for k in HR_KEYWORDS):
@@ -355,7 +355,7 @@ def infer_intent_and_rewrite(
     elif any(k in text for k in POLICY_KEYWORDS):
         domain = "POLICY"
 
-    # 4) Cheap intent guess (rule-based hybrid layer)
+    # 4) Intent guess
     if any(
         x in text
         for x in [
@@ -367,7 +367,7 @@ def infer_intent_and_rewrite(
             "how did you come up with this answer",
         ]
     ):
-        cheap_intent = "FOLLOWUP_ELABORATE"
+        intent: IntentType = "FOLLOWUP_ELABORATE"
     elif any(
         x in text
         for x in [
@@ -379,7 +379,7 @@ def infer_intent_and_rewrite(
             "what does this imply",
         ]
     ):
-        cheap_intent = "IMPLICATIONS"
+        intent = "IMPLICATIONS"
     elif any(
         x in text
         for x in [
@@ -393,7 +393,7 @@ def infer_intent_and_rewrite(
             "how do we reduce",
         ]
     ):
-        cheap_intent = "STRATEGY"
+        intent = "STRATEGY"
     elif any(
         x in text
         for x in [
@@ -411,227 +411,56 @@ def infer_intent_and_rewrite(
             "amount of",
         ]
     ):
-        cheap_intent = "NUMERIC_ANALYSIS"
+        intent = "NUMERIC_ANALYSIS"
     elif any(x in text for x in ["how do i", "steps", "procedure", "process"]):
-        cheap_intent = "PROCEDURE"
+        intent = "PROCEDURE"
     elif any(x in text for x in ["list", "what are the", "do we have"]):
-        cheap_intent = "LOOKUP"
+        intent = "LOOKUP"
     elif any(
         x in text
         for x in ["export as table", "as a table", "table of", "csv", "spreadsheet"]
     ):
-        cheap_intent = "EXPORT_TABLE"
+        intent = "EXPORT_TABLE"
     elif any(
         x in text
         for x in ["analyze this", "detailed analysis", "deep analysis", "root cause"]
     ):
-        cheap_intent = "ANALYSIS"
-    elif any(x in text for x in ["chart", "graph", "plot", "visualize", "line chart", "bar chart"]):
-        cheap_intent = "CHART"
+        intent = "ANALYSIS"
+    elif any(
+        x in text
+        for x in ["chart", "graph", "plot", "visualize", "line chart", "bar chart"]
+    ):
+        intent = "CHART"
     else:
-        cheap_intent = "GENERAL"
+        intent = "NEW_QUESTION"
 
-    # 5) History block for LLM helper
-    history_block = _format_history_for_intent(history_turns)
-
-    prompt = INTENT_PROMPT_TEMPLATE.format(
-        history_block=history_block,
-        user_message=user_message,
-    )
-
-    messages = [
-        {"role": "system", "content": "You are a strict intent classification helper."},
-        {"role": "user", "content": prompt},
-    ]
-
-    # 6) LLM-based intent + rewrite (robust JSON parsing)
-    llm_intent = "UNSURE"
-    rewritten: Optional[str] = None
-
-    try:
-        resp = suggestion_llm_client.invoke(messages)
-        raw = getattr(resp, "content", None) or str(resp)
-        raw = raw.strip()
-        logger.info(f"Intent raw output: {raw}")
-
-        data = None
-
-        try:
-            data = json.loads(raw)
-        except Exception:
-            start = raw.find("{")
-            end = raw.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                candidate = raw[start : end + 1]
-                try:
-                    data = json.loads(candidate)
-                except Exception:
-                    data = None
-
-        if isinstance(data, dict):
-            llm_intent = (data.get("intent") or "UNSURE").strip().upper()
-            rewritten_raw = (data.get("rewritten_question") or "").strip()
-
-            # Only accept rewrites that look like real questions or instructions
-            if rewritten_raw:
-                lowered = rewritten_raw.lower()
-                if lowered.startswith(
-                    ("why was your answer", "your previous answer", "the assistant")
-                ):
-                    rewritten = None
-                else:
-                    rewritten = rewritten_raw
-            else:
-                rewritten = None
-        else:
-            raise ValueError("Intent classifier did not return a JSON object")
-
-    except Exception as e:
-        logger.warning(f"Intent parsing failed: {e}")
-        llm_intent = "UNSURE"
-        rewritten = None
-
-    allowed_intents = {
-        "FOLLOWUP_ELABORATE",
-        "NEW_QUESTION",
-        "CHITCHAT",
-        "CAPABILITIES",
-        "UNSURE",
-        "EXPORT_TABLE",
-        "ANALYSIS",
-        "CHART",
-    }
-
-    if llm_intent not in allowed_intents:
-        llm_intent = "UNSURE"
-
-    if llm_intent in {"FOLLOWUP_ELABORATE", "NEW_QUESTION", "CHITCHAT", "CAPABILITIES"}:
-        intent = llm_intent
-    else:
-        intent = cheap_intent
-
-    if intent == "FOLLOWUP_ELABORATE" and not rewritten:
-        if not history_turns:
-            intent = cheap_intent or "GENERAL"
-
-    if intent in {"CHITCHAT", "CAPABILITIES"}:
-        domain = "GENERAL"
-
-    return intent, rewritten, domain, chart_only
+    return intent, domain, chart_only
 
 
-
-def create_formatter_prompt(raw_answer: str) -> List[Dict[str, str]]:
-    return [
-        {
-            "role": "system",
-            "content": FORMATTER_SYSTEM_PROMPT,
-        },
-        {
-            "role": "user",
-            "content": raw_answer,
-        },
-    ]
-
-
-def normalize_query(q: str) -> str:
-    q = (q or "").strip()
-    lower = q.lower()
-    prefixes = [
-        "can you please",
-        "could you please",
-        "please",
-        "i was wondering",
-        "i would like to know",
-    ]
-    for p in prefixes:
-        if lower.startswith(p):
-            q = q[len(p) :].lstrip(" ,.")
-            break
-    return q
-
-
-def build_retrieval_query(
-    question: str,
-    history: Optional[List[Tuple[str, str]]] = None,
-) -> str:
-    q = normalize_query(question)
-    if not history:
-        return q
-
-    # Take last assistant answer for topic hint
-    last_user, last_assistant = history[-1]
-    hint = (last_assistant or "")[:300].strip()
-    if not hint:
-        return q
-
-    return (
-        "Follow-up based on the previous answer:\n"
-        f"{hint}\n\n"
-        "New question:\n"
-        f"{q}"
-    )
-
-
-def create_refinement_prompt(
-    user_question: str,
-    assistant_answer: str,
-    context_text: str,
-) -> list[dict]:
-    user_content = f"""
-    User question:
-    {user_question}
-
-    Document context (truncated if long):
-    {context_text}
-
-    Previous assistant answer (judged problematic):
-    {assistant_answer}
-
-    Task:
-    Rewrite the answer so that:
-    - Every factual and numeric statement is directly supported by the context.
-    - You clearly indicate when data is missing or not visible instead of inventing it.
-    - You directly answer the user's question as far as the context allows.
-
-    Return only the improved answer, with no explanation of your changes.
-    """.strip()
-
-    return [
-        {
-            "role": "system",
-            "content": (
-                "You are a careful assistant that fixes and improves previous answers "
-                "based only on the given context."
-            ),
-        },
-        {"role": "user", "content": user_content},
-    ]
-
+# ---------- main pipeline ----------
 
 async def llm_pipeline_stream(
     store: MultiTenantChromaStoreManager,
     tenant_id: str,
     question: str,
     history: Optional[List[Tuple[str, str]]] = None,
-    top_k: int = 100,
+    top_k: int = 10,
     result_holder: Optional[dict] = None,
     last_doc_id: Optional[str] = None,
-    collection_names: Optional[List[str]] = None,  # NEW
+    collection_names: Optional[List[str]] = None,
 ) -> AsyncGenerator[str, None]:
-    intent, rewritten, domain, chart_only = infer_intent_and_rewrite(
-        user_message=question,
-        history_turns=history,
-    )
+    # Intent & domain are rule-based (no LLM call)
+    intent, domain, chart_only = infer_intent_rule_based(question)
 
     text_lower = (question or "").lower()
+    unique_sources: list[str] = []
 
     def _store(answer: str, sources: list[str]) -> None:
         if result_holder is not None:
             result_holder["answer"] = answer
             result_holder["sources"] = sources
 
-    # 1) CHITCHAT
+    # 1) CHITCHAT short‑circuit (handled without vector + LLM context)
     if intent == "CHITCHAT":
         if any(
             p in text_lower
@@ -651,12 +480,11 @@ async def llm_pipeline_stream(
                 "I’m here to help with your questions about the documents and information in this workspace. "
                 "What would you like to know?"
             )
-
         _store(msg, [])
         yield msg
         return
 
-    # 2) CAPABILITIES
+    # 2) CAPABILITIES (no vector retrieval)
     if intent == "CAPABILITIES":
         summary = await store.summarize_capabilities(tenant_id)
         msg = build_capabilities_message_from_store(summary)
@@ -665,94 +493,62 @@ async def llm_pipeline_stream(
         return
 
     # 3) RETRIEVAL
-    raw_question = rewritten or question
-    # NEW: strip export phrasing for retrieval
+    raw_question = question
     if intent == "EXPORT_TABLE":
         retrieval_question = normalize_query(
             raw_question
-                .replace("export", "")
-                .replace("as a table", "")
-                .replace("as table", "")
-                .replace("table", "")
-                .replace("downloadable", "")
-                .strip()
+            .replace("export", "")
+            .replace("as a table", "")
+            .replace("as table", "")
+            .replace("table", "")
+            .replace("downloadable", "")
+            .strip()
         )
     else:
         retrieval_question = raw_question
-        
+
     effective_question = build_retrieval_query(retrieval_question, history)
 
     query_filter: Optional[dict] = None
     if intent in {"FOLLOWUP_ELABORATE", "IMPLICATIONS", "STRATEGY"} and last_doc_id:
         query_filter = {"doc_id": last_doc_id}
-        
-    # year-aware filter for finance questions
+
     year_filter = extract_year_filter(question, domain)
     if year_filter and intent not in {"EXPORT_TABLE"}:
-        query_filter = year_filter
-        
-    # 3b) Dynamic top_k for year/numeric finance queries
+        query_filter = {**(query_filter or {}), **year_filter}
+
     year_level = is_year_level_question(question)
     is_numeric_finance = (domain == "FINANCE") and (
         intent in {"NUMERIC_ANALYSIS", "LOOKUP", "EXPORT_TABLE"}
     )
     if year_level or is_numeric_finance:
-        effective_top_k = max(top_k, 200)
+        effective_top_k = max(top_k, 20)
     else:
         effective_top_k = top_k
-                    
 
     retrieval = await store.query_policies(
         tenant_id=tenant_id,
-        collection_name=None, # backward compartible
-        collection_names=collection_names or None,  # New 
+        collection_name=None,
+        collection_names=collection_names or None,
         query=effective_question,
         top_k=effective_top_k,
         where=query_filter,
     )
     hits = retrieval.get("results", [])
-    
-    if not hits and year_filter is not None:
-        # fallback: try again without year filter
-        retrieval = await store.query_policies(
-        tenant_id=tenant_id,
-        collection_name=None,
-        collection_names=collection_names or None,  # NEW: preferred
-        query=effective_question,
-        top_k=effective_top_k,
-        where=None,
-    )
-    hits = retrieval.get("results", [])
 
-    logger.debug(
-        {
-            "event": "retrieval_result",
-            "tenant_id": tenant_id,
-            "question": effective_question,
-            "intent": intent,
-            "domain": domain,
-            "num_hits": len(hits),
-            "sample_hits": [
-                {
-                    "metadata": h.get("metadata", {}),
-                    "preview": (h.get("document") or "")[:200],
-                }
-                for h in hits[:3]
-            ],
-        }
-    )
+    if not hits and year_filter is not None:
+        retrieval = await store.query_policies(
+            tenant_id=tenant_id,
+            collection_name=None,
+            collection_names=collection_names or None,
+            query=effective_question,
+            top_k=effective_top_k,
+            where=None,
+        )
+        hits = retrieval.get("results", [])
 
     if not hits:
-        # No documents returned for this tenant + allowed collections.
-        # Make it explicit that the answer cannot be given from internal data.
-        if intent == "NEW_QUESTION":
-            msg = (
-                "I could not find any documents you have access to that answer this question. "
-                "I can only answer using the policies and data available in your workspace. "
-                "Please contact your administrator if you believe additional HR policies "
-                "should be visible to you."
-            )
-        elif intent == "EXPORT_TABLE":
+        if intent == "EXPORT_TABLE":
             msg = (
                 "I could not find any data you have access to that can be exported as a table "
                 "for this question. This may mean the relevant data is either missing or not "
@@ -764,13 +560,11 @@ async def llm_pipeline_stream(
                 "Try rephrasing, or specify a particular document or topic, or ask your administrator "
                 "to grant you access to the relevant policies."
             )
-
         _store(msg, [])
         yield msg
         return
 
-
-    # 4) BUILD CONTEXT (no titles injected into content)
+    # 4) BUILD CONTEXT
     context_chunks: list[str] = []
     sources: list[str] = []
 
@@ -781,22 +575,25 @@ async def llm_pipeline_stream(
         context_chunks.append(doc_text)
         sources.append(title)
 
-    # 5) RERANK (best-effort, robust)
+    # 5) RERANK (Call 2)
     try:
         rerank_messages = build_rerank_messages(effective_question, context_chunks)
-        rerank_resp = suggestion_llm_client.invoke(rerank_messages)
-        raw = getattr(rerank_resp, "content", "") or "[]"
-        raw = raw.strip()
+        rerank_resp = await call_llm(
+            messages=rerank_messages,
+            model="gpt-4o-mini",
+            temperature=0.0,
+            max_tokens=300,
+        )
+        raw = (rerank_resp.choices[0].message.content or "[]").strip()
         try:
             indices = json.loads(raw)
         except Exception:
             start = raw.find("[")
             end = raw.rfind("]")
             if start != -1 and end != -1 and end > start:
-                indices = json.loads(raw[start : end + 1])
+                indices = json.loads(raw[start: end + 1])
             else:
-                raise 
-            
+                raise
         if not isinstance(indices, list):
             raise ValueError
         indices = [
@@ -806,14 +603,13 @@ async def llm_pipeline_stream(
         logger.warning(f"Rerank failed, falling back to original order: {e}")
         indices = list(range(len(context_chunks)))
 
-    # 5b) Allow more chunk for year-level finance
     if year_level and domain == "FINANCE":
         max_chunks = 10
     elif intent == "EXPORT_TABLE":
-        max_chunks = 10    
+        max_chunks = 10
     else:
         max_chunks = 5
-        
+
     if indices:
         indices = indices[:max_chunks]
         context_chunks = [context_chunks[i] for i in indices]
@@ -827,13 +623,28 @@ async def llm_pipeline_stream(
     # 6) PROMPT BUILDING
     last_answer_text = history[-1][1] if history else None
 
+    # Let create_context know both the rule-based intent & domain;
+    # the main call will also be instructed to do its own "intent understanding" and formatting.
     system_prompt, user_prompt = create_context(
         context_chunks=context_chunks,
         user_question=raw_question,
         intent=intent,
         domain=domain,
         last_answer=last_answer_text,
-        chart_only=chart_only
+        chart_only=chart_only,
+    )
+
+    # Merge your formatting instructions into system prompt
+    system_prompt = FORMATTER_SYSTEM_PROMPT + "\n\n" + system_prompt
+
+    # You can also add an explicit instruction here:
+    # "Additionally, infer the user intent (e.g., CHITCHAT, LOOKUP, ANALYSIS, CHART)
+    # and make sure the answer style fits that intent."
+    system_prompt += (
+        "\n\nYou should internally infer the user's intent type based on the question "
+        "and respond in a style that matches it (e.g., short direct answers for LOOKUP, "
+        "stepwise explanations for PROCEDURE, numeric focus for NUMERIC_ANALYSIS). "
+        "You do not need to output the intent label, only adapt your behavior."
     )
 
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -845,59 +656,29 @@ async def llm_pipeline_stream(
 
     messages.append({"role": "user", "content": user_prompt})
 
-    # 7) GENERATE (NO LIVE TOKEN STREAM)
+    # 7) MAIN ANSWER (Call 1 – streaming, formatting, self-check inside prompt)
     try:
         full_answer_parts: list[str] = []
 
-        async for chunk in llm_client_streaming.astream(messages):
-            text = getattr(chunk, "content", "") or ""
-            if not text:
-                try:
-                    text = chunk.generations[0].text or ""
-                except Exception:
-                    text = ""
+        stream = await stream_llm(
+            model="gpt-4.1-mini",
+            messages=messages,
+            temperature=0.3,
+            max_tokens=4096,
+        )
+
+        async for chunk in stream:
+            delta = chunk.choices[0].delta or {}
+            text = getattr(delta, "content", "") or ""
             if text:
                 full_answer_parts.append(text)
 
-        raw_answer = "".join(full_answer_parts).strip()
-        # logger.info(f"RAW_ANSWER:\n {raw_answer}")
-
-        # 8) CRITIQUE AS CORRECTOR, NOT JUST LABEL
-        critique_messages = create_critique_prompt(
-            user_question=question,
-            assistant_answer=raw_answer,
-            context_text="\n\n".join(context_chunks)[:10000],
-        )
-        critique_resp = suggestion_llm_client.invoke(critique_messages)
-        critique = (getattr(critique_resp, "content", "") or "").strip().upper()
-        
-        if critique == "BAD":
-            # One refinement pass
-            refinement_messages = create_refinement_prompt(
-                user_question=question,
-                assistant_answer=raw_answer,
-                context_text="\n\n".join(context_chunks)[:10000],
-            )
-            refine_resp = llm_client.invoke(refinement_messages)
-            refined = (getattr(refine_resp, "content", "") or "").strip()
-
-            # Use refined answer if non-empty, otherwise fall back to original
-            if refined:
-                raw_answer = refined
-
-        # 9) FORMAT ONCE
-        try:
-            formatter_messages = create_formatter_prompt(raw_answer)
-            formatted_resp = formatter_llm_client.invoke(formatter_messages)
-            formatted_answer = getattr(formatted_resp, "content", raw_answer)
-        except Exception as e:
-            logger.warning(f"Formatter failed, returning raw answer: {e}")
-            formatted_answer = raw_answer
+        formatted_answer = "".join(full_answer_parts).strip()
 
         _store(formatted_answer, unique_sources)
         yield formatted_answer
-       
-        # --- Optional chart spec for finance / visual/chart-like questions ---
+
+        # 8) Optional chart spec (Call 3, only when needed)
         try:
             lower_q = (question or "").lower()
             chart_intent_trigger = any(
@@ -918,31 +699,18 @@ async def llm_pipeline_stream(
                 logger.info("CHART_DEBUG entering chart_spec generation block")
 
                 chart_messages = create_chart_spec_prompt(question, formatted_answer)
-                chart_resp = formatter_llm_client.invoke(chart_messages)
-                raw_chart = getattr(chart_resp, "content", None) or str(chart_resp)
-                raw_chart = raw_chart.strip()
+                chart_resp = await call_llm(
+                    messages=chart_messages,
+                    model="gpt-4o-mini",
+                    temperature=0.0,
+                    max_tokens=1500,
+                )
+
+                raw_chart = (chart_resp.choices[0].message.content or "").strip()
                 logger.info(f"RAW_CHART_SPEC {raw_chart}")
-                
-                # --- parse + salvage ---
-                def parse_raw_chart(raw: str) -> Any:
-                    try:
-                        return json.loads(raw)
-                    except Exception as e:
-                        logger.warning("CHART_DEBUG JSON parse failed: %s", e)
-                        start = raw.find("{")
-                        end = raw.rfind("}")
-                        
-                        if start != -1 and end != -1 and end > start:
-                            candidate = raw[start : end + 1]
-                            try:
-                                return json.loads(candidate)
-                            except Exception as e2:
-                                logger.warning("CHART_DEBUG salvage parse failed: %s", e2)
-                                
-                        return None
-                
-                chart_obj = parse_raw_chart(raw_chart)
-                
+
+                chart_obj = parse_raw_chart(raw_chart, logger)
+
                 required_keys = {
                     "chart_type",
                     "title",
@@ -952,22 +720,22 @@ async def llm_pipeline_stream(
                     "y_label",
                     "data",
                 }
-                
+
                 def normalize_one(spec: dict) -> dict | None:
-                    # fix x-label -> x_label
                     if "x-label" in spec and "x_field" in spec:
                         spec["x_label"] = spec.pop("x-label")
-                        
+
                     if not required_keys.issubset(spec.keys()):
                         logger.warning(
-                            "CHART_DEBUG chart_spec missing required keys: %s", spec.keys()
+                            "CHART_DEBUG chart_spec missing required keys: %s",
+                            spec.keys(),
                         )
                         return None
-                    
-                    return spec   
-                
+
+                    return spec
+
                 chart_specs: list[dict] = []
-                
+
                 if isinstance(chart_obj, dict):
                     normalized = normalize_one(chart_obj)
                     if normalized:
@@ -976,32 +744,32 @@ async def llm_pipeline_stream(
                     for idx, item in enumerate(chart_obj):
                         if not isinstance(item, dict):
                             logger.warning(
-                                "CHART_DEBUG chart_specs[%s] is not a dict, skipping", idx
+                                "CHART_DEBUG chart_specs[%s] is not a dict, skipping",
+                                idx,
                             )
                             continue
                         normalized = normalize_one(item)
                         if normalized:
                             chart_specs.append(normalized)
-                            
                 elif chart_obj is not None:
                     logger.warning(
-                        "CHART_DEBUG chart_spec is neigther dict nor list. skipping: %r",
+                        "CHART_DEBUG chart_spec is neither dict nor list. skipping: %r",
                         type(chart_obj),
                     )
-                    
+
                 if chart_specs and result_holder is not None:
                     result_holder["chart_specs"] = chart_specs
                     logger.info(
-                        "CHART_DEBUG set chart_specs on result_holder: %s", chart_specs
-                    )                                     
-                                
+                        "CHART_DEBUG set chart_specs on result_holder: %s",
+                        chart_specs,
+                    )
+
         except Exception as e:
             logger.warning(f"Chart spec generation failed: {e}")
-
-      
 
     except Exception as e:
         error_msg = f"There was a temporary problem generating the answer: {str(e)}"
         _store(error_msg, unique_sources)
         yield error_msg
+    return
 

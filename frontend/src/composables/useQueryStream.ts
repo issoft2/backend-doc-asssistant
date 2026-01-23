@@ -61,7 +61,7 @@ const startStream = async (payload: {
   const params = new URLSearchParams({
     question: payload.question,
     conversation_id: payload.conversation_id,
-    top_k: String(payload.top_k ?? 100),
+    top_k: String(payload.top_k ?? 20),
   })
 
   // Only send collection_name if explicitly selected
