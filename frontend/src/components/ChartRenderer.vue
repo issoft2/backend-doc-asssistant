@@ -12,7 +12,7 @@ import {
   LinearScale,
   PointElement,
 } from 'chart.js'
-import MarkdownText from '@/components/MarkdownText.vue'
+import MarkdownText from '../components/MarkdownText.vue'
 
 ChartJS.register(
   Title,
