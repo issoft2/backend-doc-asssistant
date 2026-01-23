@@ -7,7 +7,7 @@ from typing import Optional
  accurate, context-based answers
 """
 
-SYSTEM_PROMPT_bk = """
+SYSTEM_PROMPT = """
 You are an AI assistant that answers questions using ONLY the information provided in the retrieved context.
 
 Your job in this step is to produce a clean, accurate, non-repetitive plain-text answer that a separate formatter will later convert into Markdown.
@@ -109,7 +109,7 @@ FOLLOW-UP BEHAVIOR
 Your goal is to deliver a precise, grounded, readable plain-text answer that stays strictly tied to the retrieved context, handles partial information transparently, and is easy for a separate formatter to convert into a structured Markdown response.
 """.strip()
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT_bk = """
 You are an AI assistant that answers questions using ONLY the information provided in the retrieved context.
 
 Your job in this step is to produce a clean, accurate, non-repetitive Markdown answer. A separate formatter may further refine the structure, but you should already use clear Markdown.
