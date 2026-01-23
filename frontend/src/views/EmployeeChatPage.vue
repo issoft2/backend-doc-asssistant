@@ -297,7 +297,7 @@
                         </svg>
                       </div>
 
-                      <!-- <div class="flex-1 min-w-0 space-y-4"> -->
+                      <!-- Answer text -->
                         <div class="flex-1 min-w-0 space-y-4">
                           <MarkdownText
                             v-if="msg.text"
@@ -305,7 +305,6 @@
                             class="prose prose-invert max-w-none text-slate-100 leading-relaxed answer-content"
                           />
                         </div>
-
 
                         <!-- Charts -->
                         <div
@@ -320,16 +319,17 @@
                               class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
                             ></span>
                           </h4>
+
                           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <ChartRenderer
                               v-for="(spec, i) in msg.chart_specs"
                               :key="i"
                               :spec="spec"
-                              class="w-full bg-slate-900/80 rounded-2xl border border-slate-800/70 p-3  answer-content"
+                              class="w-full bg-slate-900/80 rounded-2xl border border-slate-800/70 p-3"
                             />
                           </div>
                         </div>
-                      <!-- </div> -->
+
 
                       <button
                         type="button"
