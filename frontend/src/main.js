@@ -1,6 +1,21 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import { router } from './router'
-import './assets/main.css';
+import { createApp } from 'vue'
+import PrimeVue from 'primevue/config'
+import ToastService from 'primevue/toastservice'
+import Toast from 'primevue/toast'
 
-createApp(App).use(router).mount('#app')
+import App from './App.vue'
+import router from './router'
+
+import 'primevue/resources/themes/aura-dark-indigo/theme.css' // or your theme
+import 'primevue/resources/primevue.min.css'
+import 'primeicons/primeicons.css'
+
+const app = createApp(App)
+
+app.use(router)
+app.use(PrimeVue)
+app.use(ToastService)              // 1) register the toast service
+
+app.component('Toast', Toast)      // 2) register the Toast component globally
+
+app.mount('#app')
