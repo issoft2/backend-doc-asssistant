@@ -139,31 +139,15 @@ td:nth-child(n+2) {
   text-align: right;
 }
 
-
-
 :root {
-  --bg-primary: #ffffff;
-  --text-primary: #0f172a;
-  --text-muted: #475569;
-  --border-subtle: #e2e8f0;
-  --accent: #2563eb;
+  --accent: #6366f1;
 }
-
-/* Buttons */
 .btn-primary {
-  @apply inline-flex items-center justify-center rounded-xl px-6 py-3
-         text-white bg-[var(--accent)]
-         hover:opacity-90 transition;
+  @apply inline-flex items-center justify-center px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-500 transition;
 }
-
 .btn-secondary {
-  @apply inline-flex items-center justify-center rounded-xl px-6 py-3
-         border border-[var(--border-subtle)]
-         text-[var(--text-primary)]
-         hover:bg-gray-50 transition;
+  @apply inline-flex items-center justify-center px-6 py-3 border border-slate-300 rounded-xl text-slate-900 hover:bg-slate-100 transition;
 }
-
-
 .input-field {
   @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500;
 }

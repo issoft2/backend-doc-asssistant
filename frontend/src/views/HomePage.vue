@@ -9,8 +9,8 @@
             CG
           </div>
           <div class="flex flex-col">
-            <span class="font-semibold text-sm">Company knowledge Assistant</span>
-            <span class="text-xs text-slate-500">For your Private data</span>
+            <span class="font-semibold text-sm">Company Knowledge Assistant</span>
+            <span class="text-xs text-slate-500">For your private data</span>
           </div>
         </div>
         <div>
@@ -23,10 +23,7 @@
     </header>
 
     <!-- HERO -->
-    <section
-      v-motion="heroMotion"
-      class="relative isolate max-w-7xl mx-auto px-6 py-28 text-center"
-    >
+    <section v-motion="heroMotion" class="relative isolate max-w-7xl mx-auto px-6 py-28 text-center">
       <h1 class="text-4xl md:text-5xl font-bold tracking-tight">
         Ask your Assistant. <br/>
         <span class="text-indigo-600">Get answers instantly.</span>
@@ -40,7 +37,7 @@
       </div>
     </section>
 
-    <!-- KEY BENEFITS -->
+    <!-- KEY BENEFITS / FEATURES -->
     <section class="bg-white border-t border-slate-200 py-20">
       <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12 text-center">
         <Feature
@@ -96,7 +93,7 @@
           Share your use case — we’ll get back to you directly by email.
         </p>
 
-        <form @submit.prevent="submitContact" class="space-y-4">
+        <form @submit.prevent="submitContact" class="space-y-4 bg-slate-50 p-6 rounded-lg shadow-sm border border-slate-200">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               v-model="contactForm.name"
@@ -135,8 +132,10 @@
             >
               {{ contactSubmitting ? 'Sending…' : 'Send Message' }}
             </button>
-            <p v-if="contactSuccess" class="text-emerald-500 text-sm">Message sent!</p>
-            <p v-if="contactError" class="text-red-500 text-sm">{{ contactError }}</p>
+            <div class="flex flex-col text-sm">
+              <p v-if="contactSuccess" class="text-emerald-500">Message sent!</p>
+              <p v-if="contactError" class="text-red-500">{{ contactError }}</p>
+            </div>
           </div>
         </form>
       </div>
@@ -154,29 +153,14 @@ import { ref } from 'vue'
 import { useReducedMotion } from '@vueuse/motion'
 import { sendContact } from '../api'
 
+// Motion helpers
 const reducedMotion = useReducedMotion()
-
-const baseFade = {
-  initial: { opacity: 0, y: 16 },
-  enter: { opacity: 1, y: 0 },
-}
-
-const heroMotion = reducedMotion.value
-  ? {}
-  : { ...baseFade, transition: { duration: 0.5, ease: 'easeOut' } }
-
-const fadeUp = (delay = 0) =>
-  reducedMotion.value
-    ? {}
-    : { ...baseFade, transition: { duration: 0.4, delay, ease: 'easeOut' } }
+const baseFade = { initial: { opacity: 0, y: 16 }, enter: { opacity: 1, y: 0 } }
+const heroMotion = reducedMotion.value ? {} : { ...baseFade, transition: { duration: 0.5, ease: 'easeOut' } }
+const fadeUp = (delay = 0) => reducedMotion.value ? {} : { ...baseFade, transition: { duration: 0.4, delay, ease: 'easeOut' } }
 
 // Contact form state
-const contactForm = ref({
-  name: '',
-  email: '',
-  subject: '',
-  message: '',
-})
+const contactForm = ref({ name: '', email: '', subject: '', message: '' })
 const contactSubmitting = ref(false)
 const contactSuccess = ref(false)
 const contactError = ref('')
@@ -195,6 +179,29 @@ async function submitContact() {
     contactSubmitting.value = false
   }
 }
+
+// Feature component
+import { defineComponent } from 'vue'
+const Feature = defineComponent({
+  props: ['icon', 'title', 'text'],
+  template: `
+    <div class="text-center space-y-2">
+      <div class="text-3xl">{{ icon }}</div>
+      <h3 class="font-semibold text-lg">{{ title }}</h3>
+      <p class="text-slate-500 text-sm">{{ text }}</p>
+    </div>
+  `
+})
 </script>
 
-
+<style scoped>
+.input-field {
+  @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white;
+}
+.btn-primary {
+  @apply px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition;
+}
+.btn-secondary {
+  @apply px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 transition;
+}
+</style>
