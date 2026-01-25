@@ -1,90 +1,102 @@
 <template>
-  <main class="bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
+  <main class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- NAV -->
+    <header class="bg-white/80 backdrop-blur border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-10 w-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-xs font-semibold text-indigo-600">
+            CG
+          </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-sm">Company Guideline Assistant</span>
+            <span class="text-xs text-slate-500">Private AI for your policies & data</span>
+          </div>
+        </div>
+        <div>
+          <RouterLink
+            to="/login"
+            class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100 text-sm transition"
+          >Sign In</RouterLink>
+        </div>
+      </div>
+    </header>
 
     <!-- HERO -->
-    <section class="relative isolate">
-      <div class="max-w-7xl mx-auto px-6 py-32 text-center">
-        <h1
-          v-motion="heroMotion"
-          class="text-4xl md:text-6xl font-semibold tracking-tight leading-tight"
-        >
-          Build. Sign. Share.  
-          <span class="block text-[var(--accent)]">Documents without friction</span>
-        </h1>
+    <section class="relative isolate max-w-7xl mx-auto px-6 py-28 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight">
+        Ask your AI Assistant. <br/>
+        <span class="text-indigo-600">Get answers instantly.</span>
+      </h1>
+      <p class="mt-4 max-w-xl mx-auto text-slate-600 text-base">
+        Upload policies, playbooks, reports, and spreadsheets. Your assistant answers questions, explains procedures, and builds charts — all private and secure.
+      </p>
+      <div class="mt-8 flex justify-center gap-4">
+        <RouterLink to="/login" class="btn-primary">Try with your documents</RouterLink>
+        <a href="#how-it-works" class="btn-secondary">See how it works</a>
+      </div>
+    </section>
 
-        <p
-          v-motion="fadeUp(0.1)"
-          class="mt-6 max-w-2xl mx-auto text-lg text-[var(--text-muted)]"
-        >
-          A modern platform for editing, signing, and managing PDFs — fast, secure,
-          and built for teams that value simplicity.
-        </p>
-
-        <div
-          v-motion="fadeUp(0.2)"
-          class="mt-10 flex justify-center gap-4"
-        >
-          <button class="btn-primary">
-            Get started free
-          </button>
-          <button class="btn-secondary">
-            See how it works
-          </button>
+    <!-- KEY BENEFITS -->
+    <section class="bg-white border-t border-slate-200 py-20">
+      <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12 text-center">
+        <div class="space-y-2">
+          <div class="text-3xl">🧩</div>
+          <h3 class="font-semibold text-lg">Multi-tenant by design</h3>
+          <p class="text-slate-500 text-sm">Serve multiple clients with isolated workspaces, indexes, and chat history.</p>
+        </div>
+        <div class="space-y-2">
+          <div class="text-3xl">🔑</div>
+          <h3 class="font-semibold text-lg">Role-aware answers</h3>
+          <p class="text-slate-500 text-sm">Responses adapt based on HR, managers, execs, or employees access.</p>
+        </div>
+        <div class="space-y-2">
+          <div class="text-3xl">📊</div>
+          <h3 class="font-semibold text-lg">Data & financial analysis</h3>
+          <p class="text-slate-500 text-sm">Ask for revenue, expenses, and net-profit tables with charts straight from your reports.</p>
         </div>
       </div>
     </section>
 
-    <!-- FEATURES -->
-    <section class="border-t border-[var(--border-subtle)]">
-      <div class="max-w-7xl mx-auto px-6 py-24">
-        <div class="grid md:grid-cols-3 gap-12">
-
-          <Feature
-            icon="⚡"
-            title="Instant editing"
-            text="Edit PDFs directly in your browser. No installs. No learning curve."
-          />
-
-          <Feature
-            icon="✍🏽"
-            title="Legally binding signatures"
-            text="Sign and request signatures with full audit trails and compliance."
-          />
-
-          <Feature
-            icon="🔒"
-            title="Enterprise-grade security"
-            text="Hard tenant isolation, encryption, and role-based access by default."
-          />
-
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works" class="py-20 bg-slate-50">
+      <div class="max-w-4xl mx-auto px-6 text-center space-y-6">
+        <h2 class="text-2xl font-semibold">How it works</h2>
+        <p class="text-slate-500 text-sm">Built for consultancies, multi-brand groups, and internal teams who need AI respecting tenant boundaries.</p>
+        <div class="mt-10 grid md:grid-cols-3 gap-8 text-left">
+          <div class="space-y-2">
+            <h3 class="font-semibold text-indigo-600">1. Onboard tenants</h3>
+            <p class="text-slate-600 text-sm">Admins create workspaces, configure collections, and invite team members in minutes.</p>
+          </div>
+          <div class="space-y-2">
+            <h3 class="font-semibold text-indigo-600">2. Connect & upload</h3>
+            <p class="text-slate-600 text-sm">Upload handbooks, SOPs, contracts, and reports securely. Chat history stays private.</p>
+          </div>
+          <div class="space-y-2">
+            <h3 class="font-semibold text-indigo-600">3. Ask questions</h3>
+            <p class="text-slate-600 text-sm">Get clear, grounded answers and charts based on your internal data — not generic AI.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- CTA -->
-    <section class="border-t border-[var(--border-subtle)]">
-      <div
-        v-motion="fadeUp(0.1)"
-        class="max-w-4xl mx-auto px-6 py-28 text-center"
-      >
-        <h2 class="text-3xl md:text-4xl font-semibold tracking-tight">
-          Ready to modernize your document workflow?
-        </h2>
-
-        <p class="mt-4 text-[var(--text-muted)]">
-          Start free. Upgrade when your team grows.
-        </p>
-
-        <div class="mt-8">
-          <button class="btn-primary">
-            Create your first document
-          </button>
-        </div>
+    <!-- CONTACT -->
+    <section id="contact" class="py-20 bg-white border-t border-slate-200">
+      <div class="max-w-4xl mx-auto px-6 text-center space-y-6">
+        <h2 class="text-2xl font-semibold">Contact us</h2>
+        <p class="text-slate-500 text-sm">Share your use case — we’ll get back to you directly by email.</p>
+        <RouterLink to="/login" class="btn-primary">Open the app</RouterLink>
       </div>
     </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-50 border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      © {{ new Date().getFullYear() }} Company Guideline Assistant. All rights reserved.
+    </footer>
 
   </main>
 </template>
+
 
 <script setup>
 import { useReducedMotion } from '@vueuse/motion'
