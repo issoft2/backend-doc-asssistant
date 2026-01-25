@@ -9,8 +9,8 @@
             CG
           </div>
           <div class="flex flex-col">
-            <span class="font-semibold text-sm">Company Guideline Assistant</span>
-            <span class="text-xs text-slate-500">Private AI for your policies & data</span>
+            <span class="font-semibold text-sm">Company knowledge Assistant</span>
+            <span class="text-xs text-slate-500">For your Private data</span>
           </div>
         </div>
         <div>
@@ -25,7 +25,7 @@
     <!-- HERO -->
     <section class="relative isolate max-w-7xl mx-auto px-6 py-28 text-center">
       <h1 class="text-4xl md:text-5xl font-bold tracking-tight">
-        Ask your AI Assistant. <br/>
+        Ask your An Assistant. <br/>
         <span class="text-indigo-600">Get answers instantly.</span>
       </h1>
       <p class="mt-4 max-w-xl mx-auto text-slate-600 text-base">
@@ -98,7 +98,7 @@
 </template>
 
 
-<script setup>
+<script >
 import { useReducedMotion } from '@vueuse/motion'
 
 const reducedMotion = useReducedMotion()
@@ -122,10 +122,8 @@ const fadeUp = (delay = 0) =>
         ...baseFade,
         transition: { duration: 0.4, delay, ease: 'easeOut' },
       }
-</script>
 
-<script>
-export default {
+  export default {
   components: {
     Feature: {
       props: ['icon', 'title', 'text'],
@@ -140,5 +138,6 @@ export default {
       `,
     },
   },
-}
+}    
 </script>
+
