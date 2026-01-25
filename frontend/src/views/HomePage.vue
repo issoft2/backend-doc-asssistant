@@ -31,33 +31,25 @@
       <p class="mt-4 max-w-xl mx-auto text-slate-600 text-base">
         Upload policies, playbooks, reports, and spreadsheets. Your assistant answers questions, explains procedures, and builds charts — all private and secure.
       </p>
-      <div class="mt-8 flex justify-center gap-4">
+      <div class="mt-8 flex justify-center gap-4 flex-wrap">
         <RouterLink to="/login" class="btn-primary">Try with your documents</RouterLink>
         <a href="#how-it-works" class="btn-secondary">See how it works</a>
       </div>
     </section>
 
-    <!-- KEY BENEFITS / FEATURES -->
+    <!-- FEATURES / KEY BENEFITS -->
     <section class="bg-white border-t border-slate-200 py-20">
       <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-12 text-center">
-        <Feature
-          v-motion="fadeUp(0.1)"
-          icon="🧩"
-          title="Multi-tenant by design"
-          text="Serve multiple clients with isolated workspaces, indexes, and chat history."
-        />
-        <Feature
-          v-motion="fadeUp(0.3)"
-          icon="🔑"
-          title="Role-aware answers"
-          text="Responses adapt based on HR, managers, execs, or employees access."
-        />
-        <Feature
-          v-motion="fadeUp(0.5)"
-          icon="📊"
-          title="Data & financial analysis"
-          text="Ask for revenue, expenses, and net-profit tables with charts straight from your reports."
-        />
+        <div
+          v-for="(feature, index) in features"
+          :key="index"
+          v-motion="fadeUp(0.2 * index)"
+          class="text-center space-y-4 p-6 border border-slate-100 rounded-lg shadow-sm hover:shadow-lg transition"
+        >
+          <div class="text-3xl">{{ feature.icon }}</div>
+          <h3 class="font-semibold text-lg">{{ feature.title }}</h3>
+          <p class="text-slate-500 text-sm">{{ feature.text }}</p>
+        </div>
       </div>
     </section>
 
@@ -100,14 +92,14 @@
               type="text"
               placeholder="Name"
               required
-              class="input-field"
+              class="input-field rounded-md border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
             <input
               v-model="contactForm.email"
               type="email"
               placeholder="Email"
               required
-              class="input-field"
+              class="input-field rounded-md border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>
           <input
@@ -115,16 +107,16 @@
             type="text"
             placeholder="Subject"
             required
-            class="input-field w-full"
+            class="input-field w-full rounded-md border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <textarea
             v-model="contactForm.message"
             rows="4"
             placeholder="Message"
             required
-            class="input-field w-full resize-y"
+            class="input-field w-full rounded-md border border-slate-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y"
           ></textarea>
-          <div class="flex justify-between items-center">
+          <div class="flex flex-col md:flex-row justify-between items-center gap-4">
             <button
               type="submit"
               class="btn-primary"
@@ -180,17 +172,10 @@ async function submitContact() {
   }
 }
 
-// Feature component
-import { defineComponent } from 'vue'
-const Feature = defineComponent({
-  props: ['icon', 'title', 'text'],
-  template: `
-    <div class="text-center space-y-2">
-      <div class="text-3xl">{{ icon }}</div>
-      <h3 class="font-semibold text-lg">{{ title }}</h3>
-      <p class="text-slate-500 text-sm">{{ text }}</p>
-    </div>
-  `
-})
+// Features data
+const features = [
+  { icon: '🧩', title: 'Multi-tenant by design', text: 'Serve multiple clients with isolated workspaces, indexes, and chat history.' },
+  { icon: '🔑', title: 'Role-aware answers', text: 'Responses adapt based on HR, managers, execs, or employees access.' },
+  { icon: '📊', title: 'Data & financial analysis', text: 'Ask for revenue, expenses, and net-profit tables with charts straight from your reports.' },
+]
 </script>
-
