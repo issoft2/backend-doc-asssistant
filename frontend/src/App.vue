@@ -1,6 +1,9 @@
 <template>
-  <div>
-    <Toast />
-    <RouterView />
-  </div>
+  <RouterView />
+  <AppHeader />
+
 </template>
+
+<script setup>
+import AppHeader from './components/AppHeader.vue'
+</script>
