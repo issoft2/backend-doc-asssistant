@@ -194,14 +194,3 @@ const Feature = defineComponent({
 })
 </script>
 
-<style scoped>
-.input-field {
-  @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white;
-}
-.btn-primary {
-  @apply px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition;
-}
-.btn-secondary {
-  @apply px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 transition;
-}
-</style>
