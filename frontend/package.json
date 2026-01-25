@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.2.0",
     "@primeuix/themes": "^2.0.3",
+    "@vueuse/motion": "^3.0.3",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
     "markdown-it": "^14.1.0",
@@ -22,10 +24,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
+    "@tailwindcss/typography": "^0.5.19",
     "@vitejs/plugin-vue": "^6.0.1",
-    "autoprefixer": "^10.4.22",
+    "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "vite": "^7.2.4"
   },
   "optionalDependencies": {
