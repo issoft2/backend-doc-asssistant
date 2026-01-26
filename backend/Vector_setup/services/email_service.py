@@ -11,7 +11,7 @@ SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Your App")
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "issoft")
 SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").lower() in ("true", "1", "yes")
 
 
