@@ -153,7 +153,6 @@ def google_drive_callback(
 def google_drive_status(
     current_user: DBUser = Depends(require_tenant_admin),
     db: Session = Depends(get_db),
-    tenant: Tenant = Depends(ensure_tenant_active)
 
 ):
     cfg = (

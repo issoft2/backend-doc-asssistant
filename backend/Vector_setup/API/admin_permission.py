@@ -25,7 +25,7 @@ def require_tenant_admin(
     current_user: Annotated[UserOut, Depends(get_current_user)],
 ) -> UserOut:
     role = (current_user.role or "").lower()
-    if role not in COLLECTION_MANAGE_ROLES:
+    if role != 'vendor' and role not in COLLECTION_MANAGE_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required",

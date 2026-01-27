@@ -7,12 +7,13 @@ import AdminCompaniesPage from './views/AdminCompaniesPage.vue'
 import LoginPage from './views/LoginPage.vue'
 import SignupPage from './views/SignupPage.vue'
 import { authState } from './authStore'
-import HomePage from './views/HomePage.vue'
+// import HomePage from './views/HomePage.vue'
+import HomeV2 from './ui-v2/pages/HomeV2.vue'
 import CompanyUsersPage from './views/CompanyUsersPage.vue'
 import NotAllowedPage from './views/NotAllowedPage.vue'
 import FirstLogin from './views/FirstLoginPage.vue'
 
-const adminRoles = [
+const user_roles = [
   'vendor',
   'group_admin',
   'group_exe',
@@ -38,7 +39,7 @@ const routes = [
   {
     path: '/',
     name: 'home',
-    component: HomePage,
+    component: HomeV2,
   },
 
   // Auth
@@ -46,13 +47,13 @@ const routes = [
   { path: '/signup', name: 'signup', component: SignupPage },
   { path: '/auth', redirect: '/login' },
 
-  // Admin area (restricted to adminRoles)
+  // Admin area (restricted to admin Roles)
   {
     path: '/admin',
     component: AdminLayout,
     meta: {
       requiresAuth: true,
-      roles: adminRoles,
+      roles: user_roles,
     },
     children: [
       {
@@ -69,18 +70,18 @@ const routes = [
         path: 'users',
         name: 'company-users',
         component: CompanyUsersPage,
-        meta: { requiresAuth: true, roles: adminRoles },
+        meta: { requiresAuth: true, roles: user_roles },
       },
     ],
   },
 
-  // Employee/chat area (any adminRoles user)
+  // Employee/chat area (any admin Roles user)
   {
     path: '/chat',
     component: EmployeeLayout,
     meta: {
       requiresAuth: true,
-      roles: adminRoles,
+      roles: user_roles,
     },
     children: [
       {

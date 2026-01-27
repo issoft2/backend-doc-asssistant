@@ -3,6 +3,8 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env    
     environment:
       ANONYMIZED_TELEMETRY: "False"
       DATABASE_URL: "sqlite:///./data/users.db"
@@ -36,8 +38,8 @@ services:
       - /etc/letsencrypt/archive/lexiscope.duckdns.org:/etc/letsencrypt/archive/lexiscope.duckdns.org:ro 
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro  
 
-    depends_on:
-      - backend
+    # depends_on:
+    #   - backend
     # NO GPU - web static files
     restart: unless-stopped
     networks:
