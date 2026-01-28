@@ -1,4 +1,4 @@
-name: Build & Push Backend Docker (Docker Hub + GHCR)
+name: Build & Push Backend Docker (Docker Hub)
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-backend:
@@ -27,13 +26,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -42,5 +34,3 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/company-assistant-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/company-assistant-backend:${{ github.sha }}
-            ghcr.io/issoft2/company-assistant-backend:latest
-            ghcr.io/issoft2/company-assistant-backend:${{ github.sha }}
