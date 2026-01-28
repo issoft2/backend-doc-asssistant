@@ -38,3 +38,4 @@ jobs:
           tags: |
             ghcr.io/issoft2/company-assistant-backend:latest
             ghcr.io/issoft2/company-assistant-backend:${{ github.sha }}
+            echo "Backend Done"
