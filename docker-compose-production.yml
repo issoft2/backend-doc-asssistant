@@ -1,17 +1,19 @@
+version: "3.9"
+
 services:
   backend:
     image: ghcr.io/issoft2/company-assistant-backend:latest
     ports:
       - "8000:8000"
     env_file:
-      - .env
-    environment:
-      ANONYMIZED_TELEMETRY: "False"
-      DATABASE_URL: "sqlite:///./data/users.db"
-      HF_HUB_ENABLE_HF_TRANSFER: "False"
-      HF_HUB_DISABLE_XET: "1"
-      APP_RESET_DATA: "False"
-      CHROMA_PATH: "/app/chromadb_multi_tenant"
+      - ./backend/.env
+    # environment:
+    #   ANONYMIZED_TELEMETRY: "False"
+    #   DATABASE_URL: "sqlite:///./data/users.db"
+    #   HF_HUB_ENABLE_HF_TRANSFER: "False"
+    #   HF_HUB_DISABLE_XET: "1"
+    #   APP_RESET_DATA: "False"
+    #   CHROMA_PATH: "/app/chromadb_multi_tenant"
     volumes:
       - chroma_data:/app/chromadb_multi_tenant
       - ./data:/app/data
@@ -19,17 +21,25 @@ services:
     networks:
       - app_net
 
-  frontend:
-    image: ghcr.io/issoft2/company-assistant-frontend:latest
+  nginx:
+    image: nginx:alpine
     container_name: frontend
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      # SSL certificates
       - /etc/letsencrypt/live/lexiscope.duckdns.org:/etc/letsencrypt/live/lexiscope.duckdns.org:ro
       - /etc/letsencrypt/archive/lexiscope.duckdns.org:/etc/letsencrypt/archive/lexiscope.duckdns.org:ro
+
+      # Nginx config
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+      # Static frontend build files
+      - ./frontend/dist:/usr/share/nginx/html:ro
     restart: unless-stopped
+    depends_on:
+      - backend
     networks:
       - app_net
 
