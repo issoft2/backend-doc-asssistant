@@ -33,6 +33,9 @@ jobs:
             # Write .env from GitHub secret
             echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
 
+            # Login to GHCR
+            echo "$GHCR_PAT" | docker login ghcr.io -u issoft2 --password-stdin
+
             # Go to project folder
             cd /srv/company-assistant
 
