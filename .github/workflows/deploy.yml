@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: read  # Minimal permissions for security
+  contents: read
 
 jobs:
   deploy:
@@ -25,35 +25,35 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            set -e  # Exit on any error
-
+            set -e
+            
             # Ensure backend folder exists
             mkdir -p /srv/company-assistant/backend
-
-            # Write .env from GitHub secret to backend dir
+            
+            # Create DUMMY .env in project root (stops Docker Compose default lookup error)
+            touch /srv/company-assistant/.env
+            
+            # Write REAL .env from GitHub secret to backend dir
             echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
-
-            # Verify .env was written
-            if [ ! -f /srv/company-assistant/backend/.env ]; then
-              echo "ERROR: backend/.env not created"
-              exit 1
-            fi
-
-            # Go to project directory
-            cd /srv/company-assistant || { echo "Project dir not found"; exit 1; }
-
-            # Pull backend image only
+            
+            # Verify .env was created
+            [ -f /srv/company-assistant/backend/.env ] || { echo "ERROR: backend/.env not created"; exit 1; }
+            
+            # Go to project folder
+            cd /srv/company-assistant || { echo "Project dir missing"; exit 1; }
+            
+            # Pull backend image only (frontend is static)
             docker compose -f docker-compose-production.yml --env-file ./backend/.env pull backend
-
-            # Start all services (backend + nginx), remove orphan containers, pull missing images
-            docker compose -f docker-compose-production.yml --env-file ./backend/.env up -d --remove-orphans --pull missing
-
-            # Health check (backend should be up)
-            sleep 5
+            
+            # Start all services (backend + nginx), remove orphans
+            docker compose -f docker-compose-production.yml --env-file ./backend/.env up -d --remove-orphans
+            
+            # Health check - wait and verify backend is running
+            sleep 10
             if ! docker compose -f docker-compose-production.yml --env-file ./backend/.env ps backend | grep "Up"; then
               echo "ERROR: Backend service not healthy"
               docker compose -f docker-compose-production.yml --env-file ./backend/.env logs backend
               exit 1
             fi
-
-            echo "✅ Deploy successful!"
+            
+            echo "✅ Deploy successful! Backend is running."
