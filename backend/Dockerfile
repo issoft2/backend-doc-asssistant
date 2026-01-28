@@ -2,11 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV PIP_ONLY_BINARY=:all:
 
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
+
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
