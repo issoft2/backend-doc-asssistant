@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   deploy:
@@ -30,36 +29,48 @@ jobs:
             set -e
             echo "🚀 Deploying as $(whoami) at $(date)"
             
-            # Create directories
+            # Create app directory structure
             mkdir -p /srv/company-assistant/backend
             
-            # Write production .env
+            # Write production .env file
             echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
             chmod 600 /srv/company-assistant/backend/.env
+            echo "✅ Environment configured"
             
+            # Switch to project directory
             cd /srv/company-assistant || { echo "❌ Project dir missing"; exit 1; }
             
-            # Docker Hub pull (your working build action)
+            # CREATE docker-compose-production.yml (was missing!)
+            cat > docker-compose-production.yml << 'EOF'
+            services:
+              backend:
+                image: specisaac/company-assistant-backend:latest
+                ports:
+                  - "8000:8000"
+                env_file:
+                  - ./backend/.env
+                restart: unless-stopped
+            EOF
+            
+            echo "✅ docker-compose-production.yml created"
+            
+            # Pull latest image (your Docker Hub repo)
             docker pull specisaac/company-assistant-backend:latest
+            echo "✅ Latest image pulled"
             
-            # Ensure compose file exists
-            if [ ! -f docker-compose-production.yml ]; then
-              echo "❌ docker-compose-production.yml missing"
-              exit 1
-            fi
-            
-            # Zero-downtime deploy
-            docker compose -f docker-compose-production.yml pull
-            docker compose -f docker-compose-production.yml up -d --remove-orphans
+            # Zero-downtime deployment
+            docker compose pull
+            docker compose up -d --remove-orphans
+            echo "✅ Services deployed"
             
             # Health check
             sleep 10
-            if ! docker compose -f docker-compose-production.yml ps | grep "Up"; then
-              echo "❌ Services failed:"
-              docker compose -f docker-compose-production.yml logs --tail=50
+            if ! docker compose ps | grep "Up"; then
+              echo "❌ Services failed to start:"
+              docker compose logs --tail=20
               exit 1
             fi
             
             echo "🎉 DEPLOYMENT SUCCESSFUL!"
             echo "🌐 Live at: http://${HOSTNAME}:8000"
-            docker compose -f docker-compose-production.yml ps
+            docker compose ps
