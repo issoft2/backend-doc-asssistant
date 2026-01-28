@@ -40,7 +40,7 @@ jobs:
             cd /srv/company-assistant || { echo "❌ Project dir missing"; exit 1; }
             
             # Docker Hub pull (your working build action)
-            docker pull issoft2/company-assistant-backend:latest
+            docker pull specisaac/company-assistant-backend:latest
             
             # Ensure compose file exists
             if [ ! -f docker-compose-production.yml ]; then
