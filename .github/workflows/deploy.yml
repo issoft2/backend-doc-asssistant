@@ -108,7 +108,7 @@ jobs:
                 image: nginx:alpine
                 container_name: frontend-nginx
                 ports: ["80:80"]
-                volumes: ['./frontend:/usr/share/nginx/html:ro']
+                volumes: ['./frontend/dist:/usr/share/nginx/html:ro']
                 restart: unless-stopped
                 depends_on: [backend]
                 networks: [app_net]
