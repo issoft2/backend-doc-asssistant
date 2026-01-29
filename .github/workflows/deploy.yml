@@ -57,7 +57,7 @@ jobs:
             
             # Ensure directories
             mkdir -p {backend,frontend,data}
-            echo "$BACKEND_ENV" > backend/.env
+            echo "$BACKEND_ENV" >> backend/.env
             chmod 600 backend/.env
             
             # Copy index.html to root for Vue SPA
