@@ -68,6 +68,7 @@ jobs:
             set -e
             echo "🚀 FULL-STACK Deploy as $(whoami) at $(date)"
             
+            # Create directories
             mkdir -p /srv/company-assistant/{backend,frontend,data}
             echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
             chmod 600 /srv/company-assistant/backend/.env
@@ -77,22 +78,60 @@ jobs:
             echo "✅ Frontend files ready:"
             ls -la frontend/ | head -5
             
-            # Create nginx.conf
+            # 🔥 FIX: Remove broken nginx.conf directory + create fresh file
+            rm -rf frontend/nginx.conf
             cat > frontend/nginx.conf << 'NGINX'
             server {
                 listen 80;
                 root /usr/share/nginx/html;
                 index index.html;
                 
+                # Vue SPA routing
                 location / {
                     try_files $uri /index.html;
                 }
                 
+                # Cache static assets
                 location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
                     expires 1y;
                     add_header Cache-Control "public, immutable";
                 }
                 
+                # Proxy to FastAPI backend
+                location /api/ {
+                    proxy_pass http://backend:8000/;set -e
+              echo "🚀 FULL-STACK Deploy as $(whoami) at $(date)"
+              
+              # Create directories
+              mkdir -p /srv/company-assistant/{backend,frontend,data}
+              echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
+              chmod 600 /srv/company-assistant/backend/.env
+              
+              cd /srv/company-assistant
+              
+              echo "✅ Frontend files ready:"
+              ls -la frontend/ | head -5
+              
+              # 🔥 FIX: Remove broken nginx.conf directory + create fresh file
+              rm -rf frontend/nginx.conf
+              cat > frontend/nginx.conf << 'NGINX'
+            server {
+                listen 80;
+                root /usr/share/nginx/html;
+                index index.html;
+                
+                # Vue SPA routing
+                location / {
+                    try_files $uri /index.html;
+                }
+                
+                # Cache static assets
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                    expires 1y;
+                    add_header Cache-Control "public, immutable";
+                }
+                
+                # Proxy to FastAPI backend
                 location /api/ {
                     proxy_pass http://backend:8000/;
                     proxy_set_header Host $host;
@@ -101,10 +140,41 @@ jobs:
                 }
             }
             NGINX
-                        
-                docker pull specisaac/company-assistant-backend:latest
-                
-                cat > docker-compose-production.yml << 'EOF'
+              
+              echo "✅ nginx.conf created ($(ls -la frontend/nginx.conf))"
+              
+              # Pull backend
+              docker pull specisaac/company-assistant-backend:latest
+              
+              # docker-compose-production.yml (nginx serves ./frontend/)
+              cat > docker-compose-production.yml << 'EOF'
+            version: "3.9"
+            services:
+              backend:
+                image: specisaac/company-assistant-backend:latest
+                ports:
+                  - "8000:8000"
+                env_file:
+                  - ./backend/.env
+                volumes:
+                  - chroma_data:/app/chromadb_multi_tenant
+                  - ./data:/app/data
+                restart: unless-stopped
+  
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                }
+            }
+            NGINX
+              
+              echo "✅ nginx.conf created ($(ls -la frontend/nginx.conf))"
+              
+              # Pull backend
+              docker pull specisaac/company-assistant-backend:latest
+              
+              # docker-compose-production.yml (nginx serves ./frontend/)
+              cat > docker-compose-production.yml << 'EOF'
             version: "3.9"
             services:
               backend:
@@ -140,16 +210,18 @@ jobs:
               app_net:
                 driver: bridge
             EOF
-                        
+              
+              # Deploy
+              docker compose -f docker-compose-production.yml down || true
               docker compose -f docker-compose-production.yml up -d --remove-orphans
               sleep 15
               
+              # Health check
               if ! docker compose -f docker-compose-production.yml ps | grep -E "(nginx|backend).*Up"; then
                 echo "❌ Services failed:"
                 docker compose -f docker-compose-production.yml logs --tail=20
                 exit 1
               fi
               
-              echo "🎉 FULL-STACK LIVE!"
-              echo "🌐 http://${HOSTNAME}:80"
+              echo "🎉 FULL-STACK LIVE! http://${HOSTNAME}:80"
               docker compose -f docker-compose-production.yml ps
