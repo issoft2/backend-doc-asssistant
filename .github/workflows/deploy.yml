@@ -1,4 +1,5 @@
-name: Deploy Full-Stack to DigitalOcean
+name: Deploy Full-Stack to DigitalOcean Droplet
+
 on:
   push:
     branches: [ main ]
@@ -10,11 +11,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ✅ NEW: Build frontend ON GITHUB RUNNER
+      # 🔥 BUILD FRONTEND ON GITHUB RUNNER (CRITICAL!)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -23,11 +25,18 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: cd frontend && npm ci
+        run: |
+          cd frontend
+          npm ci
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        run: |
+          cd frontend
+          npm run build
+          echo "✅ Frontend dist built successfully"
+          ls -la frontend/dist/
 
+      # 🔥 DEPLOY TO DROPLET (dist/ now exists!)
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -38,52 +47,113 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Your existing script with FIXED nginx volume mount
             set -e
-            echo "🚀 FULL-STACK Deploy as $(whoami)"
+            echo "🚀 FULL-STACK Deploy as $(whoami) at $(date)"
             
-            mkdir -p /srv/company-assistant/{backend,frontend}
+            # Create directories
+            mkdir -p /srv/company-assistant/{backend,frontend,data}
+            
+            # Backend environment
             echo "$BACKEND_ENV" > /srv/company-assistant/backend/.env
             chmod 600 /srv/company-assistant/backend/.env
             
             cd /srv/company-assistant
             
             # Copy BUILT frontend files from GitHub runner
+            echo "📦 Copying frontend dist..."
             cp -r $GITHUB_WORKSPACE/frontend/dist/* frontend/
-            cp $GITHUB_WORKSPACE/frontend/nginx.conf frontend/nginx.conf || echo "⚠️ No nginx.conf"
             
+            # Copy nginx.conf (create if missing)
+            if [ -f "$GITHUB_WORKSPACE/frontend/nginx.conf" ]; then
+              cp $GITHUB_WORKSPACE/frontend/nginx.conf frontend/nginx.conf
+              echo "✅ nginx.conf copied"
+            else
+              echo "⚠️ Creating default nginx.conf"
+              cat > frontend/nginx.conf << 'NGINX'
+            server {
+                listen 80;
+                root /usr/share/nginx/html;
+                index index.html;
+                
+                # Vue SPA routing
+                location / {
+                    try_files $uri /index.html;
+                }
+                
+                # Cache static assets
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+                    expires 1y;
+                    add_header Cache-Control "public, immutable";
+                }
+                
+                # Proxy to backend
+                location /api/ {
+                    proxy_pass http://backend:8000/;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                }
+            }
+            NGINX
+            fi
+            
+            # Pull backend image
+            echo "🐳 Pulling backend image..."
             docker pull specisaac/company-assistant-backend:latest
             
-            # FIXED docker-compose-production.yml
+            # Create docker-compose-production.yml (HTTP first, SSL later)
             cat > docker-compose-production.yml << 'EOF'
             version: "3.9"
             services:
               backend:
                 image: specisaac/company-assistant-backend:latest
-                ports: ["8000:8000"]
-                env_file: ['./backend/.env']
+                ports:
+                  - "8000:8000"
+                env_file:
+                  - ./backend/.env
                 volumes:
                   - chroma_data:/app/chromadb_multi_tenant
                   - ./data:/app/data
                 restart: unless-stopped
-                networks: [app_net]
+                networks:
+                  - app_net
               
               nginx:
                 image: nginx:alpine
                 container_name: frontend-nginx
-                ports: ["80:80", "443:443"]
+                ports:
+                  - "80:80"
                 volumes:
-                  - /etc/letsencrypt/live/lexiscope.duckdns.org:/etc/letsencrypt/live/lexiscope.duckdns.org:ro
-                  - /etc/letsencrypt/archive/lexiscope.duckdns.org:/etc/letsencrypt/archive/lexiscope.duckdns.org:ro
-                  - ./frontend:/usr/share/nginx/html:ro  # ✅ FIXED
+                  - ./frontend:/usr/share/nginx/html:ro
                 restart: unless-stopped
-                depends_on: [backend]
-                networks: [app_net]
+                depends_on:
+                  - backend
+                networks:
+                  - app_net
             
-            volumes: { chroma_data: {} }
-            networks: { app_net: { driver: bridge } }
+            volumes:
+              chroma_data:
+            
+            networks:
+              app_net:
+                driver: bridge
             EOF
             
+            echo "✅ docker-compose-production.yml created"
+            
+            # Zero-downtime deploy
             docker compose -f docker-compose-production.yml up -d --remove-orphans
+            echo "🚀 Services deploying..."
+            
+            # Health check
             sleep 15
+            if ! docker compose -f docker-compose-production.yml ps | grep -E "(nginx|backend).*Up"; then
+              echo "❌ Services failed to start:"
+              docker compose -f docker-compose-production.yml logs --tail=20
+              exit 1
+            fi
+            
+            echo "🎉 FULL-STACK DEPLOYMENT SUCCESSFUL!"
+            echo "🌐 Frontend: http://${HOSTNAME}:80"
+            echo "🌐 Backend API: http://${HOSTNAME}:8000"
             docker compose -f docker-compose-production.yml ps
