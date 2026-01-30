@@ -33,10 +33,10 @@ services:
         - /etc/letsencrypt:/etc/letsencrypt:ro
 
         # Nginx config
-        - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        - /srv/company-assistant/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
         # Frontend build
-        - ./frontend/dist:/usr/share/nginx/html:ro
+        - /srv/company-assistant/frontend/dist:/usr/share/nginx/html:ro
     
      depends_on:
        - backend
