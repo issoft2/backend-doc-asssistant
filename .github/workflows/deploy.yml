@@ -1,85 +1,47 @@
-name: Deploy Full-Stack to DigitalOcean Droplet
+- name: Deploy frontend via rsync
+  uses: burnett01/rsync-deployments@v6
+  with:
+    switches: -az --delete
+    path: frontend/dist/
+    remote_path: /srv/company-assistant/frontend/
+    remote_host: ${{ secrets.SSH_HOST }}
+    remote_user: ${{ secrets.SSH_USER }}
+    remote_key: ${{ secrets.SSH_KEY }}
+    remote_port: ${{ secrets.SSH_PORT || 22 }}
 
-on:
-  push:
-    branches: [ main ]
+- name: Deploy backend over SSH
+  uses: appleboy/ssh-action@v1.0.3
+  env:
+    BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+  with:
+    host: ${{ secrets.SSH_HOST }}
+    username: ${{ secrets.SSH_USER }}
+    key: ${{ secrets.SSH_KEY }}
+    port: ${{ secrets.SSH_PORT || 22 }}
+    script: |
+      set -e
+      cd /srv/company-assistant
 
-permissions:
-  contents: read
+      # Ensure directories
+      mkdir -p backend data
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+      # Write .env (overwrite to avoid duplicates)
+      echo "$BACKEND_ENV" > backend/.env
+      chmod 600 backend/.env
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      # Pull latest image & start backend
+      docker compose -f docker-compose-production.yml pull
+      docker compose -f docker-compose-production.yml up -d --remove-orphans
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      echo "Waiting 15s for backend startup..."
+      sleep 15
 
-      - name: Install & build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-          echo "✅ Built: $(ls -la dist/ | head -3)"
-
-      - name: Deploy frontend via rsync
-        uses: burnett01/rsync-deployments@v6
-        with:
-           switches: -az --delete
-           path: frontend/dist/
-           remote_path: /srv/company-assistant/frontend/
-           remote_host: ${{ secrets.SSH_HOST }}
-           remote_user: ${{ secrets.SSH_USER }}
-           remote_key: ${{ secrets.SSH_KEY }}
-           remote_port: ${{ secrets.SSH_PORT || 22 }}
-          
-      
-
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
-            
-            cd /srv/company-assistant
-            
-            # Ensure directories
-            mkdir -p {backend,frontend,data}
-            echo "$BACKEND_ENV" >> backend/.env
-            chmod 600 backend/.env
-            
-            # Copy index.html to root for Vue SPA
-            cp frontend/dist/index.html frontend/index.html || true
-            
-                        
-              # Deploy
-              docker compose -f docker-compose-production.yml down || true
-              docker compose -f docker-compose-production.yml up -d --remove-orphans
-              
-              echo "Waiting 30s for startup..."
-              sleep 30
-              
-              # Simple health check (no jq needed)
-              if ! docker compose -f docker-compose-production.yml ps | grep -E "(nginx|backend).*Up"; then
-                echo "❌ Check logs:"
-                docker compose -f docker-compose-production.yml logs --tail=50
-              else
-                echo "✅ BOTH SERVICES UP!"
-                echo "🌐 Frontend: http://${HOSTNAME}:80"
-                echo "🌐 Backend API: http://${HOSTNAME}:8000"
-                docker compose -f docker-compose-production.yml ps
-              fi
+      # Simple health check
+      if ! docker compose -f docker-compose-production.yml ps | grep -E "backend.*Up"; then
+        echo "❌ Backend not running! Check logs:"
+        docker compose -f docker-compose-production.yml logs --tail=50
+        exit 1
+      else
+        echo "✅ Backend container is UP!"
+        docker compose -f docker-compose-production.yml ps
+      fi
