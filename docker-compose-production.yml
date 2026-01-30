@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   backend:
+    
     image: ${DOCKERHUB_USERNAME}/company-assistant-backend:latest
     ports:
       - "8000:8000"
@@ -11,6 +12,11 @@ services:
       - chroma_data:/app/chromadb_multi_tenant
       - ./data:/app/data
     restart: unless-stopped
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]  # Use /docs not /health
+        interval: 30s
+        timeout: 10s
+        retries: 3 
     networks:
       app_net:
          aliases:
