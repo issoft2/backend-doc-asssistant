@@ -2,48 +2,40 @@ version: "3.9"
 
 services:
   backend:
+    build: ./backend
     image: specisaac/company-assistant-backend:latest
-    container_name: backend
-
-    env_file:
-      - ./backend/.env
+    env_file: ./backend/.env
+    ports:
+      - "8000:8000"
     volumes:
       - chroma_data:/app/chromadb_multi_tenant
       - ./data:/app/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     networks:
-      app_net:
-        aliases:
-          - backend
+      - app_net
+
+  frontend:
+    build: ./frontend
+    image: specisaac/company-assistant-frontend:latest
+    networks:
+      - app_net
+    restart: unless-stopped
 
   nginx:
-     image: nginx:latest
-     container_name: frontend_nginx
-     ports:
-       - "80:80"
-       - "443:443"
-
-     volumes:
-        # SSL certs from host
-        - /etc/letsencrypt:/etc/letsencrypt:ro
-
-        # Nginx config
-        - /srv/company-assistant/frontend/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-
-        # Frontend build
-        - /srv/company-assistant/frontend/dist:/usr/share/nginx/html:ro
-    
-     depends_on:
-       - backend
-
-     restart: unless-stopped
-     networks:
-       - app_net
+    image: nginx:alpine
+    container_name: frontend-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - app_net
+    restart: unless-stopped
 
 volumes:
   chroma_data:

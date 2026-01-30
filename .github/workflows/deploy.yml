@@ -16,32 +16,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install & build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-
-      - name: Deploy frontend via native rsync
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-          rsync -az --delete \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no" \
-            frontend/dist/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/srv/company-assistant/frontend/dist/
-
-
-      - name: Deploy backend over SSH
+      - name: Deploy backend & frontend over SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
@@ -54,19 +29,28 @@ jobs:
             set -e
             cd /srv/company-assistant
 
+            # Ensure directories exist
             mkdir -p backend data
 
-            echo "$BACKEND_ENV" >> backend/.env
+            # Write backend env (overwrite to avoid duplicates)
+            echo "$BACKEND_ENV" > backend/.env
             chmod 600 backend/.env
 
+            # Pull latest Docker images for both frontend and backend
             docker compose -f docker-compose-production.yml pull
-            docker compose -f docker-compose-production.yml up -d --remove-orphans
 
+            # Bring up the stack
+            docker compose -f docker-compose up -d --remove-orphans
+
+            echo "Waiting 15s for containers to start..."
             sleep 15
 
-            if ! docker compose -f docker-compose-production.yml ps | grep -E "backend.*Up"; then
-              docker compose -f docker-compose-production.yml logs --tail=50
+            # Health check for backend
+            if ! docker compose ps | grep -E "backend.*Up"; then
+              echo "❌ Backend not running! Check logs:"
+              docker compose logs --tail=50
               exit 1
             fi
 
             echo "✅ Backend is running"
+            echo "✅ Full stack deployed"
