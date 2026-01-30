@@ -90,3 +90,169 @@ The frontend is a **Single-Page Application (SPA)** that communicates exclusivel
 ```text
 acme_corp__policies
 globex__employee_handbook
+
+
+Tenant discovery is derived from collection names
+
+User accounts, roles, and tenant ownership are stored in a relational database
+
+tenant_id is embedded in JWTs and enforced server-side
+
+Tenant identifiers are never supplied by the UI during queries.
+
+Key Features
+Multi-Tenant RAG
+
+Tenant-aware document ingestion and retrieval
+
+Token-based chunking for improved retrieval quality
+
+Optional per-collection querying
+
+Safe default: search all tenant collections if none specified
+
+Role-Based Access Control
+
+Vendor
+
+Provision companies and collections
+
+View all tenants
+
+Create users across tenants
+
+HR / Executive / Management
+
+Manage users within their own tenant
+
+Upload and manage documents
+
+Employee
+
+Query policies only
+
+No administrative privileges
+
+Vendor Bootstrap
+
+On backend startup:
+
+Database schema is created automatically
+
+Vendor account is seeded if missing
+
+Document Ingestion
+
+Upload endpoint accepts PDFs, DOCX, and similar formats
+
+Backend pipeline:
+
+Text extraction
+
+Token-based chunking
+
+Embedding generation
+
+Storage in tenant-scoped collections
+
+Indexing metadata returned for auditing
+
+Query & Answering
+
+/query endpoint:
+
+Tenant resolved from JWT
+
+Guarded system prompt construction
+
+Source attribution included
+
+Response includes:
+
+Natural-language answer
+
+Deduplicated list of source documents
+
+## Project Structure
+project-root/
+  backend/
+    Vector_setup/
+      base/
+        db_setup_management.py
+      API/
+        auth_router.py
+        ingest_routes.py
+        query_routes.py
+      user/
+        db.py
+        password.py
+    LLM_Config/
+      llm_pipeline.py
+      prompt_templates.py
+    chromadb_multi_tenant/   # git-ignored
+    Users.db                 # git-ignored
+    api_execute.py
+
+  frontend/
+    src/
+      api.js
+      router/
+        index.js
+      views/
+        AdminCompaniesPage.vue
+        AdminIngestPage.vue
+        ChatPage.vue
+        LoginPage.vue
+    vite.config.js
+    index.html
+
+  .gitignore
+  README.md
+
+##Setup & Installation
+
+###Backend Setup
+cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+## Run the ApI
+uvicorn Vector_setup.API.api_execute:app --reload
+
+API documentation:
+http://localhost:8000/docs
+
+## Frontend Setup
+
+cd frontend
+npm install
+npm run dev
+
+##Environment Configuration
+
+Create backend/.env:
+
+DATABASE_URL=sqlite:///./Users.db
+AUTH_SECRET_KEY=your-long-random-secret
+
+##License
+
+All rights reserved.
+This project is proprietary unless explicitly stated otherwise.
+
+
+---
+
+If you want, next I can:
+- Rewrite this for **investors / enterprise buyers**
+- Add **architecture diagrams (Mermaid)**
+- Produce a **marketing landing-page README**
+- Split into **OSS core + SaaS enterprise README**
+
+Just tell me 👌
+::contentReference[oaicite:0]{index=0}
+
+
+
+

@@ -30,16 +30,18 @@ jobs:
           npm run build
           echo "✅ Built: $(ls -la dist/ | head -3)"
 
-      - name: Transfer frontend files
-        uses: appleboy/scp-action@v1
+      - name: Deploy frontend via rsync
+        uses: burnett01/rsync-deployments@v6
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "frontend/dist/*"
-          target: "/srv/company-assistant/frontend/"
-          strip_components: 1
+           switches: -az --delete
+           path: frontend/dist/
+           remote_path: /srv/company-assistant/frontend/
+           remote_host: ${{ secrets.SSH_HOST }}
+           remote_user: ${{ secrets.SSH_USER }}
+           remote_key: ${{ secrets.SSH_KEY }}
+           remote_port: ${{ secrets.SSH_PORT || 22 }}
+          
+      
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
