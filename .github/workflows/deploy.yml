@@ -1,4 +1,5 @@
-- name: Deploy frontend via rsync
+
+- name: Deploy Full-Stack to DigitalOcean Droplet
   uses: burnett01/rsync-deployments@v6
   with:
     switches: -az --delete
