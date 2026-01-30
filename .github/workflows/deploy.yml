@@ -1,6 +1,10 @@
 name: Deploy Full-Stack to DigitalOcean Droplet
 
 on:
+  workflow_run:
+    workflows: ["Build & Push Backend Docker (Docker Hub)", "Build & Push Frontend Docker Image"]
+    types:
+      - completed
   push:
     branches: [ main ]
 
