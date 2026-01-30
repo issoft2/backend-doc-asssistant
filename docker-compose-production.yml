@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   backend:
-    image: ${DOCKERHUB_USERNAME}/company-assistant-backend:latest
+    image: specisaac/company-assistant-backend:latest
     container_name: backend
     ports:
       - "127.0.0.1:8000:8000"  # bind to localhost only
