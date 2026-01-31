@@ -20,15 +20,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ADD THIS STEP HERE
+      # A
       - name: Copy config files to Droplet
-        uses: appleboy.scp-action@v0.1.7
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: "docker-compose-production.yml, frontend"  
+          source: "docker-compose-production.yml, frontend/nginx/nginx.conf"  
           target: /srv/company-assistant/
 
       - name: Deploy backend & frontend over SSH
