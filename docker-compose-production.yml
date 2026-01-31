@@ -14,14 +14,15 @@ services:
     restart: unless-stopped
     networks:
       - app_net
-    # --- REFINEMENT: Healthcheck ---
+
     # This tells Docker how to check if the backend is actually ready.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/docs"] # Ensure this endpoint exists in your FastAPI/Flask app
+      # This uses a bash socket check—no curl required!
+      test: ["CMD-SHELL", "timeout 1s bash -c ':> /dev/tcp/127.0.0.1/8000' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 40s # Increased to give ChromaDB/Uvicorn more time
 
   frontend:
     build: ./frontend
