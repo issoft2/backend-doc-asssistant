@@ -1,4 +1,4 @@
-# Stage 1: Build the Vue frontend
+# Stage 1: Build Vue frontend
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -9,18 +9,17 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve with nginx
+# Stage 2: Nginx
 FROM nginx:alpine
 
-# Remove default nginx content
-RUN rm -rf /usr/share/nginx/html/*
+# Remove default config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# Copy custom nginx config (must be inside frontend/nginx/)
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built frontend
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy custom nginx config from host (adjust path!)
-# This assumes you copy the nginx.conf file into your frontend folder before building
-COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
 
