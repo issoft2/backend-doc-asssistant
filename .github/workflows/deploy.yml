@@ -44,6 +44,10 @@ jobs:
             set -e
             cd /srv/company-assistant
 
+            # 1. STOP HOST NGINX (Prevents the "Address already in use" error)
+            sudo systemctl stop nginx || true
+            sudo systemctl disable nginx || true
+
             # 1. Double-check cleanup (Safety first)
             if [ -d "frontend/nginx.conf" ]; then
                 rm -rf frontend/nginx.conf
