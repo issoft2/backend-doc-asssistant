@@ -20,21 +20,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 1. Prepare permissions (Fixes the "Permission Denied" tar error)
-      - name: Prepare server permissions
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            # Create the path and ensure ownership. 
-            # If the user has NOPASSWD set in visudo, this works.
-            sudo mkdir -p /srv/company-assistant/frontend/nginx
-            sudo chown -R ${{ secrets.SSH_USER }}:${{ secrets.SSH_USER }} /srv/company-assistant
-
-      # 2. Copy config files
       - name: Copy config files to Droplet
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -42,11 +27,11 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          # This copies the compose file and the nginx config folder structure
           source: "docker-compose-production.yml,frontend/nginx/nginx.conf"  
           target: /srv/company-assistant/
 
-      # 3. Final Deployment
-      - name: Deploy backend & frontend over SSH
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
           BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
@@ -59,31 +44,30 @@ jobs:
             set -e
             cd /srv/company-assistant
 
-            # Cleanup the fake directory if Docker created one (Note the spaces inside brackets)
+            # 1. Double-check cleanup (Safety first)
             if [ -d "frontend/nginx.conf" ]; then
-                echo "Cleaning up incorrect directory created by Docker..."
                 rm -rf frontend/nginx.conf
             fi
             
-            # Ensure directories exist
+            # 2. Ensure directories exist
             mkdir -p backend data frontend/nginx
 
-            # Write backend env (Use '>' to overwrite, not '>>' to append)
+            # 3. Setup Env
             echo "$BACKEND_ENV" > backend/.env
             chmod 600 backend/.env
 
-            # Pull and Restart
+            # 4. Pull and Up
             docker compose -f docker-compose-production.yml pull
             docker compose -f docker-compose-production.yml up -d --remove-orphans
 
-            echo "Waiting 15s for containers to start..."
+            echo "Waiting 15s for start..."
             sleep 15
 
-            # Health check 
+            # 5. Health check
             if ! docker ps | grep -E "backend.*Up"; then
-              echo "❌ Backend not running! Check logs:"
+              echo "❌ Backend failed"
               docker compose -f docker-compose-production.yml logs --tail=50
               exit 1
             fi
 
-            echo "✅ Full stack deployed"
+            echo "✅ Deployment Successful"
