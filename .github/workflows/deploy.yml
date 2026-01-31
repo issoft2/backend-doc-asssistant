@@ -54,7 +54,7 @@ jobs:
             mkdir -p backend data frontend/nginx
 
             # 3. Setup Env
-            echo "$BACKEND_ENV" > backend/.env
+            echo "$BACKEND_ENV" >> backend/.env
             chmod 600 backend/.env
 
             # 4. Pull and Up
