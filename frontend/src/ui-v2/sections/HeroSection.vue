@@ -1,101 +1,89 @@
 <template>
-  <section class="relative min-h-[90vh] flex items-center overflow-hidden bg-surface-neutral-50 px-6 lg:px-8">
+  <section class="relative min-h-[90vh] flex items-center justify-center pt-12">
     
-    <div class="absolute inset-0 -z-10 opacity-[0.03]" aria-hidden="true">
-      <svg class="h-full w-full" fill="none" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs>
-          <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" stroke="currentColor" stroke-width="0.5"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
+    <div class="absolute inset-0 z-0 pointer-events-none">
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full 
+                  bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)]
+                  dark:bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_0%,transparent_70%)]">
+      </div>
     </div>
 
-    <div class="mx-auto max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center pt-20 pb-32">
+    <div class="max-w-7xl mx-auto px-8 w-full grid lg:grid-cols-2 gap-16 items-center">
       
-      <div class="flex flex-col items-start space-y-8">
-        
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-100/50 transition-all hover:bg-indigo-100">
-          <span class="material-symbols-rounded text-indigo-600 text-[18px]">verified_user</span>
-          <span class="text-xs font-bold tracking-wider text-indigo-700 uppercase">
-            Hard Isolation Enforced
-          </span>
+      <div class="space-y-10 relative z-10">
+        <div class="space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-sm border border-indigo-500/20 dark:border-emerald-500/20 bg-indigo-500/5 dark:bg-emerald-500/5 text-indigo-600 dark:text-emerald-400 font-mono text-[9px] tracking-[0.3em] uppercase">
+            Institutional Privacy Layer
+          </div>
+
+          <h1 class="font-black leading-[0.95] tracking-tighter text-slate-900 dark:text-white italic"
+              style="font-size: clamp(3rem, 7vw, 7.5rem);">
+            OWN YOUR <br/>
+            <span class="text-indigo-600 dark:text-emerald-400">MEMORY.</span>
+          </h1>
+
+          <p class="max-w-md text-lg md:text-xl text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+            The private knowledge engine for multi-subsidiary groups. 
+            Ground your AI in <span class="text-slate-900 dark:text-white border-b-2 border-indigo-500/20">authorized internal data</span> with zero cross-tenant leakage.
+          </p>
         </div>
 
-        <h1 class="text-balance text-5xl font-semibold tracking-tight text-slate-900 sm:text-7xl">
-          Institutional <br/>
-          <span class="text-indigo-600">Sovereign Intelligence.</span>
-        </h1>
-
-        <p class="max-w-lg text-lg leading-relaxed text-slate-600">
-          The trusted knowledge layer for multi-tenant organizations. 
-          Ask questions, analyze reports, and generate insights exclusively from 
-          your <span class="text-slate-900 font-medium underline decoration-indigo-300 underline-offset-4">grounded documents</span>.
-        </p>
-
-        <div class="flex flex-wrap gap-4 pt-4">
-          <button class="relative group overflow-hidden bg-slate-900 px-8 py-4 rounded-full text-white font-medium transition-all hover:shadow-lg active:scale-95">
-            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.12] transition-opacity"></div>
-            <span class="relative flex items-center gap-2">
-              Deploy Intelligence Layer
-              <span class="material-symbols-rounded text-[20px]">arrow_forward</span>
-            </span>
+        <div class="flex flex-wrap items-center gap-6">
+          <button class="px-10 py-5 bg-slate-900 dark:bg-emerald-500 text-white dark:text-black font-black uppercase text-xs tracking-widest hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95">
+            Initialize Nexus
           </button>
-          
-          <button class="px-8 py-4 rounded-full border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors active:scale-95">
-            Security Whitepaper
-          </button>
+          <a href="#how-it-works" class="group flex items-center gap-3 font-mono text-[10px] tracking-widest uppercase text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+            Process Logic 
+            <span class="material-symbols-rounded text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          </a>
         </div>
       </div>
 
-      <div class="relative lg:ml-auto w-full max-w-[560px]">
-        <div class="rounded-[28px] bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] ring-1 ring-slate-200">
-          <div class="rounded-[22px] bg-slate-50 overflow-hidden border border-slate-100">
-            
-            <div class="px-6 py-4 bg-white border-b border-slate-200 flex justify-between items-center">
-              <div class="flex items-center gap-3">
-                <div class="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">AI</div>
-                <div class="flex flex-col">
-                  <span class="text-[11px] font-bold text-slate-900 leading-none">Global Ministry Hub</span>
-                  <span class="text-[9px] text-emerald-600 font-medium flex items-center gap-1">
-                    <span class="h-1 w-1 rounded-full bg-emerald-600 animate-pulse"></span>
-                    Tenant: Subsidiary_Alpha
-                  </span>
-                </div>
-              </div>
-              <span class="material-symbols-rounded text-slate-400 text-[20px]">settings_input_component</span>
-            </div>
+      <div 
+        class="relative perspective-1000 group hidden lg:block"
+        @mousemove="handleVaultTilt"
+        @mouseleave="resetVaultTilt"
+      >
+        <div 
+          ref="vaultCard"
+          class="relative z-20 transition-transform duration-300 ease-out 
+                 bg-white/80 dark:bg-white/[0.02] backdrop-blur-3xl 
+                 border border-slate-200 dark:border-white/10 rounded-[40px] p-1 shadow-2xl"
+        >
+          <div class="bg-slate-50 dark:bg-[#05070a] rounded-[38px] p-8 overflow-hidden">
+            <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,rgba(16,185,129,0.03)_20px,rgba(16,185,129,0.03)_40px)]"></div>
 
-            <div class="p-6 space-y-6">
-              <div class="space-y-2">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Query Retrieval Trace</div>
-                <div class="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 text-[13px] text-slate-700 italic">
-                  "Analyze our Q3 compliance risks across the EMEA region."
+            <header class="flex justify-between items-start mb-10">
+              <div class="space-y-1">
+                <h3 class="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Isolation Engine</h3>
+                <p class="text-sm font-bold text-slate-900 dark:text-white">Boundary: Org_01_Secure</p>
+              </div>
+              <span class="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-tighter border border-emerald-500/20">
+                Verified
+              </span>
+            </header>
+
+            <div class="space-y-6">
+              <div class="p-4 rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-emerald-500 animate-pulse"></div>
+                  <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Active Search Context</span>
                 </div>
+                <div class="h-2 w-3/4 bg-slate-200 dark:bg-white/10 rounded-full mb-2"></div>
+                <div class="h-2 w-1/2 bg-slate-200 dark:bg-white/10 rounded-full"></div>
               </div>
 
-              <div class="space-y-4">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-rounded text-emerald-600 text-[18px]">verified</span>
-                  <span class="text-[11px] font-bold text-slate-500">Retrieval Sources (ACL Verified)</span>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div class="p-2 rounded-lg bg-white border border-slate-200 text-[10px] font-medium flex items-center gap-2">
-                    <span class="material-symbols-rounded text-[14px] text-red-500">description</span>
-                    EMEA_Risk_SOP.pdf
-                  </div>
-                  <div class="p-2 rounded-lg bg-white border border-slate-200 text-[10px] font-medium flex items-center gap-2">
-                    <span class="material-symbols-rounded text-[14px] text-blue-500">table_chart</span>
-                    Q3_Audits.xlsx
-                  </div>
-                </div>
+              <div class="pt-4 border-t border-slate-200 dark:border-white/5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
+                  "Only document vectors within the **Tenant Namespace** are pulled into the inference window. Cross-org visibility is restricted by the **ACL Controller**."
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="absolute -top-12 -right-12 h-64 w-64 bg-indigo-200/30 blur-[100px] -z-10 rounded-full"></div>
+        <div class="absolute -top-6 -right-6 w-32 h-32 bg-indigo-500/10 dark:bg-emerald-500/10 blur-3xl rounded-full"></div>
+        <div class="absolute -bottom-10 -left-10 w-48 h-48 bg-slate-200 dark:bg-indigo-500/5 blur-3xl rounded-full"></div>
       </div>
 
     </div>
@@ -103,14 +91,38 @@
 </template>
 
 <script setup lang="ts">
-// Logic for handling dynamic tenant names or roles could go here
+import { ref, reactive } from 'vue';
+
+const vaultCard = ref<HTMLElement | null>(null);
+const tilt = reactive({ x: 0, y: 0 });
+
+const handleVaultTilt = (e: MouseEvent) => {
+  if (!vaultCard.value) return;
+  const rect = vaultCard.value.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const centerX = rect.width / 2;
+  const centerY = rect.height / 2;
+  const rotateX = (centerY - y) / 20; // Subtle movement
+  const rotateY = (x - centerX) / 20;
+  vaultCard.value.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+};
+
+const resetVaultTilt = () => {
+  if (!vaultCard.value) return;
+  vaultCard.value.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+};
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+/* High-Density Typography */
+h1 {
+  font-family: 'Instrument Sans', sans-serif;
+  font-style: italic;
+  font-weight: 900;
+}
 
-/* M3 Transition Easing */
-.ease-m3 {
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+div, p, button, span {
+  font-family: 'JetBrains Mono', monospace;
 }
 </style>

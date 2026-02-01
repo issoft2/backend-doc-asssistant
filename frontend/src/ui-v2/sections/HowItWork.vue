@@ -1,78 +1,104 @@
-<!-- HowItWorks.vue -->
 <template>
-  <section id="how-it-works" class="relative py-24 bg-gray-50">
-    <div class="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-      <!-- Section Header -->
-      <div class="text-center max-w-2xl mx-auto">
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900">
-          How it works
+  <section id="how-it-works" class="relative py-32 bg-white dark:bg-[#020406] transition-colors duration-700 overflow-hidden">
+    
+    <div class="absolute top-[60%] left-0 w-full h-[1px] bg-slate-200 dark:bg-white/5 z-0 hidden md:block">
+      <div class="h-full bg-indigo-600 dark:bg-emerald-500 w-1/3 animate-flow-line"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-8 relative z-10">
+      
+      <div class="mb-24 space-y-4 text-center md:text-left">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-sm bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-mono font-bold tracking-[0.4em] uppercase text-slate-500">
+          Standard Operating Procedure // SOP_v2
+        </div>
+        <h2 class="text-5xl lg:text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-none italic">
+          KNOWLEDGE <br/>
+          <span class="text-indigo-600 dark:text-emerald-400">LIFECYCLE.</span>
         </h2>
-        <p class="mt-4 text-gray-600 text-lg sm:text-xl">
-          Follow these simple steps to start getting answers from your documents instantly.
-        </p>
       </div>
 
-      <!-- Steps Grid -->
-      <div class="mt-16 grid gap-12 sm:grid-cols-1 md:grid-cols-3">
+      <div class="grid gap-8 md:grid-cols-3">
         <div
           v-for="(step, index) in steps"
           :key="index"
-          class="relative p-6 bg-white rounded-2xl shadow hover:shadow-lg transition cursor-pointer"
+          class="group relative p-8 bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-[32px] transition-all hover:shadow-2xl hover:-translate-y-2"
         >
-          <!-- Step number badge -->
-          <div class="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-bold text-lg mb-4">
-            {{ index + 1 }}
+          <div class="flex items-center gap-4 mb-8">
+            <div class="w-12 h-12 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-black font-mono font-bold text-lg shadow-lg">
+              0{{ index + 1 }}
+            </div>
+            <div class="h-[1px] flex-1 bg-slate-100 dark:bg-white/5"></div>
           </div>
 
-          <!-- Step Title -->
-          <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ step.title }}</h3>
+          <div class="space-y-4">
+            <h3 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
+              {{ step.title }}
+            </h3>
+            
+            <div class="h-12 overflow-hidden">
+              <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed group-hover:-translate-y-full transition-transform duration-500">
+                {{ step.description }}
+              </p>
+              <div class="pt-2 flex gap-2 transition-transform duration-500 group-hover:-translate-y-full">
+                <span v-for="tag in step.tags" :key="tag" class="text-[9px] font-mono px-2 py-0.5 rounded-full border border-indigo-500/20 text-indigo-600 dark:text-emerald-500 dark:border-emerald-500/20">
+                  {{ tag }}
+                </span>
+              </div>
+            </div>
+          </div>
 
-          <!-- Step Description -->
-          <p class="text-gray-600 leading-relaxed">{{ step.description }}</p>
+          <div class="absolute top-4 right-4 opacity-10 font-mono text-[40px] font-black italic">
+            //{{ step.code }}
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Optional abstract background shapes -->
-    <div class="absolute inset-0 -z-10 overflow-hidden">
-      <svg class="absolute top-0 left-1/2 transform -translate-x-1/2 mt-12" width="600" height="600" fill="none">
-        <circle cx="300" cy="300" r="300" fill="url(#grad1)" fill-opacity="0.1" class="animate-slow-spin"/>
-        <defs>
-          <radialGradient id="grad1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(300 300) rotate(90) scale(300)">
-            <stop stop-color="#6366f1"/>
-            <stop offset="1" stop-color="#6366f1" stop-opacity="0"/>
-          </radialGradient>
-        </defs>
-      </svg>
+      <div class="mt-20 flex flex-col items-center justify-center gap-4">
+        <p class="font-mono text-[10px] text-slate-400 uppercase tracking-widest">End-to-End Latency: &lt; 200ms</p>
+        <div class="w-px h-12 bg-gradient-to-b from-slate-200 dark:from-white/10 to-transparent"></div>
+      </div>
     </div>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const steps = [
   {
-    title: "Unified Knowledge Import",
-    description: "Unified Knowledge Import Securely centralize your data by uploading files directly or syncing effortlessly with Google Drive, Dropbox, and cloud storage. Whether it's a PDF, Doc, or Sheet, your data remains private, encrypted, and entirely under your control.",
-  },
-
-  {
-    title: "Conversational Intelligence",
-    description: "Ask complex questions in plain English and get precise answers. Interact with your documents like a teammate without the manual search.",
+    title: "Sovereign Ingestion",
+    description: "Centralize institutional data via secure cloud sync or direct encrypted upload with full org-level partitioning.",
+    code: "INGEST",
+    tags: ["AES-256", "S3_SYNC", "M-TENANT"]
   },
   {
-    title: "Instant Visual Analytics",
-    description: "Transform raw data into professional charts, summaries, and actionable insights with a simple question.",
+    title: "ACL-Aware Indexing",
+    description: "Documents are transformed into high-dimensional vectors and locked behind organization-specific security boundaries.",
+    code: "VECTOR",
+    tags: ["NAMESPACE", "HARD_ISO", "K_GRAPH"]
+  },
+  {
+    title: "Grounded Synthesis",
+    description: "Queries are processed within an isolated context, generating responses verified by document-level citations.",
+    code: "OUTPUT",
+    tags: ["RAG_CITES", "ZERO_HAL", "AUDIT"]
   },
 ];
 </script>
 
 <style scoped>
-.animate-slow-spin {
-  animation: slow-spin 60s linear infinite;
+h2 {
+  font-family: 'Instrument Sans', sans-serif;
 }
 
-@keyframes slow-spin {
-  0% { transform: rotate(0deg);}
-  100% { transform: rotate(360deg);}
+h3, p, span, div {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes flow-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.animate-flow-line {
+  animation: flow-line 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 </style>
