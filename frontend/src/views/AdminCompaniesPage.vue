@@ -1,178 +1,145 @@
 <template>
-  <div class="max-w-7xl mx-auto py-6 px-4 space-y-6">
-    <!-- Header -->
-    <header class="flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-semibold text-slate-900">
-          Company Administration
-        </h1>
-        <p class="text-sm text-slate-500">
-          Manage organizations, collections, users, and access.
-        </p>
+  <div class="min-h-screen bg-[#050505] text-slate-300 font-mono flex flex-col selection:bg-emerald-500/30">
+    
+    <header class="h-14 border-b border-white/5 bg-[#0A0A0A] flex items-center justify-between px-6 shrink-0 z-50">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+          <span class="text-xs font-black tracking-tighter text-white uppercase italic">Lexiscope // Admin_Console</span>
+        </div>
+        <div class="h-4 w-px bg-white/10"></div>
+        <nav class="flex gap-4 text-[10px] uppercase tracking-widest font-bold">
+          <span class="text-white">Overview</span>
+          <span class="text-slate-600 hover:text-slate-400 cursor-pointer transition-colors">Audit_Logs</span>
+          <span class="text-slate-600 hover:text-slate-400 cursor-pointer transition-colors">Security</span>
+        </nav>
       </div>
-
-      <!-- Tenant selector -->
-      <div class="flex items-center gap-3">
-        <select
-          v-model="activeTenantId"
-          class="rounded-lg border px-3 py-2 text-sm bg-white"
-        >
-          <option disabled value="">Select tenant</option>
-          <option
-            v-for="c in companies"
-            :key="c.tenant_id"
-            :value="c.tenant_id"
-          >
-            {{ c.display_name || c.tenant_id }}
-          </option>
-        </select>
-
-        <span
-          v-if="activeTenant"
-          class="text-xs px-2 py-1 rounded-full"
-          :class="statusBadgeClass(activeTenant.subscription_status)"
-        >
-          {{ activeTenant.subscription_status }}
-        </span>
+      
+      <div class="flex items-center gap-4 text-[10px]">
+        <span class="text-slate-600">SESSION_EXPIRE: 44m</span>
+        <button class="px-3 py-1 border border-white/10 hover:bg-white hover:text-black transition-all">LOGOUT</button>
       </div>
     </header>
 
-    <!-- Empty state -->
-    <div
-      v-if="!activeTenant"
-      class="border rounded-xl bg-white p-8 text-center text-slate-500"
-    >
-      Select a tenant to begin managing organizations and access.
-    </div>
-
-    <!-- Main layout -->
-    <div
-      v-else
-      class="grid grid-cols-1 md:grid-cols-12 gap-6"
-    >
-      <!-- Left: hierarchy -->
-      <aside class="md:col-span-4 bg-white border rounded-xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-slate-900">
-            Organizations
-          </h2>
-          <button
-            class="text-xs text-sky-600 hover:underline"
-            @click="openOrganizationsModal(activeTenant)"
-          >
-            + Add
-          </button>
+    <main class="flex-1 flex overflow-hidden">
+      
+      <aside class="w-64 border-r border-white/5 bg-[#080808] p-6 flex flex-col gap-8 shrink-0">
+        <div class="space-y-4">
+          <label class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Environment</label>
+          <div class="space-y-1">
+            <button class="w-full text-left px-3 py-2 text-xs bg-white/5 text-emerald-400 border-l-2 border-emerald-500">Global_Prod</button>
+            <button class="w-full text-left px-3 py-2 text-xs text-slate-500 hover:bg-white/5 transition-colors">Staging_V2</button>
+          </div>
         </div>
 
-        <ul class="space-y-2">
-          <li
-            v-for="org in activeTenant.organizations"
-            :key="org.id"
-            class="border rounded-lg p-2"
-          >
-            <button
-              class="w-full text-left text-sm font-medium text-slate-800"
-              @click="selectOrg(org)"
-            >
-              {{ org.name }}
-            </button>
-
-            <ul
-              v-if="selectedOrg?.id === org.id"
-              class="mt-2 pl-3 space-y-1"
-            >
-              <li
-                v-for="col in collectionsForOrg(activeTenant, org.id)"
-                :key="col.id"
-              >
-                <button
-                  class="text-xs text-slate-600 hover:text-slate-900"
-                  @click="selectCollection(col)"
-                >
-                  {{ col.name || col.collection_name }}
-                </button>
-              </li>
-
-              <li>
-                <button
-                  class="text-xs text-sky-600 hover:underline"
-                  @click="openCollectionModal(activeTenant)"
-                >
-                  + Add collection
-                </button>
-              </li>
-            </ul>
-          </li>
-        </ul>
+        <div class="space-y-4">
+          <label class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">System_Health</label>
+          <div class="p-3 bg-white/[0.02] border border-white/5 space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-[9px]">CPU_LOAD</span>
+              <span class="text-[9px] text-emerald-500">12.4%</span>
+            </div>
+            <div class="w-full h-1 bg-white/5">
+              <div class="w-[12%] h-full bg-emerald-500"></div>
+            </div>
+          </div>
+        </div>
       </aside>
 
-      <!-- Right: context panel -->
-      <section class="md:col-span-8 bg-white border rounded-xl p-6">
-        <!-- Tenant context -->
-        <div v-if="!selectedOrg">
-          <h2 class="text-lg font-semibold text-slate-900">
-            {{ activeTenant.display_name }}
-          </h2>
-          <p class="text-sm text-slate-500 mt-1">
-            Tenant overview and high-level actions.
-          </p>
-
-          <div class="mt-6 flex gap-3">
-            <button
-              class="btn-primary text-sm"
-              @click="openUserModal(activeTenant)"
-            >
-              Add user
-            </button>
+      <section class="flex-1 overflow-y-auto custom-scrollbar p-8">
+        <div class="max-w-6xl mx-auto space-y-12">
+          
+          <div class="flex justify-between items-end border-b border-white/5 pb-8">
+            <div class="space-y-2">
+              <h1 class="text-4xl font-black text-white italic tracking-tighter uppercase">Dashboard</h1>
+              <p class="text-xs text-slate-500 uppercase tracking-widest">Management of institutional tenants and global parameters.</p>
+            </div>
+            <div class="text-right font-mono text-[10px] text-slate-600">
+              LAST_SYNC: {{ new Date().toLocaleTimeString() }}
+            </div>
           </div>
-        </div>
 
-        <!-- Organization context -->
-        <div v-else-if="selectedOrg && !selectedCollection">
-          <h2 class="text-lg font-semibold text-slate-900">
-            {{ selectedOrg.name }}
-          </h2>
-          <p class="text-sm text-slate-500 mt-1">
-            Manage users and collections for this organization.
-          </p>
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            
+            <div class="xl:col-span-2 bg-[#0A0A0A] border border-white/10 rounded-sm overflow-hidden flex flex-col shadow-2xl">
+              <div class="p-4 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-white">Active_Tenants</span>
+                <button class="text-[9px] text-emerald-500 hover:underline">REFRESH_DB</button>
+              </div>
+              
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="text-[9px] text-slate-500 uppercase tracking-widest border-b border-white/5">
+                      <th class="p-4 font-bold">UID</th>
+                      <th class="p-4 font-bold">Organization_Name</th>
+                      <th class="p-4 font-bold">Access_Level</th>
+                      <th class="p-4 font-bold">Status</th>
+                      <th class="p-4 font-bold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody class="text-xs">
+                    <tr v-for="i in 5" :key="i" class="border-b border-white/5 hover:bg-white/[0.01] transition-colors group">
+                      <td class="p-4 font-mono text-slate-600">#00{{i}}</td>
+                      <td class="p-4 text-white font-bold tracking-tight">Enterprise_Node_{{i}}</td>
+                      <td class="p-4"><span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[9px] rounded-full border border-indigo-500/20 uppercase">Admin</span></td>
+                      <td class="p-4">
+                        <span class="flex items-center gap-2">
+                          <span class="w-1 h-1 rounded-full bg-emerald-500"></span>
+                          Active
+                        </span>
+                      </td>
+                      <td class="p-4 text-right">
+                        <button class="text-[10px] border border-white/10 px-3 py-1 hover:bg-white hover:text-black transition-all">MANAGE</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-          <div class="mt-6 flex gap-3">
-            <button
-              class="btn-primary text-sm"
-              @click="openUserModal(activeTenant)"
-            >
-              Add user
-            </button>
-          </div>
-        </div>
+            <div class="space-y-8">
+              <div class="bg-[#0A0A0A] border border-white/10 p-6 rounded-sm space-y-6">
+                <h3 class="text-[10px] font-bold text-white uppercase tracking-widest border-b border-white/5 pb-4">Global_Alerts</h3>
+                <div class="space-y-4">
+                  <div v-for="n in 3" :key="n" class="flex gap-4 items-start">
+                    <div class="w-1 h-1 rounded-full bg-amber-500 mt-1.5 shrink-0"></div>
+                    <div class="space-y-1">
+                      <p class="text-[10px] text-slate-300 leading-snug">New tenant environment initialized for "Global_Bank_v2".</p>
+                      <p class="text-[8px] text-slate-600 uppercase">2 hours ago</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        <!-- Collection context -->
-        <div v-else>
-          <h2 class="text-lg font-semibold text-slate-900">
-            {{ selectedCollection.name || selectedCollection.collection_name }}
-          </h2>
-          <p class="text-sm text-slate-500 mt-1">
-            Control who can access this collection.
-          </p>
-
-          <div class="mt-6">
-            <button
-              class="btn-primary text-sm"
-              @click="openCollectionAccessModal(
-                activeTenant,
-                selectedOrg,
-                selectedCollection
-              )"
-            >
-              Manage access
-            </button>
           </div>
         </div>
       </section>
-    </div>
+    </main>
+
+    <footer class="h-8 bg-[#0A0A0A] border-t border-white/5 px-6 flex items-center justify-between text-[8px] text-slate-600 uppercase tracking-widest">
+      <div class="flex gap-6">
+        <span>Nodes: 12_Active</span>
+        <span>Gateway: SSL_V3</span>
+      </div>
+      <div class="flex gap-6">
+        <span class="text-emerald-500/50 italic">Sovereign_Admin_Mode</span>
+      </div>
+    </footer>
   </div>
 </template>
 
+<style scoped>
+/* Industrial Scroller */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); transition: 0.3s; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
+
+h1 { font-family: 'Instrument Sans', sans-serif; letter-spacing: -0.05em; }
+table, aside, nav, footer, button, label { font-family: 'JetBrains Mono', monospace; }
+</style>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'

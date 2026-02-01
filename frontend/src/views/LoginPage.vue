@@ -1,105 +1,112 @@
 <template>
-  <div class="min-h-screen grid lg:grid-cols-2 bg-[#050505] selection:bg-emerald-500/30">
+  <div class="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-6 selection:bg-emerald-500/30 font-mono">
     
-    <div class="hidden lg:flex flex-col justify-between p-16 relative overflow-hidden border-r border-white/5">
-      <div class="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay" 
-           style="background-image: url('https://grainy-gradients.vercel.app/noise.svg');"></div>
-      
-      <div class="relative z-10">
-        <div class="flex items-center gap-3 mb-24">
-          <div class="h-10 w-10 bg-white flex items-center justify-center text-black font-black text-xs">LX</div>
-          <span class="text-white font-black uppercase tracking-tighter text-lg italic">Askmi</span>
-        </div>
-
-        <div class="space-y-6">
-          <h2 class="text-6xl font-black text-white leading-[0.85] italic uppercase tracking-tighter">
-            Access <br/>
-            <span class="text-emerald-500">Intelligence.</span>
-          </h2>
-          <p class="max-w-xs text-slate-500 font-mono text-xs uppercase tracking-[0.2em] leading-loose">
-            Enterprise-grade partition protocol active. Your session is grounded in private org-context.
-          </p>
-        </div>
+    <div class="fixed top-0 w-full p-6 flex justify-between items-center text-[10px] text-slate-600 tracking-[0.2em] border-b border-white/5 bg-[#050505]/50 backdrop-blur-md z-50">
+      <div class="flex items-center gap-4">
+        <span class="text-white font-black italic">ASKMI // AUTH GATE</span>
+        <span class="hidden sm:inline">STATUS: 200_OK</span>
       </div>
-
-      <div class="relative z-10 flex gap-8 text-[10px] font-mono text-slate-600 uppercase tracking-widest">
-        <span> STABLE</span>
+      <div class="flex gap-6">
+        <span>UTC: {{ new Date().toISOString().split('T')[1].slice(0,5) }}</span>
+        <span class="text-emerald-500">ENCRYPTED SESSION</span>
       </div>
     </div>
 
-    <div class="flex items-center justify-center p-8 bg-white dark:bg-[#080808]">
-      <div class="w-full max-w-sm space-y-10">
+    <div class="w-full max-w-[440px] relative">
+      
+      <div class="absolute -top-12 -left-12 w-24 h-24 border-t border-l border-white/10 pointer-events-none"></div>
+      <div class="absolute -bottom-12 -right-12 w-24 h-24 border-b border-r border-white/10 pointer-events-none"></div>
+
+      <div class="relative z-10 bg-[#0A0A0A] border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] overflow-hidden">
         
-        <header class="space-y-2">
-          <h1 class="text-4xl font-black text-slate-900 dark:text-white italic tracking-tighter uppercase">
+        <div class="p-8 border-b border-white/5 bg-white/[0.02]">
+          <h1 class="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">
             {{ requiresTenantSelection ? 'Select Domain' : 'Identify' }}
           </h1>
-          <p class="text-sm text-slate-500 font-medium">
-            {{ requiresTenantSelection ? 'Choose an authorized organization context.' : 'Enter your credentials to enter the workspace.' }}
+          <p class="text-[11px] text-slate-500 leading-relaxed uppercase tracking-widest">
+            Verification required for institutional access.
           </p>
-        </header>
+        </div>
 
-        <form v-if="!requiresTenantSelection" @submit.prevent="onSubmit" class="space-y-8">
-          <div class="space-y-6">
-            <div class="relative">
-              <input v-model="email" type="email" placeholder="Work Email" required :disabled="loading"
-                class="peer w-full bg-transparent border-b-2 border-slate-200 dark:border-white/10 py-3 text-slate-900 dark:text-white focus:border-indigo-600 dark:focus:border-emerald-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700">
-              <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-emerald-500 transition-all duration-500 peer-focus:w-full"></div>
-            </div>
-
-            <div class="relative">
-              <input v-model="password" type="password" placeholder="Password" required :disabled="loading"
-                class="peer w-full bg-transparent border-b-2 border-slate-200 dark:border-white/10 py-3 text-slate-900 dark:text-white focus:border-indigo-600 dark:focus:border-emerald-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700">
-              <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-emerald-500 transition-all duration-500 peer-focus:w-full"></div>
-            </div>
-          </div>
-
-          <button type="submit" :disabled="loading"
-            class="group relative w-full bg-slate-900 dark:bg-white text-white dark:text-black py-5 font-black uppercase text-[11px] tracking-[0.3em] overflow-hidden transition-transform active:scale-95">
-            <span class="relative z-10">{{ loading ? 'Verifying...' : 'Authorize' }}</span>
-            <div class="absolute inset-0 bg-emerald-500 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-          </button>
-        </form>
-
-        <form v-else @submit.prevent="onTenantSubmit" class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div class="space-y-4">
-            <div v-for="t in tenantOptions" :key="t.tenant_id" 
-                 @click="selectedTenantId = t.tenant_id"
-                 :class="[selectedTenantId === t.tenant_id ? 'border-emerald-500 bg-emerald-500/5' : 'border-slate-200 dark:border-white/10 hover:border-slate-400']"
-                 class="cursor-pointer border-2 p-4 rounded-sm transition-all flex justify-between items-center group">
-              <div>
-                <p class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">{{ t.name || t.tenant_id }}</p>
-                <p class="text-[10px] font-mono text-slate-500 uppercase">{{ t.role || 'Member' }}</p>
+        <div class="p-10 space-y-10">
+          <form v-if="!requiresTenantSelection" @submit.prevent="onSubmit" class="space-y-8">
+            <div class="space-y-6">
+              <div class="group">
+                <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-2 group-focus-within:text-emerald-500 transition-colors">Registry_Email</label>
+                <input v-model="email" type="email" placeholder="name@organization.com" required :disabled="loading"
+                  class="w-full bg-white/[0.03] border border-white/5 px-4 py-3 text-sm text-white focus:border-emerald-500/50 focus:bg-white/[0.05] outline-none transition-all placeholder:text-slate-700">
               </div>
-              <div class="h-4 w-4 rounded-full border-2 border-slate-300 dark:border-white/20 flex items-center justify-center">
-                <div v-if="selectedTenantId === t.tenant_id" class="h-2 w-2 rounded-full bg-emerald-500"></div>
+
+              <div class="group">
+                <div class="flex justify-between mb-2">
+                  <label class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] group-focus-within:text-emerald-500 transition-colors">Access_Key</label>
+                  <a href="#" class="text-[9px] text-slate-600 hover:text-white transition-colors underline decoration-white/10">Recovery?</a>
+                </div>
+                <input v-model="password" type="password" placeholder="••••••••" required :disabled="loading"
+                  class="w-full bg-white/[0.03] border border-white/5 px-4 py-3 text-sm text-white focus:border-emerald-500/50 focus:bg-white/[0.05] outline-none transition-all placeholder:text-slate-700">
               </div>
             </div>
-          </div>
 
-          <div class="flex flex-col gap-4">
-            <button type="submit" :disabled="loading || !selectedTenantId"
-              class="w-full bg-emerald-500 text-black py-5 font-black uppercase text-[11px] tracking-[0.3em] transition-all hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-              Continue to Workspace
+            <button type="submit" :disabled="loading"
+              class="w-full bg-white text-black py-4 font-black uppercase text-[11px] tracking-[0.3em] transition-all hover:bg-emerald-500 active:scale-[0.98] flex items-center justify-center gap-3">
+              <span v-if="loading" class="w-3 h-3 border-2 border-black/20 border-t-black rounded-full animate-spin"></span>
+              {{ loading ? 'Verifying...' : 'Authorize_Session' }}
             </button>
-            <button type="button" @click="resetTenantSelection" class="text-[10px] font-mono text-slate-500 uppercase tracking-widest hover:text-slate-900 dark:hover:text-white">
-              ← Back to login
-            </button>
+          </form>
+
+          <form v-else @submit.prevent="onTenantSubmit" class="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+            <div class="space-y-2 max-h-[240px] overflow-y-auto pr-2 custom-scrollbar">
+              <button 
+                v-for="t in tenantOptions" :key="t.tenant_id" 
+                type="button"
+                @click="selectedTenantId = t.tenant_id"
+                :class="[selectedTenantId === t.tenant_id ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/5 bg-white/[0.02] hover:border-white/20']"
+                class="w-full text-left border p-4 transition-all group flex items-center justify-between"
+              >
+                <div>
+                  <div class="text-[11px] font-bold text-white uppercase tracking-tight">{{ t.name || t.tenant_id }}</div>
+                  <div class="text-[9px] text-slate-500 uppercase tracking-widest mt-1">{{ t.role || 'Access_Member' }}</div>
+                </div>
+                <div v-if="selectedTenantId === t.tenant_id" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+              </button>
+            </div>
+
+            <div class="flex flex-col gap-4">
+              <button type="submit" :disabled="loading || !selectedTenantId"
+                class="w-full bg-emerald-500 text-black py-4 font-black uppercase text-[11px] tracking-[0.3em] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all">
+                Enter_Workspace
+              </button>
+              <button type="button" @click="resetTenantSelection" class="text-[9px] text-slate-500 uppercase tracking-widest hover:text-white transition-colors">
+                ← Return to Identification
+              </button>
+            </div>
+          </form>
+
+          <div v-if="error" class="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-widest text-center">
+            Critical_Error: {{ error }}
           </div>
-        </form>
+        </div>
+      </div>
 
-        <p v-if="error" class="text-center font-mono text-[10px] text-red-500 font-bold uppercase tracking-widest">
-          Error :: {{ error }}
-        </p>
-
+      <div class="mt-12 flex justify-between items-center text-[9px] text-slate-700 uppercase tracking-[0.3em]">
+        <span>Legality_v4.2</span>
+        <div class="flex gap-4">
+          <a href="#" class="hover:text-slate-400">Privacy</a>
+          <a href="#" class="hover:text-slate-400">Architecture</a>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-h1, h2 { font-family: 'Instrument Sans', sans-serif; }
-p, span, input, button, label, div { font-family: 'JetBrains Mono', monospace; }
+/* Scrollbar Refinement for the Tenant List */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+h1 { font-family: 'Instrument Sans', sans-serif; }
+div, p, label, input, button, a { font-family: 'JetBrains Mono', monospace; }
 </style>
 
 
