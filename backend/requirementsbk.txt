@@ -12,8 +12,11 @@ python-multipart==0.0.9
 uvicorn[standard]==0.30.6
 hnswlib==0.8.0
 pydantic-settings==2.5.2
-langchain
-langchain-openai
+# langchain
+# langchain-openai
+langchain==0.2.16
+langchain-openai==0.1.23
+
 torch==2.3.1+cpu
 
 # sentence-transformers
