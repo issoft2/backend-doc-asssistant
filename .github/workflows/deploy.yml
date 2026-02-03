@@ -28,7 +28,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           # This copies the compose file and the nginx config folder structure
-          source: "docker-compose-production.yml,frontend/nginx/nginx.conf"  
+          source: "docker-compose-production.yml,nginx/nginx.conf"  
           target: /srv/company-assistant/
 
       - name: Deploy over SSH
@@ -46,16 +46,16 @@ jobs:
 
 
             # 1. Double-check cleanup (Safety first)
-            if [ -d "frontend/nginx.conf" ]; then
-                rm -rf frontend/nginx.conf
+            if [ -d "nginx.conf" ]; then
+                rm -rf nginx.conf
             fi
             
             # 2. Ensure directories exist
-            mkdir -p backend data frontend/nginx
+            mkdir -p data nginx
 
             # 3. Setup Env
-            echo "$BACKEND_ENV" >> backend/.env
-            chmod 600 backend/.env
+            echo "$BACKEND_ENV" >> .env
+            chmod 600 .env
 
             # 4. Pull and Up
             docker compose -f docker-compose-production.yml pull
