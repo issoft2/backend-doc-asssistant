@@ -251,24 +251,28 @@ def list_collections_for_org(
     current_user: DBUser = Depends(get_current_db_user),
 ):
     stmt = (
-        select(Collection)
+        select(Collection, Tenant.name, Organization.name)
+        .join(Tenant, Collection.tenant_id == Tenant.id)
+        .join(Organization, Collection.organization_id == Organization.id)
         .where(Collection.tenant_id == current_user.tenant_id)
         .where(Collection.organization_id == current_user.organization_id)
     )
     rows = db.exec(stmt).all()
     return [
         CollectionOut(
-            id=c.id,
-            tenant_id=c.tenant_id,
-            organization_id=c.organization_id,
-            name=c.name,
-            doc_count=c.doc_count,
-            visibility=c.visibility,
-            allowed_roles=json.loads(c.allowed_roles) if c.allowed_roles else [],
-            allowed_user_ids=json.loads(c.allowed_user_ids) if c.allowed_user_ids else [],
-            created_at=c.created_at,
+            id=collection.id,
+            tenant_id=collection.tenant_id,
+            organization_id=collection.organization_id,
+            name=collection.name,
+            doc_count=collection.doc_count,
+            visibility=collection.visibility,
+            allowed_roles=json.loads(collection.allowed_roles) if collection.allowed_roles else [],
+            allowed_user_ids=json.loads(collection.allowed_user_ids) if collection.allowed_user_ids else [],
+            created_at=collection.created_at,
+            tenant_name=tenant_name,
+            organization_name=organization_name
         )
-        for c in rows
+        for collection, tenant_name, organization_name in rows
     ]
 
 

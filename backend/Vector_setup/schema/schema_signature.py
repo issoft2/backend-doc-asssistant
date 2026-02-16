@@ -19,6 +19,9 @@ class CollectionOut(BaseModel):
     allowed_user_ids: Optional[List[str]] = None
 
     created_at: datetime
+    tenant_name: Optional[str] = None
+    organization_name: Optional[str] = None
+
 
 
 class CompanyOut(BaseModel):
