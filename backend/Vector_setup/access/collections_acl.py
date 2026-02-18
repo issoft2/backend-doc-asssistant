@@ -49,8 +49,6 @@ def _to_list(value):
             return []
     return value
 
-import logging
-logger = logging.getLogger(__name__)
 
 def user_can_access_collection(
     user: DBUser,
