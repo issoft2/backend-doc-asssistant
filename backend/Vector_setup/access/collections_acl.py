@@ -49,75 +49,90 @@ def _to_list(value):
             return []
     return value
 
+import logging
+logger = logging.getLogger(__name__)
 
 def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
    
+    logger.info("DBG access check start",
+               user_id=str(user.id), user_role=user.role,
+               user_tenant_id=user.tenant_id,
+               user_org_id=user.organization_id,
+               coll_tenant_id=collection.tenant_id,
+               coll_vis=collection.visibility,
+               coll_roles=_to_list(collection.allowed_roles),
+               coll_user_ids=_to_list(collection.allowed_user_ids))
+   
      # 1) Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
+        logger.info("DBG denied: tenant mismatch")
         return False
 
     # 2) Normalize ACL fields once
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
 
+    explicit_acl_allow = str(user.id) in user_ids or user.roles in roles
+    logger.info("DBG explicity ACL", allow=explicit_acl_allow, user_id=str(user.id),
+                roles=roles)
+    
+
     # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
-        return str(user.id) in user_ids
+        result = str(user.id) in user_ids
+        logger.info("DBG user vis", result=result)
+        return result
 
     # 4) Highest, umbrella company-wide roles
     if user.role in SUPER_ROLES:
         # Super roles can see all collections in their tenant
         # (can be tightened later if required)
+        logger.info("DBG super role allow")
         return True
 
     # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
         # Org-scoped: same org + role allowed No ACL check for this user
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            return (
-                user.organization_id is not None
-                and user.organization_id == collection.organization_id
-                and user.role in roles
-            )
-
-        # Group roles do NOT automatically get tenant-wide access
-        if collection.visibility == CollectionVisibility.tenant:
-            return False
-
-        # Any other visibility value
+            result = (user.organization_id is not None and 
+                      user.organization_id == collection.organization_id and
+                      user.role in roles)
+            logger.info("DBG group role", result=result)
+            return result
+        logger.info("DBG group denied: vis")
         return False
+
+     
     
-    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
-    # 6) Subsidiary / normal users (sub-roles, e.g. sub_hr)
+    # 6) sub roles: Prioritize ACL First
     if user.role in SUB_ROLES:
+        if explicit_acl_allow:
+            logger.info("DBG sub ACL allow")
+            return True # Explicit wins over org check
+        
         # Tenant-wide: only if their role is explicitly allowed
         if collection.visibility == CollectionVisibility.tenant:
+            logger.info("DBG sub Tenant no ACL")
             # Only via ACL, not automatic
-            return explicit_acl_allow
+            return False
         
 
         # Org-scoped or role-scoped collections:
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            # First: explicit ACL
-            if explicit_acl_allow:
-                return True
+            result = (user.organization_id is not None and 
+                      user.organization_id == collection.organization_id)
+            logger.info("DBG sub org check", result=result)
+            return result
+           
             
-            # Then: org-wide default for sub_* in their own org
-            if (
-                user.organization_id is not None
-                and user.organization_id == collection.organization_id
-                and user.role.startswith("sub_")
-            ):
-                return True
-            
-            return False
-        
+        logger.info("DBG sub denied: vis")
         return False
 
     # 7) Any other / unknown role -> deny by default
+    logger.info("DBG unknown role deny")
     return False
 
 

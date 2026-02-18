@@ -26,7 +26,7 @@ from Vector_setup.user.permissions import map_role_to_permissions
 
 logger = logging.getLogger(__name__)
 
-FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN", "https://lexiscope.duckdns.org")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_ORIGIN", "https://askmi.duckdns.org")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
