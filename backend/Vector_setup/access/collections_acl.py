@@ -90,13 +90,22 @@ def user_can_access_collection(
     # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
         # Org-scoped: same org + role allowed No ACL check for this user
-        if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            result = (user.organization_id is not None and 
-                      user.organization_id == collection.organization_id and
-                      user.role in roles)
-            print(f"DBG group roleresult={result}")
-            return result
-        print("DBG group denied: vis")
+        print(f"DBG group roles entry | role={user.role}  vis={collection.visibility}")
+
+        if collection.visibility in (CollectionVisibility.org,
+                                     CollectionVisibility.role):
+            # 1. Explicit ACL always wins (like Sub_ROLES)
+            if explicit_acl_allow:
+                print("DGB Group ACL win")
+                return True
+        # if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
+        #     result = (user.organization_id is not None and 
+        #               user.organization_id == collection.organization_id and
+        #               user.role in roles)
+            print(f"DBG group rno ACL no org")
+            return False
+        
+        print("DBG group unspported vis")
         return False
 
      
