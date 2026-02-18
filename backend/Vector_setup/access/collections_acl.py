@@ -70,7 +70,7 @@ def user_can_access_collection(
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
 
-    explicit_acl_allow = str(user.id) in user_ids or user.roles in roles
+    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
     print(f"DBG explicit ACL | allow={explicit_acl_allow} user_id={user.id} roles={roles}")
     
 
