@@ -115,6 +115,8 @@ async def query_knowledge_stream(
         
         disconnected = False
         try:
+            print(f"QUERY DEBUG | question='{question}' collections={len(collection_names)}")
+            print(f"QUERY DEBUG | history_turns={len(history_turns)} last_doc_id={last_doc_id}")
             async for chunk in llm_pipeline_stream(
                 store=store,
                 tenant_id=current_user.tenant_id,
@@ -135,7 +137,7 @@ async def query_knowledge_stream(
                 safe_chunk = chunk.replace("\n", "<|n|>")
                 yield f"event: token\ndata: {safe_chunk}\n\n"
         except Exception:
-            logger.exception("Pipeline error in /api/query/stream")
+            print("Pipeline error in /api/query/stream")
             yield send_status("An error occurred while generating the answer.")
             yield "event: done\ndata: END\n\n"
             return
@@ -144,6 +146,7 @@ async def query_knowledge_stream(
             return # Skip save_chart_turn, suggestions, charts, audit log
         
         answer_str = "".join(full_answer)
+        print(f" Print llm Response answer: {answer_str}")
 
         # 4) Save conversation turn only if there is an answer
         if answer_str:
@@ -182,6 +185,7 @@ async def query_knowledge_stream(
 
             if suggestions_list:
                 payload = json.dumps(suggestions_list)
+                print(f"What is the suggestion question here:: {payload}")
                 yield f"event: suggestions\ndata: {payload}\n\n"
 
             # 6) Chart event (optional)
@@ -216,9 +220,10 @@ async def query_knowledge_stream(
                 },
             )
         except Exception:
-            logger.warning("Failed to write audit log for query", exc_info=True)
+            print("fFailed to write audit log for query %s", exc_info=True)
 
         yield send_status("Finalizing…")
+        print("Event: Done\nData: EnD\n\n")
         yield "event: done\ndata: END\n\n"
 
     # Only users with allowed_collections ever get here; SSE/LLM never start otherwise
