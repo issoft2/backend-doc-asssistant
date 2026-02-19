@@ -29,205 +29,428 @@ logger.setLevel(logging.INFO)
 router = APIRouter()
 
 import json
+
+
+import asyncio
+import json
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+MAX_OUTPUT_CHARS = 20_000         # memory guard
+MAX_TOP_K = 50                    # protect retrieval explosion
+LLM_TIMEOUT_SECONDS = 90          # prevent infinite streams
+
+
 @router.get("/query/stream")
 async def query_knowledge_stream(
     request: Request,
     question: str,
     conversation_id: str,
-    top_k: int = 100,
+    top_k: int = 20,
     collection_name: Optional[str] = None,
     current_user: TokenUser = Depends(get_current_db_user_from_header_or_query),
     store: MultiTenantChromaStoreManager = Depends(get_store),
-    db: Session = Depends(get_db),
 ) -> StreamingResponse:
+
+    # -----------------------------
+    # Basic Validation
+    # -----------------------------
     if not conversation_id:
         raise HTTPException(status_code=403, detail="Session has expired!")
 
-    # Optional FE filter
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    top_k = min(top_k, MAX_TOP_K)
+
     requested_names = [collection_name] if collection_name else None
 
-    # --- ACL: which collections can this user query? ---
-    allowed_collections = get_allowed_collections_for_user(
-        db=db,
-        user=current_user,         # make sure this is the same shape your ACL expects
-        requested_name=requested_names,
-    )
-    
-
-    print(
-        "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",
-        current_user.id,
-        current_user.role,
-        current_user.organization_id,
-        [(c.id, c.name, c.organization_id) for c in allowed_collections],
-    )
-
-    # Hard stop: no allowed collections => no LLM, no stream
-    if not allowed_collections:
-        detail = (
-        "You don't have access to the documents needed to answer this question. "
-        f"Your current role is '{current_user.role}'. "
-        "You can ask questions related to the areas your role is allowed to access "
-        "(for example, finance collections if you are in a finance role)."
-         )
-        raise HTTPException(
-            status_code=403,
-            detail=detail,
+    # -----------------------------
+    # Resolve ACL (short DB usage)
+    # -----------------------------
+    with SessionLocal() as db:
+        allowed_collections = get_allowed_collections_for_user(
+            db=db,
+            user=current_user,
+            requested_name=requested_names,
         )
 
-    collection_names = [c.name for c in allowed_collections]
+    if not allowed_collections:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You don't have access to the documents needed to answer this question. "
+                f"Your current role is '{current_user.role}'."
+            ),
+        )
+
     collection_ids = [str(c.id) for c in allowed_collections]
 
-    print("Collection names for query: %s", collection_names)
-
-    # --- conversation history + last doc ---
-    history_turns = get_last_n_turns(
-        db=db,
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.email,
-        n_turns=3,
-        conversation_id=conversation_id,
+    logger.info(
+        "QUERY_INIT user=%s tenant=%s role=%s collections=%s top_k=%s",
+        current_user.id,
+        current_user.tenant_id,
+        current_user.role,
+        collection_ids,
+        top_k,
     )
 
-    last_doc_id = get_last_doc_id(
-        db=db,
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.email,
-        conversation_id=conversation_id,
-    )
+    # -----------------------------
+    # Fetch history (short DB usage)
+    # -----------------------------
+    with SessionLocal() as db:
+        history_turns = get_last_n_turns(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.email,
+            n_turns=3,
+            conversation_id=conversation_id,
+        )
 
-    def send_status(msg: str) -> str:
-        return f"event: status\ndata: {msg}\n\n"
+        last_doc_id = get_last_doc_id(
+            db=db,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.email,
+            conversation_id=conversation_id,
+        )
+
+    def sse(event: str, data: str) -> str:
+        return f"event: {event}\ndata: {data}\n\n"
 
     async def event_generator() -> AsyncGenerator[str, None]:
+
         full_answer: List[str] = []
         result_holder: Dict[str, Any] = {}
 
-        # 1) Understand question
-        yield send_status("Analyzing your question…")
-
-        # 2) Retrieval + ranking (done inside llm_pipeline_stream)
-        yield send_status("Retrieving relevant information…")
-        yield send_status("Ranking and summarizing retrieved information…")
-
-        # 3) Generate answer (streaming tokens)
-        yield send_status("Generating final answer…")
-        
-        disconnected = False
         try:
-            print(f"QUERY DEBUG | question='{question}' collections={len(collection_names)}")
-            print(f"QUERY DEBUG | history_turns={len(history_turns)} last_doc_id={last_doc_id}")
-            print(f"QUERY DEBUG | top_k={top_k} store_tenant={current_user.tenant_id}")
+            yield sse("status", "Analyzing your question…")
+            yield sse("status", "Retrieving relevant information…")
+            yield sse("status", "Generating final answer…")
 
-            async for chunk in llm_pipeline_stream(
-                store=store,
-                tenant_id=current_user.tenant_id,
-                question=question,
-                history=history_turns,
-                top_k=top_k,
-                result_holder=result_holder,
-                last_doc_id=last_doc_id,
-                collection_names=collection_names,
-            ):
-                if await request.is_disconnected():
-                    disconnected = True
-                    break
-                print(f"QUERY DEBUG | got chunk len={len(chunk) if chunk else 0}")
-                if not chunk:
-                    continue
+            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
 
-                full_answer.append(chunk)
-                safe_chunk = chunk.replace("\n", "<|n|>")
-                yield f"event: token\ndata: {safe_chunk}\n\n"
-        except Exception:
-            print("Pipeline error in /api/query/stream")
-            yield send_status("An error occurred while generating the answer.")
-            yield "event: done\ndata: END\n\n"
+                async for chunk in llm_pipeline_stream(
+                    store=store,
+                    tenant_id=current_user.tenant_id,
+                    question=question,
+                    history=history_turns,
+                    top_k=top_k,
+                    result_holder=result_holder,
+                    last_doc_id=last_doc_id,
+                    collection_ids=collection_ids,
+                ):
+
+                    # Respect client disconnect
+                    if await request.is_disconnected():
+                        logger.info(
+                            "Client disconnected user=%s conversation=%s",
+                            current_user.id,
+                            conversation_id,
+                        )
+                        raise asyncio.CancelledError()
+
+                    if not chunk:
+                        continue
+
+                    full_answer.append(chunk)
+
+                    # Memory guard
+                    if sum(len(c) for c in full_answer) > MAX_OUTPUT_CHARS:
+                        logger.warning("Output truncated due to memory guard")
+                        break
+
+                    safe_chunk = chunk.replace("\n", "<|n|>")
+                    yield sse("token", safe_chunk)
+
+                    # Release event loop (important at scale)
+                    await asyncio.sleep(0)
+
+        except asyncio.TimeoutError:
+            logger.warning("LLM timeout for user=%s", current_user.id)
+            yield sse("error", "Response timed out.")
+            yield sse("done", "END")
             return
-        if disconnected:
-            print("Client disconnected during streaming response")
-            return # Skip save_chart_turn, suggestions, charts, audit log
-        
-        answer_str = "".join(full_answer)
-        print("Print llm Response answer: %s", answer_str)
 
-        # 4) Save conversation turn only if there is an answer
-        if answer_str:
-            yield send_status("Saving this conversation…")
+        except asyncio.CancelledError:
+            logger.info("Streaming cancelled safely")
+            return
 
-            primary_doc_id = result_holder.get("primary_doc_id")
-
-            save_chat_turn(
-                db=db,
-                tenant_id=current_user.tenant_id,
-                user_id=current_user.email,
-                user_message=question,
-                assistant_message=answer_str,
-                conversation_id=conversation_id,
-                primary_doc_id=primary_doc_id,
-            )
-
-            # 5) Follow-up suggestions
-            yield send_status("Generating related follow-up questions…")
-
-            suggestions_list: List[str] = []
-            try:
-                #suggestion_messages = create_suggestion_prompt(question, answer_str)
-                raw = [] # suggestion_llm_client.invoke(suggestion_messages)
-                raw_content = getattr(raw, "content", None) or str(raw)
-                suggestions_list = json.loads(raw_content)
-                if not isinstance(suggestions_list, list):
-                    suggestions_list = []
-                else:
-                    suggestions_list = [
-                        s for s in suggestions_list
-                        if isinstance(s, str) and s.strip()
-                    ]
-            except Exception:
-                suggestions_list = []
-
-            if suggestions_list:
-                payload = json.dumps(suggestions_list)
-                print(f"What is the suggestion question here:: {payload}")
-                yield f"event: suggestions\ndata: {payload}\n\n"
-
-            # 6) Chart event (optional)
-            chart_spec = result_holder.get("chart_specs")
-            if chart_spec:
-                try:
-                    chart_payload = json.dumps({"charts": chart_spec})
-                    print("CHART_DEBUG emitting chart SSE: %s", chart_payload)
-                    yield f"event: chart\ndata: {chart_payload}\n\n"
-                except Exception:
-                    logger.warning("Failed to serialize chart_spec for SSE")
-
-        # 7) Audit log (once per request)
-        try:
-            write_audit_log(
-                db=db,
-                user=current_user,
-                action="query",
-                resource_type="collection_query",
-                resource_id=",".join(collection_ids),
-                metadata={
-                    "question": question,
-                    "top_k": top_k,
-                    "tenant_id": current_user.tenant_id,
-                    "organization_id": current_user.organization_id,
-                    "user_id": current_user.id,
-                    "user_role": current_user.role,
-                    "conversation_id": conversation_id,
-                    "collection_ids": collection_ids,
-                    "collection_names": collection_names,
-                    "client_ip": request.client.host,
-                },
-            )
         except Exception:
-            print("fFailed to write audit log for query %s", exc_info=True)
+            logger.exception("Pipeline failure")
+            yield sse("error", "An internal error occurred.")
+            yield sse("done", "END")
+            return
 
-        yield send_status("Finalizing…")
-        print("Event: Done\nData: EnD\n\n")
-        yield "event: done\ndata: END\n\n"
+        answer_str = "".join(full_answer).strip()
 
-    # Only users with allowed_collections ever get here; SSE/LLM never start otherwise
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # -----------------------------
+        # Save conversation (isolated DB)
+        # -----------------------------
+        if answer_str:
+            yield sse("status", "Saving conversation…")
+
+            try:
+                with SessionLocal() as db:
+                    save_chat_turn(
+                        db=db,
+                        tenant_id=current_user.tenant_id,
+                        user_id=current_user.email,
+                        user_message=question,
+                        assistant_message=answer_str,
+                        conversation_id=conversation_id,
+                        primary_doc_id=result_holder.get("primary_doc_id"),
+                    )
+            except Exception:
+                logger.exception("Failed to save chat turn")
+
+        # -----------------------------
+        # Optional chart event
+        # -----------------------------
+        chart_spec = result_holder.get("chart_specs")
+        if chart_spec:
+            try:
+                yield sse("chart", json.dumps({"charts": chart_spec}))
+            except Exception:
+                logger.exception("Failed to emit chart specs")
+
+        # -----------------------------
+        # Audit Log (isolated DB)
+        # -----------------------------
+        try:
+            with SessionLocal() as db:
+                write_audit_log(
+                    db=db,
+                    user=current_user,
+                    action="query",
+                    resource_type="collection_query",
+                    resource_id=",".join(collection_ids),
+                    metadata={
+                        "question": question,
+                        "top_k": top_k,
+                        "tenant_id": current_user.tenant_id,
+                        "organization_id": current_user.organization_id,
+                        "conversation_id": conversation_id,
+                        "collection_ids": collection_ids,
+                        "client_ip": request.client.host
+                        if request.client
+                        else None,
+                    },
+                )
+        except Exception:
+            logger.exception("Audit log failure")
+
+        yield sse("status", "Finalizing…")
+        yield sse("done", "END")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+# async def query_knowledge_stream(
+#     request: Request,
+#     question: str,
+#     conversation_id: str,
+#     top_k: int = 100,
+#     collection_name: Optional[str] = None,
+#     current_user: TokenUser = Depends(get_current_db_user_from_header_or_query),
+#     store: MultiTenantChromaStoreManager = Depends(get_store),
+#     db: Session = Depends(get_db),
+# ) -> StreamingResponse:
+#     if not conversation_id:
+#         raise HTTPException(status_code=403, detail="Session has expired!")
+
+#     # Optional FE filter
+#     requested_names = [collection_name] if collection_name else None
+
+#     # --- ACL: which collections can this user query? ---
+#     allowed_collections = get_allowed_collections_for_user(
+#         db=db,
+#         user=current_user,         # make sure this is the same shape your ACL expects
+#         requested_name=requested_names,
+#     )
+    
+
+#     print(
+#         "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",
+#         current_user.id,
+#         current_user.role,
+#         current_user.organization_id,
+#         [(c.id, c.name, c.organization_id) for c in allowed_collections],
+#     )
+
+#     # Hard stop: no allowed collections => no LLM, no stream
+#     if not allowed_collections:
+#         detail = (
+#         "You don't have access to the documents needed to answer this question. "
+#         f"Your current role is '{current_user.role}'. "
+#         "You can ask questions related to the areas your role is allowed to access "
+#         "(for example, finance collections if you are in a finance role)."
+#          )
+#         raise HTTPException(
+#             status_code=403,
+#             detail=detail,
+#         )
+
+#     collection_names = [c.name for c in allowed_collections]
+#     collection_ids = [str(c.id) for c in allowed_collections]
+
+#     print("Collection names for query: %s", collection_names)
+
+#     # --- conversation history + last doc ---
+#     history_turns = get_last_n_turns(
+#         db=db,
+#         tenant_id=current_user.tenant_id,
+#         user_id=current_user.email,
+#         n_turns=3,
+#         conversation_id=conversation_id,
+#     )
+
+#     last_doc_id = get_last_doc_id(
+#         db=db,
+#         tenant_id=current_user.tenant_id,
+#         user_id=current_user.email,
+#         conversation_id=conversation_id,
+#     )
+
+#     def send_status(msg: str) -> str:
+#         return f"event: status\ndata: {msg}\n\n"
+
+#     async def event_generator() -> AsyncGenerator[str, None]:
+#         full_answer: List[str] = []
+#         result_holder: Dict[str, Any] = {}
+
+#         # 1) Understand question
+#         yield send_status("Analyzing your question…")
+
+#         # 2) Retrieval + ranking (done inside llm_pipeline_stream)
+#         yield send_status("Retrieving relevant information…")
+#         yield send_status("Ranking and summarizing retrieved information…")
+
+#         # 3) Generate answer (streaming tokens)
+#         yield send_status("Generating final answer…")
+        
+#         disconnected = False
+#         try:
+#             print(f"QUERY DEBUG | question='{question}' collections={len(collection_names)}")
+#             print(f"QUERY DEBUG | history_turns={len(history_turns)} last_doc_id={last_doc_id}")
+#             print(f"QUERY DEBUG | top_k={top_k} store_tenant={current_user.tenant_id}")
+
+#             async for chunk in llm_pipeline_stream(
+#                 store=store,
+#                 tenant_id=current_user.tenant_id,
+#                 question=question,
+#                 history=history_turns,
+#                 top_k=top_k,
+#                 result_holder=result_holder,
+#                 last_doc_id=last_doc_id,
+#                 collection_names=collection_names,
+#             ):
+#                 if await request.is_disconnected():
+#                     disconnected = True
+#                     break
+#                 print(f"QUERY DEBUG | got chunk len={len(chunk) if chunk else 0}")
+#                 if not chunk:
+#                     continue
+
+#                 full_answer.append(chunk)
+#                 safe_chunk = chunk.replace("\n", "<|n|>")
+#                 yield f"event: token\ndata: {safe_chunk}\n\n"
+#         except Exception:
+#             print("Pipeline error in /api/query/stream")
+#             yield send_status("An error occurred while generating the answer.")
+#             yield "event: done\ndata: END\n\n"
+#             return
+#         if disconnected:
+#             print("Client disconnected during streaming response")
+#             return # Skip save_chart_turn, suggestions, charts, audit log
+        
+#         answer_str = "".join(full_answer)
+#         print("Print llm Response answer: %s", answer_str)
+
+#         # 4) Save conversation turn only if there is an answer
+#         if answer_str:
+#             yield send_status("Saving this conversation…")
+
+#             primary_doc_id = result_holder.get("primary_doc_id")
+
+#             save_chat_turn(
+#                 db=db,
+#                 tenant_id=current_user.tenant_id,
+#                 user_id=current_user.email,
+#                 user_message=question,
+#                 assistant_message=answer_str,
+#                 conversation_id=conversation_id,
+#                 primary_doc_id=primary_doc_id,
+#             )
+
+#             # 5) Follow-up suggestions
+#             yield send_status("Generating related follow-up questions…")
+
+#             suggestions_list: List[str] = []
+#             try:
+#                 #suggestion_messages = create_suggestion_prompt(question, answer_str)
+#                 raw = [] # suggestion_llm_client.invoke(suggestion_messages)
+#                 raw_content = getattr(raw, "content", None) or str(raw)
+#                 suggestions_list = json.loads(raw_content)
+#                 if not isinstance(suggestions_list, list):
+#                     suggestions_list = []
+#                 else:
+#                     suggestions_list = [
+#                         s for s in suggestions_list
+#                         if isinstance(s, str) and s.strip()
+#                     ]
+#             except Exception:
+#                 suggestions_list = []
+
+#             if suggestions_list:
+#                 payload = json.dumps(suggestions_list)
+#                 print(f"What is the suggestion question here:: {payload}")
+#                 yield f"event: suggestions\ndata: {payload}\n\n"
+
+#             # 6) Chart event (optional)
+#             chart_spec = result_holder.get("chart_specs")
+#             if chart_spec:
+#                 try:
+#                     chart_payload = json.dumps({"charts": chart_spec})
+#                     print("CHART_DEBUG emitting chart SSE: %s", chart_payload)
+#                     yield f"event: chart\ndata: {chart_payload}\n\n"
+#                 except Exception:
+#                     logger.warning("Failed to serialize chart_spec for SSE")
+
+#         # 7) Audit log (once per request)
+#         try:
+#             write_audit_log(
+#                 db=db,
+#                 user=current_user,
+#                 action="query",
+#                 resource_type="collection_query",
+#                 resource_id=",".join(collection_ids),
+#                 metadata={
+#                     "question": question,
+#                     "top_k": top_k,
+#                     "tenant_id": current_user.tenant_id,
+#                     "organization_id": current_user.organization_id,
+#                     "user_id": current_user.id,
+#                     "user_role": current_user.role,
+#                     "conversation_id": conversation_id,
+#                     "collection_ids": collection_ids,
+#                     "collection_names": collection_names,
+#                     "client_ip": request.client.host,
+#                 },
+#             )
+#         except Exception:
+#             print("fFailed to write audit log for query %s", exc_info=True)
+
+#         yield send_status("Finalizing…")
+#         print("Event: Done\nData: EnD\n\n")
+#         yield "event: done\ndata: END\n\n"
+
+#     # Only users with allowed_collections ever get here; SSE/LLM never start otherwise
+#     return StreamingResponse(event_generator(), media_type="text/event-stream")
