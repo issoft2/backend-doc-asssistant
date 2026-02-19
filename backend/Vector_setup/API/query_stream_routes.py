@@ -54,7 +54,7 @@ async def query_knowledge_stream(
     )
     
 
-    logger.info(
+    print(
         "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",
         current_user.id,
         current_user.role,
@@ -78,7 +78,7 @@ async def query_knowledge_stream(
     collection_names = [c.name for c in allowed_collections]
     collection_ids = [str(c.id) for c in allowed_collections]
 
-    logger.info("Collection names for query: %s", collection_names)
+    print("Collection names for query: %s", collection_names)
 
     # --- conversation history + last doc ---
     history_turns = get_last_n_turns(
@@ -140,7 +140,7 @@ async def query_knowledge_stream(
             yield "event: done\ndata: END\n\n"
             return
         if disconnected:
-            logger.info("Client disconnected during streaming response")
+            print("Client disconnected during streaming response")
             return # Skip save_chart_turn, suggestions, charts, audit log
         
         answer_str = "".join(full_answer)
@@ -189,7 +189,7 @@ async def query_knowledge_stream(
             if chart_spec:
                 try:
                     chart_payload = json.dumps({"charts": chart_spec})
-                    logger.info("CHART_DEBUG emitting chart SSE: %s", chart_payload)
+                    print("CHART_DEBUG emitting chart SSE: %s", chart_payload)
                     yield f"event: chart\ndata: {chart_payload}\n\n"
                 except Exception:
                     logger.warning("Failed to serialize chart_spec for SSE")
