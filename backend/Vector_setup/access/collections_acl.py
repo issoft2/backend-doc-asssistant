@@ -54,14 +54,13 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
-   
     print(f"DBG access check start | user_id={user.id} role={user.role} "
-                f"user_tenant={user.tenant_id} user_org={user.organization_id} "
-                f"coll_tenant={collection.tenant_id} coll_vis={collection.visibility} "
-                f"coll_roles={_to_list(collection.allowed_roles)} "
-                f"coll_users={_to_list(collection.allowed_user_ids)}")
+          f"user_tenant={user.tenant_id} user_org={user.organization_id} "
+          f"coll_tenant={collection.tenant_id} coll_vis={collection.visibility} "
+          f"coll_roles={_to_list(collection.allowed_roles)} "
+          f"coll_users={_to_list(collection.allowed_user_ids)}")
    
-     # 1) Tenant isolation (hard gate)
+    # 1) Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
         print(f"DBG denied: tenant mismatch | user={user.tenant_id} != coll={collection.tenant_id}")
         return False
@@ -69,74 +68,68 @@ def user_can_access_collection(
     # 2) Normalize ACL fields once
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
-
     explicit_acl_allow = str(user.id) in user_ids or user.role in roles
     print(f"DBG explicit ACL | allow={explicit_acl_allow} user_id={user.id} roles={roles}")
-    
 
-    # 3) User-scoped collections: private to specific users, regardless of role bucket
+    # 3) User-scoped collections: private to specific users only
     if collection.visibility == CollectionVisibility.user:
         result = str(user.id) in user_ids
         print(f"DBG user vis result={result}")
         return result
 
-    # 4) Highest, umbrella company-wide roles
+    # 4) SUPER_ROLES: tenant-wide access to everything
     if user.role in SUPER_ROLES:
-        # Super roles can see all collections in their tenant
-        # (can be tightened later if required)
         print("DBG super role allow")
         return True
 
-    # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
+    # 5) GROUP_ROLES: tenant leadership - full tenant/org access
     if user.role in GROUP_ROLES:
-        # Org-scoped: same org + role allowed No ACL check for this user
-        print(f"DBG group roles entry | role={user.role}  vis={collection.visibility}")
-
-        if collection.visibility in (CollectionVisibility.org,
-                                     CollectionVisibility.role):
-            # 1. Explicit ACL always wins (like Sub_ROLES)
-            if explicit_acl_allow:
-                print("DGB Group ACL win")
-                return True
-        # if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-        #     result = (user.organization_id is not None and 
-        #               user.organization_id == collection.organization_id and
-        #               user.role in roles)
-            print(f"DBG group rno ACL no org")
-            return False
+        print(f"DBG group roles entry | role={user.role} vis={collection.visibility}")
         
-        print("DBG group unspported vis")
+        # Tenant collections: automatic access
+        if collection.visibility == CollectionVisibility.tenant:
+            print("DBG group tenant auto-win")
+            return True
+        
+        # Org/role collections: automatic access (no ACL needed)
+        if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
+            if explicit_acl_allow:
+                print("DBG group ACL win")
+                return True
+            print("DBG group org auto-win")
+            return True
+        
+        print("DBG group unsupported vis")
         return False
 
-     
-    
-    # 6) sub roles: Prioritize ACL First
+    # 6) SUB_ROLES: org-scoped subsidiary roles
     if user.role in SUB_ROLES:
-        if explicit_acl_allow:
-            print("DBG sub ACL allow")
-            return True # Explicit wins over org check
+        print(f"DBG sub roles entry | role={user.role} vis={collection.visibility}")
         
-        # Tenant-wide: only if their role is explicitly allowed
+        # Explicit ACL always wins
+        if explicit_acl_allow:
+            print("DBG sub ACL win")
+            return True
+        
+        # Tenant collections: sub_* NEVER get automatic tenant access
         if collection.visibility == CollectionVisibility.tenant:
-            print("DBG sub Tenant no ACL")
-            # Only via ACL, not automatic
+            print("DBG sub tenant denied (no ACL)")
             return False
         
-
-        # Org-scoped or role-scoped collections:
+        # Org/role collections: must match organization
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            result = (user.organization_id is not None and 
-                      user.organization_id == collection.organization_id)
-            print(f"DBG sub org check result={result}")
-            return result
-           
-            
-        print("DBG sub denied: vis")
+            org_match = (user.organization_id is not None and 
+                        user.organization_id == collection.organization_id)
+            print(f"DBG sub org check | match={org_match} user_org={user.organization_id} coll_org={collection.organization_id}")
+            return org_match
+        
+        print("DBG sub unsupported vis")
         return False
 
     # 7) Any other / unknown role -> deny by default
-    print("DBG unknown role deny")
+    print(f"DBG unknown role deny | role={user.role}")
     return False
+
 
 
 
