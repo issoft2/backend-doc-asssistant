@@ -146,7 +146,7 @@ async def query_knowledge_stream(
             return # Skip save_chart_turn, suggestions, charts, audit log
         
         answer_str = "".join(full_answer)
-        print(f" Print llm Response answer: {answer_str}")
+        print("Print llm Response answer: %s", answer_str)
 
         # 4) Save conversation turn only if there is an answer
         if answer_str:
