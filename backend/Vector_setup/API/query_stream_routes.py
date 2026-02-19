@@ -116,7 +116,9 @@ async def query_knowledge_stream(
         disconnected = False
         try:
             print(f"QUERY DEBUG | question='{question}' collections={len(collection_names)}")
+            print("QUERY DEUG | question= %s Collections= %d", question, len(collection_name))
             print(f"QUERY DEBUG | history_turns={len(history_turns)} last_doc_id={last_doc_id}")
+            print("QUERY DEBUG | history_turns= %d last_doc_id=%s", len(history_turns), last_doc_id)
             async for chunk in llm_pipeline_stream(
                 store=store,
                 tenant_id=current_user.tenant_id,
@@ -146,7 +148,7 @@ async def query_knowledge_stream(
             return # Skip save_chart_turn, suggestions, charts, audit log
         
         answer_str = "".join(full_answer)
-        print(f" Print llm Response answer: {answer_str}")
+        print("Print llm Response answer: %s", answer_str)
 
         # 4) Save conversation turn only if there is an answer
         if answer_str:
