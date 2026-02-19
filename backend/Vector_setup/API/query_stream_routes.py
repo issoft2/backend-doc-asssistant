@@ -116,9 +116,9 @@ async def query_knowledge_stream(
         disconnected = False
         try:
             print(f"QUERY DEBUG | question='{question}' collections={len(collection_names)}")
-            print("QUERY DEUG | question= %s Collections= %d", question, len(collection_name))
             print(f"QUERY DEBUG | history_turns={len(history_turns)} last_doc_id={last_doc_id}")
-            print("QUERY DEBUG | history_turns= %d last_doc_id=%s", len(history_turns), last_doc_id)
+            print(f"QUERY DEBUG | top_k={top_k} store_tenant={current_user.tenant_id}")
+
             async for chunk in llm_pipeline_stream(
                 store=store,
                 tenant_id=current_user.tenant_id,
@@ -132,6 +132,7 @@ async def query_knowledge_stream(
                 if await request.is_disconnected():
                     disconnected = True
                     break
+                print(f"QUERY DEBUG | got chunk len={len(chunk) if chunk else 0}")
                 if not chunk:
                     continue
 
