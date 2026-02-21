@@ -5,7 +5,7 @@ from typing import Optional, AsyncGenerator, List,  Dict, Any
 import json
 
 from LLM_Config.system_user_prompt import create_suggestion_prompt
-from LLM_Config.llm_setup import suggestion_llm_client
+from LLM_Config.llm_setup import call_llm
 
 
 from Vector_setup.user.db import get_db, Tenant, DBUser, Collection
@@ -168,8 +168,8 @@ async def query_knowledge_stream(
 
             suggestions_list: List[str] = []
             try:
-                suggestion_messages = create_suggestion_prompt(question, answer_str)
-                raw = suggestion_llm_client.invoke(suggestion_messages)
+                # suggestion_messages = create_suggestion_prompt(question, answer_str)
+                raw = [] #call_llm.invoke(suggestion_messages)
                 raw_content = getattr(raw, "content", None) or str(raw)
                 suggestions_list = json.loads(raw_content)
                 if not isinstance(suggestions_list, list):
