@@ -4,8 +4,8 @@ from sqlmodel import Session, select
 from typing import Optional, AsyncGenerator, List,  Dict, Any
 import json
 
-#from LLM_Config.system_user_prompt import create_suggestion_prompt
-#from LLM_Config.llm_setup import suggestion_llm_client
+from LLM_Config.system_user_prompt import create_suggestion_prompt
+from LLM_Config.llm_setup import suggestion_llm_client
 
 
 from Vector_setup.user.db import get_db, Tenant, DBUser, Collection
@@ -54,7 +54,7 @@ async def query_knowledge_stream(
     )
     
 
-    logger.info(
+    print(
         "ACL_DEBUG user_id=%s role=%s org=%s allowed=%s",
         current_user.id,
         current_user.role,
@@ -78,7 +78,7 @@ async def query_knowledge_stream(
     collection_names = [c.name for c in allowed_collections]
     collection_ids = [str(c.id) for c in allowed_collections]
 
-    logger.info("Collection names for query: %s", collection_names)
+    print("Collection names for query: %s", collection_names)
 
     # --- conversation history + last doc ---
     history_turns = get_last_n_turns(
@@ -135,18 +135,20 @@ async def query_knowledge_stream(
                 safe_chunk = chunk.replace("\n", "<|n|>")
                 yield f"event: token\ndata: {safe_chunk}\n\n"
         except Exception:
-            logger.exception("Pipeline error in /api/query/stream")
+            print("Pipeline error in /api/query/stream")
             yield send_status("An error occurred while generating the answer.")
             yield "event: done\ndata: END\n\n"
             return
+        
         if disconnected:
-            logger.info("Client disconnected during streaming response")
+            print("Client disconnected during streaming response")
             return # Skip save_chart_turn, suggestions, charts, audit log
         
         answer_str = "".join(full_answer)
 
         # 4) Save conversation turn only if there is an answer
         if answer_str:
+            print("THe LLM generate answer and about to saving it:::: %s", answer_str)
             yield send_status("Saving this conversation…")
 
             primary_doc_id = result_holder.get("primary_doc_id")
@@ -166,8 +168,8 @@ async def query_knowledge_stream(
 
             suggestions_list: List[str] = []
             try:
-                #suggestion_messages = create_suggestion_prompt(question, answer_str)
-                raw = [] # suggestion_llm_client.invoke(suggestion_messages)
+                suggestion_messages = create_suggestion_prompt(question, answer_str)
+                raw = suggestion_llm_client.invoke(suggestion_messages)
                 raw_content = getattr(raw, "content", None) or str(raw)
                 suggestions_list = json.loads(raw_content)
                 if not isinstance(suggestions_list, list):
@@ -189,7 +191,7 @@ async def query_knowledge_stream(
             if chart_spec:
                 try:
                     chart_payload = json.dumps({"charts": chart_spec})
-                    logger.info("CHART_DEBUG emitting chart SSE: %s", chart_payload)
+                    print("CHART_DEBUG emitting chart SSE: %s", chart_payload)
                     yield f"event: chart\ndata: {chart_payload}\n\n"
                 except Exception:
                     logger.warning("Failed to serialize chart_spec for SSE")
@@ -216,7 +218,7 @@ async def query_knowledge_stream(
                 },
             )
         except Exception:
-            logger.warning("Failed to write audit log for query", exc_info=True)
+            print("Failed to write audit log for query")
 
         yield send_status("Finalizing…")
         yield "event: done\ndata: END\n\n"
