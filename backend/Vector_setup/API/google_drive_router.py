@@ -51,6 +51,8 @@ def get_google_drive_auth_url(
     current_user: DBUser = Depends(require_tenant_admin),
     tenant: Tenant = Depends(ensure_tenant_active),
 ):
+    print("=== REDIRECT URI BEING SENT TO GOOGLE: %s ===", GOOGLE_REDIRECT_URI)
+
     tenant_id = current_user.tenant_id
 
     # Put tenant_id (and maybe user id) into state so callback knows where to store tokens
