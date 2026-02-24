@@ -337,6 +337,7 @@ class DriveIngestRequest(BaseModel):
     file_id: str
     collection_name: str
     title: Optional[str] = None
+    tenant_id: str
     
 
 def mark_file_ingested(
