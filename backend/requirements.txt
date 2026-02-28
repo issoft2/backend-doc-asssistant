@@ -33,4 +33,4 @@ google-auth-oauthlib
 google-api-python-client
 
 fastapi-mail
-mailtrap
+resend
