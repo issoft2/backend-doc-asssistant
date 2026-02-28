@@ -54,59 +54,73 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
+    """
+    Determines whether a user has access to a given collection.
 
-    # 1) Tenant isolation (hard gate)
+    Access hierarchy (evaluated in order):
+        1. Tenant isolation       — hard wall, cross-tenant always denied
+        2. User-scoped visibility — private, explicit user ID required
+        3. SUPER_ROLES            — full tenant access
+        4. GROUP_ROLES            — full tenant access
+        5. SUB_ROLES              — tenant + org-scoped access
+        6. employee               — explicit ACL only (no visibility grants)
+        7. Default                — deny
+    """
+
+    # ── 1) Tenant Isolation (Hard Wall) ───────────────────────────────────
+    # Cross-tenant access is never permitted regardless of role.
     if collection.tenant_id != user.tenant_id:
         return False
 
-    # 2) Normalize ACL fields once
-    roles = _to_list(collection.allowed_roles)
+    # ── 2) Normalize ACL fields ───────────────────────────────────────────
+    # Handles stored formats: comma string, JSON array, or Python list.
+    roles    = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
     explicit_acl_allow = str(user.id) in user_ids or user.role in roles
 
-    # 3) User-scoped collections: private to specific users only
+    # ── 3) User-Scoped Collections (Private) ──────────────────────────────
+    # Strictly private — only explicitly listed user IDs may access.
+    # No role override, including SUPER/GROUP roles.
     if collection.visibility == CollectionVisibility.user:
-        result = str(user.id) in user_ids
-        # print(f"DBG user vis result={result}")
-        return result
+        return str(user.id) in user_ids
 
-    # 4) SUPER_ROLES: tenant-wide access to everything
+    # ── 4) Super Roles (Full Tenant Access) ───────────────────────────────
+    # Admins/superadmins see everything within their tenant.
     if user.role in SUPER_ROLES:
         return True
 
-    # 5) GROUP_ROLES: tenant leadership - full access everywhere
+    # ── 5) Group Roles (Tenant Leadership) ────────────────────────────────
+    # Group managers/leads see all non-private collections within the tenant.
     if user.role in GROUP_ROLES:
-        # print(f"DBG group roles entry | role={user.role} vis={collection.visibility}")
-       
-        return True  # group_* access ALL collections
+        return True
 
-    # 6) SUB_ROLES & EMPLOYEE: company-wide tenant access + org access
-    if user.role in SUB_ROLES or user.role == "employee":
-        # print(f"D print("DBG group full tenant access")BG sub/employee entry | role={user.role} vis={collection.visibility}")
-        
-        # ✅ NEW: Tenant collections accessible to ALL company roles
+    # ── 6) Sub Roles (Org-Scoped Access) ──────────────────────────────────
+    # Explicit ACL always wins first.
+    # Beyond that: tenant-wide and same-org collections are accessible.
+    if user.role in SUB_ROLES:
+        if explicit_acl_allow:
+            return True
+
         if collection.visibility == CollectionVisibility.tenant:
             return True
-        
-        # Explicit ACL always wins
-        if explicit_acl_allow:
-            # print("DBG sub/employee ACL win")
-            return True
-        
-        # Org/role collections: must match organization
+
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
-            org_match = (user.organization_id is not None and 
-                        user.organization_id == collection.organization_id)
-            # print(f"DBG sub/employee org check | match={org_match}")
-            return org_match
-        
-        # print("DBG sub/employee unsupported vis")
+            return (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+            )
+
         return False
 
-    # 7) Any other / unknown role -> deny by default
-    # print(f"DBG unknown role deny | role={user.role}")
-    return False
+    # ── 7) Employee (Explicit ACL Only) ───────────────────────────────────
+    # Employees have zero visibility-based access.
+    # The ONLY way in is being listed in allowed_user_ids or allowed_roles.
+    if user.role == "employee":
+        return explicit_acl_allow
 
+    # ── 8) Unknown Role → Deny ────────────────────────────────────────────
+    # Any role not explicitly handled above is denied by default.
+    return False
 
 
 
