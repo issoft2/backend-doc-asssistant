@@ -1,13 +1,16 @@
 # email_service.py
 import os
 from typing import Optional
-import mailtrap as mt
+
 
 import smtplib
 from email.mime.text import MIMEText
 from email.utils import formataddr
+from dotenv import load_dotenv
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+load_dotenv()
+
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com") 
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
