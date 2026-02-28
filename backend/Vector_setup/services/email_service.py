@@ -1,42 +1,14 @@
 # email_service.py
 import os
-from typing import Optional
-
-
-import smtplib
-from email.mime.text import MIMEText
-from email.utils import formataddr
 from dotenv import load_dotenv
+import resend
 
 load_dotenv()
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com") 
-SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "issoft")
-SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "true").lower() in ("true", "1", "yes")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "re_BqBKvjwD_GurzED7jtJpoGJNetV4mdst2")
 
-
-def _send_email(to_email: str, subject: str, html_body: str) -> None:
-    if not SMTP_USER or not SMTP_PASSWORD:
-        raise RuntimeError("SMTP_USER/SMTP_PASSWORD not configured")
-
-    msg = MIMEText(html_body, "html")
-    msg["Subject"] = subject
-    msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_USER))
-    msg["To"] = to_email
-
-    if SMTP_USE_SSL:
-        server_cls = smtplib.SMTP_SSL
-    else:
-        server_cls = smtplib.SMTP
-
-    with server_cls(SMTP_HOST, SMTP_PORT) as server:
-        if not SMTP_USE_SSL:
-            server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, [to_email], msg.as_string())
+resend.api_key = RESEND_API_KEY
+        
         
 def send_first_login_email(to_email: str, first_name: str, tenant_id: str, login_link: str) -> None:
     subject = f"Welcome to {tenant_id} – Finish setting up your account"
@@ -90,5 +62,10 @@ def send_first_login_email(to_email: str, first_name: str, tenant_id: str, login
     </body>
     </html>
     """
-    _send_email(to_email, subject, html)
+    resend.Email.send({
+        "from": "onboarding@resend.dev",
+        "to": [to_email],
+        "subject": subject,
+        "html": html
+    })
 
