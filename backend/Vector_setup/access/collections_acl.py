@@ -54,75 +54,71 @@ def user_can_access_collection(
     user: DBUser,
     collection: Collection,
 ) -> bool:
-    """
-    Determines whether a user has access to a given collection.
-
-    Access hierarchy (evaluated in order):
-        1. Tenant isolation       — hard wall, cross-tenant always denied
-        2. User-scoped visibility — private, explicit user ID required
-        3. SUPER_ROLES            — full tenant access
-        4. GROUP_ROLES            — full tenant access
-        5. SUB_ROLES              — tenant + org-scoped access
-        6. employee               — explicit ACL only (no visibility grants)
-        7. Default                — deny
-    """
-
-    # ── 1) Tenant Isolation (Hard Wall) ───────────────────────────────────
-    # Cross-tenant access is never permitted regardless of role.
+   
+     # 1) Tenant isolation (hard gate)
     if collection.tenant_id != user.tenant_id:
         return False
 
-    # ── 2) Normalize ACL fields ───────────────────────────────────────────
-    # Handles stored formats: comma string, JSON array, or Python list.
-    roles    = _to_list(collection.allowed_roles)
+    # 2) Normalize ACL fields once
+    roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
-    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
 
-    # ── 3) User-Scoped Collections (Private) ──────────────────────────────
-    # Strictly private — only explicitly listed user IDs may access.
-    # No role override, including SUPER/GROUP roles.
+    # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
         return str(user.id) in user_ids
 
-    # ── 4) Super Roles (Full Tenant Access) ───────────────────────────────
-    # Admins/superadmins see everything within their tenant.
+    # 4) Highest, umbrella company-wide roles
     if user.role in SUPER_ROLES:
+        # Super roles can see all collections in their tenant
+        # (can be tightened later if required)
         return True
 
-    # ── 5) Group Roles (Tenant Leadership) ────────────────────────────────
-    # Group managers/leads see all non-private collections within the tenant.
+    # 5) Group roles (org-scoped, role-based, e.g. group_hr, group_admin)
     if user.role in GROUP_ROLES:
-        return True
-
-    # ── 6) Sub Roles (Org-Scoped Access) ──────────────────────────────────
-    # Explicit ACL always wins first.
-    # Beyond that: tenant-wide and same-org collections are accessible.
-    if user.role in SUB_ROLES:
-        if explicit_acl_allow:
-            return True
-
-        if collection.visibility == CollectionVisibility.tenant:
-            return True
-
+        # Org-scoped: same org + role allowed No ACL check for this user
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
+                and user.role in roles
             )
 
+        # Group roles do NOT automatically get tenant-wide access
+        if collection.visibility == CollectionVisibility.tenant:
+            return False
+
+        # Any other visibility value
+        return False
+    
+    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
+    # 6) Subsidiary / normal users (sub-roles, e.g. sub_hr)
+    if user.role in SUB_ROLES:
+        # Tenant-wide: only if their role is explicitly allowed
+        if collection.visibility == CollectionVisibility.tenant:
+            # Only via ACL, not automatic
+            return explicit_acl_allow
+        
+
+        # Org-scoped or role-scoped collections:
+        if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
+            # First: explicit ACL
+            if explicit_acl_allow:
+                return True
+            
+            # Then: org-wide default for sub_* in their own org
+            if (
+                user.organization_id is not None
+                and user.organization_id == collection.organization_id
+                and user.role.startswith("sub_")
+            ):
+                return True
+            
+            return False
+        
         return False
 
-    # ── 7) Employee (Explicit ACL Only) ───────────────────────────────────
-    # Employees have zero visibility-based access.
-    # The ONLY way in is being listed in allowed_user_ids or allowed_roles.
-    if user.role == "employee":
-        return explicit_acl_allow
-
-    # ── 8) Unknown Role → Deny ────────────────────────────────────────────
-    # Any role not explicitly handled above is denied by default.
+    # 7) Any other / unknown role -> deny by default
     return False
-
-
 
 
 
