@@ -8,6 +8,7 @@ from io import StringIO
 from Vector_setup.services.extracting_excel_document_service import _extract_excel_with_pandas
 from Vector_setup.services.extracting_pdf_document_service import _extract_pdf_with_pymupdf
 
+
 import logging
 
 logger = logging.getLogger(__name__)
