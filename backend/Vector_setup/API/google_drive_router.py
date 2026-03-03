@@ -34,6 +34,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
+import secrets
+import redis
 
 
 load_dotenv()
@@ -45,6 +47,7 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 GOOGLE_SCOPES = os.getenv("GOOGLE_SCOPES", "")
 FRONTEND_AFTER_CONNECT_URL = os.getenv("FRONTEND_AFTER_CONNECT_URL")
 
+redis_client = redis.Redis(host="redis", port=6379, decode_responses=True)
 
 router = APIRouter(prefix="/google-drive", tags=["google-drive"])
 
@@ -56,6 +59,9 @@ def get_google_drive_auth_url(
     print("=== REDIRECT URI BEING SENT TO GOOGLE: %s ===", GOOGLE_REDIRECT_URI)
 
     tenant_id = current_user.tenant_id
+
+    state_token = secrets.token_urlsafe(32)
+
 
     # Put tenant_id (and maybe user id) into state so callback knows where to store tokens
     state_data = {"tenant_id": tenant_id}
@@ -71,7 +77,7 @@ def get_google_drive_auth_url(
                 "redirect_uris": [GOOGLE_REDIRECT_URI],
             }
         },
-        scopes=GOOGLE_SCOPES,
+        scopes=GOOGLE_SCOPES.split(),
     )
     flow.redirect_uri = GOOGLE_REDIRECT_URI
 
@@ -80,6 +86,13 @@ def get_google_drive_auth_url(
         include_granted_scopes="true",
         state=state,
         prompt="consent",  # ensures refresh_token is returned
+    )
+
+    # Store PKCE verifier in Redis (10 min expiry)
+    redis_client.setex(
+        f"google_oauth:{state_token}",
+        600,
+        f"{tenant_id}|{flow.code_verifier}"
     )
 
     return JSONResponse({"auth_url": authorization_url})
@@ -92,12 +105,21 @@ def google_drive_callback(
     state: str,
     db: Session = Depends(get_db),
 ):
+    # Retrieve stored PKCE + tenant
+    stored = redis_client.get(f"google_oauth:{state}")
+    if not stored:
+        raise HTTPException(400, "Invalid or expired OAuth state")
+    
+    tenant_id, code_verifier = stored.split("|")
+
+    # Optional delete immediately
+    redis_client.delete(f"google_oauth:{state}")
     # 1) Parse tenant_id from state
-    state_params = parse_qs(state)
-    tenant_ids = state_params.get("tenant_id")
-    if not tenant_ids:
-        raise HTTPException(status_code=400, detail="Missing tenant in state")
-    tenant_id = tenant_ids[0]
+    # state_params = parse_qs(state)
+    # tenant_ids = state_params.get("tenant_id")
+    # if not tenant_ids:
+    #     raise HTTPException(status_code=400, detail="Missing tenant in state")
+    # tenant_id = tenant_ids[0]
 
     # Enforce trial/subscription without requiring current_user/JWT
     tenant = ensure_tenant_active_by_id(tenant_id=tenant_id, db=db)
@@ -114,12 +136,15 @@ def google_drive_callback(
             }
         },
         scopes=GOOGLE_SCOPES.split(),  # if you stored as space-separated string
+        state=state
     )
     flow.redirect_uri = GOOGLE_REDIRECT_URI
 
+    # Critical Line
+    flow.code_verifier = code_verifier
+
     # 3) Exchange code for tokens
-    authorization_response = str(request.url)
-    flow.fetch_token(authorization_response=authorization_response)
+    flow.fetch_token(authorization_response=str(request.url))
     creds = flow.credentials
     if not creds.refresh_token:
         raise HTTPException(status_code=400, detail="No refresh token from Google")

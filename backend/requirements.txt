@@ -34,3 +34,4 @@ google-api-python-client
 
 fastapi-mail
 resend
+redis
