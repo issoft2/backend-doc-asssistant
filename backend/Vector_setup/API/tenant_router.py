@@ -4,7 +4,7 @@ from Vector_setup.base.db_setup_management import (
     CompanyProvisionRequest,
     CompanyCreateRequest,
 )
-from backend.Vector_setup.schema.schema_signature import CompanyOut
+from Vector_setup.schema.schema_signature import CompanyOut
 
 from Vector_setup.user.db import get_db, DBUser, Tenant, Collection, Organization
 from Vector_setup.user.auth_jwt import ensure_tenant_active, get_current_user
