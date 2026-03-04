@@ -14,6 +14,7 @@ from Vector_setup.API.google_drive_router import router as google_drive_router
 from Vector_setup.API.contact_router import router as contact_router
 from Vector_setup.API.organizations_router import router as organization_router
 from Vector_setup.API.collections_router import router as collection_router
+from Vector_setup.API.tenant_router import router as tenant_router
 
 
 from Vector_setup.user.db import init_db, DBUser, engine
@@ -48,6 +49,7 @@ app.add_middleware(
 )
 
 # --- Routers ---
+app.include_router(tenant_router, prefix="/api", tags=["tenant"])
 app.include_router(ingest_router, prefix="/api", tags=["ingest"])
 app.include_router(query_router, prefix="/api", tags=["query"])
 app.include_router(user_router, prefix="/api", tags=["user"])
