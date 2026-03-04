@@ -125,42 +125,42 @@ def user_can_access_collection(
     collection: Collection,
 ) -> bool:
 
-    logger.info(f"ACL | user={user.email} role={user.role} org={user.organization_id} tenant={user.tenant_id}")
-    logger.info(f"ACL | collection={collection.name} vis={collection.visibility} org={collection.organization_id} tenant={collection.tenant_id}")
+    print(f"ACL | user={user.email} role={user.role} org={user.organization_id} tenant={user.tenant_id}", flush=True)
+    print(f"ACL | collection={collection.name} vis={collection.visibility} org={collection.organization_id} tenant={collection.tenant_id}", flush=True)
 
     # ── 1) Tenant isolation ───────────────────────────────────────────────
     if collection.tenant_id != user.tenant_id:
-        logger.info("ACL | DENIED — tenant mismatch")
+        print("ACL | DENIED — tenant mismatch", flush=True)
         return False
 
     roles    = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
     explicit_acl_allow = str(user.id) in user_ids or user.role in roles
 
-    logger.info(f"ACL | allowed_roles={roles} allowed_user_ids={user_ids} explicit={explicit_acl_allow}")
+    print(f"ACL | allowed_roles={roles} allowed_user_ids={user_ids} explicit={explicit_acl_allow}", flush=True)
 
     if collection.visibility == CollectionVisibility.user:
-        logger.info(f"ACL | user-vis path → {str(user.id) in user_ids}")
+        print(f"ACL | user-vis path → {str(user.id) in user_ids}", flush=True)
         return str(user.id) in user_ids
 
     if user.role in SUPER_ROLES:
-        logger.info("ACL | ALLOWED — super role")
+        print("ACL | ALLOWED — super role", flush=True)
         return True
 
     if user.role in GROUP_ROLES:
-        logger.info(f"ACL | group role path | vis={collection.visibility}")
+        print(f"ACL | group role path | vis={collection.visibility}", flush=True)
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
             result = (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
             )
-            logger.info(f"ACL | org check → user_org={user.organization_id} col_org={collection.organization_id} result={result}")
+            print(f"ACL | org check → user_org={user.organization_id} col_org={collection.organization_id} result={result}", flush=True)
             return result
-        logger.info("ACL | DENIED — group role, wrong visibility")
+        print("ACL | DENIED — group role, wrong visibility", flush=True)
         return False
 
     if user.role in SUB_ROLES:
-        logger.info("ACL | sub role path")
+        print("ACL | sub role path", flush=True)
         if collection.visibility == CollectionVisibility.tenant:
             return explicit_acl_allow
         if collection.visibility in (CollectionVisibility.org, CollectionVisibility.role):
@@ -176,7 +176,7 @@ def user_can_access_collection(
     if user.role == "employee":
         return explicit_acl_allow
 
-    logger.info(f"ACL | DENIED — unknown role {user.role}")
+    print(f"ACL | DENIED — unknown role {user.role}", flush=True)
     return False
 
 
