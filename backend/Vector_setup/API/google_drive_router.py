@@ -606,7 +606,7 @@ async def ingest_drive_file(
     req: DriveIngestRequest,
     db: Session = Depends(get_db),
     store: MultiTenantChromaStoreManager = Depends(get_store),
-    current_user: DBUser = Depends(require_tena-nt_admin),
+    current_user: DBUser = Depends(require_tenant_admin),
 ):
     """
     Download a file from Google Drive for this tenant, and ingest it into a collection.
