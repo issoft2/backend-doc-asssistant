@@ -60,6 +60,7 @@ def create_collection(
         "vendor",
         "group_admin",
         "group_exec",
+        "group_gmd",
     }:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -84,6 +85,7 @@ def create_collection(
     existing = db.exec(stmt).first()
     if existing:
         raise HTTPException(status_code=400, detail="Collection name already exists for this tenant.")
+    
 
     collection_id = str(uuid.uuid4())
     db_collection = Collection(
