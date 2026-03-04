@@ -1,7 +1,7 @@
 
 
 
-from backend.Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
+from Vector_setup.base.db_setup_management import MultiTenantChromaStoreManager
 
 
 vector_store = MultiTenantChromaStoreManager("./chromadb_multi_tenant")
