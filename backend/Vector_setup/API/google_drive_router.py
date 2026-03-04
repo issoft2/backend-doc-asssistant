@@ -64,10 +64,6 @@ def get_google_drive_auth_url(
     state_token = secrets.token_urlsafe(32)
 
 
-    # Put tenant_id (and maybe user id) into state so callback knows where to store tokens
-    state_data = {"tenant_id": tenant_id}
-    state = urlencode(state_data)
-
     flow = Flow.from_client_config(
         {
             "web": {
@@ -78,6 +74,7 @@ def get_google_drive_auth_url(
                 "redirect_uris": [GOOGLE_REDIRECT_URI],
             }
         },
+        
         scopes=GOOGLE_SCOPES.split(),
     )
     flow.redirect_uri = GOOGLE_REDIRECT_URI
@@ -85,16 +82,16 @@ def get_google_drive_auth_url(
     authorization_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
-        state=state,
+        state=state_token,
         prompt="consent",  # ensures refresh_token is returned
     )
 
     # Store PKCE verifier in Redis (10 min expiry)
     redis_client.setex(
-        f"google_oauth:{state_token}",
-        600,
-        f"{tenant_id}|{flow.code_verifier}"
-    )
+            f"google_oauth:{state_token}",
+            600,
+            f"{tenant_id}|{flow.code_verifier if hasattr(flow, 'code_verifier') else ''}"
+        )
 
     return JSONResponse({"auth_url": authorization_url})
 
@@ -111,16 +108,14 @@ def google_drive_callback(
     if not stored:
         raise HTTPException(400, "Invalid or expired OAuth state")
     
-    tenant_id, code_verifier = stored.split("|")
+    parts = stored.split("|")
+    tenant_id = parts[0]
+    code_verifier = parts[1] if len(parts) > 1 else None
+
 
     # Optional delete immediately
     redis_client.delete(f"google_oauth:{state}")
-    # 1) Parse tenant_id from state
-    # state_params = parse_qs(state)
-    # tenant_ids = state_params.get("tenant_id")
-    # if not tenant_ids:
-    #     raise HTTPException(status_code=400, detail="Missing tenant in state")
-    # tenant_id = tenant_ids[0]
+ 
 
     # Enforce trial/subscription without requiring current_user/JWT
     tenant = ensure_tenant_active_by_id(tenant_id=tenant_id, db=db)
@@ -141,8 +136,8 @@ def google_drive_callback(
     )
     flow.redirect_uri = GOOGLE_REDIRECT_URI
 
-    # Critical Line
-    flow.code_verifier = code_verifier
+    if code_verifier:
+        flow.code_verifier = code_verifier
 
     # 3) Exchange code for tokens
     flow.fetch_token(authorization_response=str(request.url))
