@@ -125,7 +125,8 @@ def get_user_by_email(
         date_of_birth=db_user.date_of_birth,
         phone=db_user.phone,
         role=db_user.role,
-        is_active=db_user.is_active
+        is_active=db_user.is_active,
+        organization_id=db_user.organization_id,
     )
 
 def login_tenant_request(

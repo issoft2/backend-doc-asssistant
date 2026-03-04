@@ -60,7 +60,7 @@ async def get_current_user(
         date_of_birth=user.date_of_birth,
         phone=user.phone,
         role=user.role,
-        organization_id=organization_id,
+        organization_id=user.organization_id,
         )
 
 
