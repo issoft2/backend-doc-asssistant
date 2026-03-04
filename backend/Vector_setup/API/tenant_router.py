@@ -9,7 +9,6 @@ from Vector_setup.schema.schema_signature import CompanyOut
 from Vector_setup.user.db import get_db, DBUser, Tenant, Collection, Organization
 from Vector_setup.user.auth_jwt import ensure_tenant_active, get_current_user
 from Vector_setup.base.auth_models import UserOut
-from Vector_setup.API.admin_permission import require_vendor
 from datetime import datetime, timedelta
 from Vector_setup.user.db import get_db, Tenant
 from fastapi import APIRouter, Depends,  HTTPException, status
