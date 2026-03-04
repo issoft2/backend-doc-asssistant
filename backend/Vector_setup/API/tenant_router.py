@@ -21,7 +21,9 @@ from Vector_setup.schema.schema_signature import CollectionOut, OrganizationOut
 from Vector_setup.access.collections_acl import user_can_access_collection
 from Vector_setup.user.auth_store import  get_current_db_user
 
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
