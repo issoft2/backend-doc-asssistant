@@ -62,6 +62,8 @@ def user_can_access_collection(
     # 2) Normalize ACL fields once
     roles = _to_list(collection.allowed_roles)
     user_ids = _to_list(collection.allowed_user_ids)
+    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
+
 
     # 3) User-scoped collections: private to specific users, regardless of role bucket
     if collection.visibility == CollectionVisibility.user:
@@ -80,7 +82,6 @@ def user_can_access_collection(
             return (
                 user.organization_id is not None
                 and user.organization_id == collection.organization_id
-                and user.role in roles
             )
 
         # Group roles do NOT automatically get tenant-wide access
@@ -90,7 +91,6 @@ def user_can_access_collection(
         # Any other visibility value
         return False
     
-    explicit_acl_allow = str(user.id) in user_ids or user.role in roles
     # 6) Subsidiary / normal users (sub-roles, e.g. sub_hr)
     if user.role in SUB_ROLES:
         # Tenant-wide: only if their role is explicitly allowed
